@@ -1,0 +1,94 @@
+# TASK-012: Notification Module with Transactional Outbox & Dedup
+
+- **Mã Task:** `TASK-012`
+- **Giai đoạn:** `G1 — Core chức năng đầy đủ`
+- **Owner chính:** `TV4`
+- **Module:** `services/core/app/modules/notification/`
+- **Business Rules liên quan:** `G4`
+- **Tài liệu căn cứ:** [DESIGN.md](../docs/architect/microservices-v1/core/DESIGN.md), [API_CONTRACT.md](../docs/architect/microservices-v1/core/API_CONTRACT.md)
+
+## Triển khai và kiểm chứng — 2026-10-18
+
+**Hiện trạng:** Đã triển khai inbox API, recipient-only pagination/read/read-all, snapshot người nhận, worker transactional outbox, dedup và retry. Tái sử dụng outbox Common/migration 0009, bổ sung migration 0011 sau head 0010; không tạo bảng/model outbox thứ hai. Credential SMTP luôn ở ngoài Notification payload. Follow-up issue #16 thêm Identity delivery queue riêng tại migration 0013; Compose/Cloud worker runner gọi Notification và credential worker độc lập.
+
+**Bằng chứng local:** Windows, Python 3.12.14, PostgreSQL 16 container test riêng; `TEST_DATABASE_URL` chỉ tới database tổng hợp. `pytest -q -W error -p no:cacheprovider --tb=short` đạt **251 passed**, không skip; gồm **31 test Notification**. Integration chạy thật các ca AUTO/MANUAL, assignment/archive/transfer, producer rollback, uncommitted event, crash sau insert, replay/version/out-of-order, retry, recipient-only HTTP, source permission revoke, concurrent workers, read-all cạnh tranh và migration roundtrip/drift. Tắt cacheprovider để tránh ACL cache Windows, không tắt kiểm thử. Đây là bằng chứng backend local, không thay thế review/CI hoặc nghiệm thu toàn Core/Web G2.
+
+`ruff check app tests migrations`, `ruff format --check app tests migrations`, `alembic upgrade head`, `alembic check`, worker CLI `--once` và `docker compose config --quiet` đều đạt. Alembic có một head `0011`. Compose được kiểm tra cấu hình; chưa dùng kết quả này để tuyên bố full-stack Web E2E đã chạy.
+
+**Review liên module còn mở:** TV1/TV2/TV3/TV4 cần xem `common/outbox.py`, Classroom public DTO/snapshot, Social snapshot, `bootstrap.py`, `migrations/env.py`, migration 0011 và Compose worker. Contract/event V2 cùng chính sách bỏ qua event V1 legacy ghi tại [API Contract](../docs/architect/microservices-v1/core/API_CONTRACT.md). TASK-013 đã tích hợp import qua event enrollment hiện có; các loại Admin event khác chỉ thêm sau khi có contract. Không dùng outbox chung để giao credential.
+
+**Quyết định triển khai:**
+- Thay ví dụ JOIN_REQUEST_* bằng nghiệp vụ Admin enrollment/transfer/assignment/archive và feed/deadline theo contract producer đã duyệt; không khôi phục onboarding bằng mã lớp.
+- Chốt ownership public enqueue/outbox, envelope version/event ID/aggregate version và transaction với TASK-006/007/009–011/013. Producer không import repository Notification; không ghi event sau commit rồi coi là transactional.
+- Worker chỉ xử lý event đã commit, retry có kiểm soát và consumer idempotent; crash giữa tạo notification/đánh dấu published không được tạo bản sao. Việc ghi outbox lỗi trong transaction phải làm mutation thất bại, khác với lỗi delivery sau commit.
+- Notification thuộc người nhận; payload tối thiểu, không mã kích hoạt/reset, token, nguyên văn chat/tài liệu. Link không cấp quyền: khi mở phải kiểm tra school/class/grant hiện hành.
+- Thiết kế thứ tự/read watermark cho read-all cạnh tranh; không tự thêm broker hoặc gộp SMTP credential delivery vào payload nếu chưa có thiết kế bảo mật riêng.
+
+**Phụ thuộc và nghiệm thu bổ sung:**
+- [ ] TV1/TV2/TV3/TV4 review enqueue/event contracts, migration ở TASK-014 và integration ở TASK-015.
+- [x] Test duplicate/replay/out-of-order, rollback producer, worker crash/retry, recipient-only và thu hồi quyền sau notification; không nhân đôi hoặc làm mất thông báo đã nhận xử lý trong các kịch bản kiểm thử.
+
+**Cập nhật sau PR #10 (2026-10-19):** Worker chỉ giao schema V2 có recipient snapshot; backlog V1 được giữ nhưng bỏ qua, gồm bản ghi do app cũ ghi trong rolling deployment. Full Core PostgreSQL 16 đạt 342 passed, 0 skipped; CI PR #10 đạt. Owner review vẫn cần xác nhận riêng.
+
+---
+
+## 1. Mục tiêu
+Xây dựng phân hệ Thông báo trong ứng dụng (`In-app Notifications`) với khả năng chống trùng lặp (`dedup_key`), cơ chế Transactional Outbox đảm bảo sự tin cậy (lỗi gửi thông báo không làm rollback thao tác nghiệp vụ chính), và API cho người dùng đọc/đánh dấu đã đọc.
+
+---
+
+## 2. Chi tiết kỹ thuật & File cần tạo/cập nhật
+
+### 2.1. `models.py`
+Các bảng thực tế trong schema `core` (outbox thuộc Common, Notification không định nghĩa lại):
+- `Notification`:
+  - `id: UUID` (PK)
+  - `recipient_id: UUID` (FK `users.id`, ondelete CASCADE)
+  - `type: str` (Ví dụ: các loại enrollment/assignment/feed/deadline sau khi chốt contract)
+  - `payload_json: dict` (Chỉ ID/phiên bản/trạng thái/thời điểm theo allowlist, không body/tên tự do/secret)
+  - `dedup_key: str` (Unique index, chuỗi băm chống gửi trùng thông báo)
+  - `read_at: Optional[datetime]` (UTC)
+  - `created_at: datetime` (UTC)
+  - `sequence: bigint GENERATED BY DEFAULT AS IDENTITY` (Unique; thứ tự giao nhận và read watermark)
+  - Index: `Index('idx_notifications_recipient_created', recipient_id, created_at.desc())`
+- `OutboxEvent`:
+  - `id: UUID` (PK)
+  - `event_type: str`
+  - `aggregate_id: str`
+  - `payload_json: dict`
+  - `created_at: datetime` (UTC)
+  - `published_at: Optional[datetime]`
+  - Event legacy giữ `schema_version=1`; producer Notification hiện hành ghi `schema_version=2` kèm snapshot trường/người nhận. Worker chỉ xử lý V2 để không phát lại backlog cũ bằng audience hiện tại. `aggregate_version: Optional[int]`.
+  - `attempts: int = 0`, `available_at: datetime`, `last_error_code: Optional[str]`
+  - Index: `Index('idx_outbox_unpublished', published_at, postgresql_where=(published_at == None))`
+
+### 2.2. `schemas.py`
+- `NotificationResponse`: `id: UUID`, `type: str`, `payload_json: dict`, `read: bool`, `created_at: datetime`
+- `NotificationListResponse`: `items: list[NotificationResponse]`, `unread_count: int`, `next_cursor: Optional[str]`
+- `MarkReadResponse`: `id: UUID`, `read: bool`
+
+### 2.3. `service.py` & Cơ chế hoạt động
+- **Tạo thông báo an toàn (`create_notification`):**
+  - Sinh `dedup_key` duy nhất theo ngữ cảnh: ví dụ `hash(recipient_id + type + event_id)`.
+  - Nếu bản ghi với `dedup_key` đã tồn tại $\to$ bỏ qua (idempotent), không gây lỗi.
+- **Transactional Outbox Publisher:**
+  - Khi một thao tác nghiệp vụ cần phát thông báo (ví dụ Admin đồng bộ ghi danh), ghi bản ghi vào `outbox_events` trong **cùng transaction cơ sở dữ liệu** với thao tác đó.
+  - Background task định kỳ hoặc sau commit sẽ quét các `outbox_events` chưa xuất bản (`published_at IS NULL`), chuyển đổi thành `Notification` và đánh dấu `published_at = UTC NOW`.
+  - Đảm bảo tính nhất quán: Nếu gửi thông báo thất bại, dữ liệu nghiệp vụ chính không bị rollback.
+- **Người dùng quản lý thông báo:**
+  - `list_notifications(user_id, cursor, limit)`: Lấy thông báo của chính user đó.
+  - `mark_as_read(notification_id, user_id)`: Đặt `read_at = UTC NOW`.
+  - `mark_all_as_read(user_id)`: Đặt `read_at = UTC NOW` cho tất cả thông báo chưa đọc của user.
+
+### 2.4. `router.py`
+- `GET /api/v1/notifications` (Query pagination `cursor`, `limit`)
+- `PATCH /api/v1/notifications/{id}/read`
+- `POST /api/v1/notifications/read-all`
+
+---
+
+## 3. Tiêu chí nghiệm thu (Acceptance Criteria)
+- [x] Người dùng chỉ nhìn thấy thông báo của chính mình; cố gắng mark-read thông báo của người khác trả về `404 NOT_FOUND`.
+- [x] Tính năng Dedup hoạt động: replay cùng event hoặc cùng type/aggregate/version chỉ sinh một thông báo cho mỗi recipient.
+- [x] Outbox pattern: Admin đồng bộ AUTO/MANUAL commit sinh outbox; worker riêng xử lý thành notification. Lỗi enqueue rollback mutation; lỗi delivery giữ nghiệp vụ đã commit.
+- [x] `POST /notifications/read-all` đưa `unread_count = 0` cho các notification trước watermark; thông báo giao sau ranh giới vẫn unread.

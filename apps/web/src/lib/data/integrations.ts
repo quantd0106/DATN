@@ -1,0 +1,15 @@
+export const integrations = {
+  identity: { status: 'contracted', owner: 'Core.Identity' },
+  studentProvisioning: { status: 'contracted', owner: 'Core.Identity' },
+  personalData: { status: 'contracted', owner: 'Core.Identity', operations: { listSelfRequests: 'contracted', createSelfRequest: 'contracted', downloadCopy: 'pending-contract', reviewRequests: 'pending-contract', processCopy: 'pending-contract' } },
+  classroom: { status: 'contracted', owner: 'Core.Classroom', operations: { classList: 'contracted', classDetail: 'contracted', studentClassHistory: 'pending-history-api', adminCatalogAndRoster: 'contracted', adminClassManagement: 'contracted', adminEnrollmentAndLifecycle: 'contracted' } },
+  social: { status: 'contracted', owner: 'Core.Social', operations: { postListAndMutations: 'contracted', commentListAndMutations: 'contracted' } },
+  calendar: { status: 'contracted', owner: 'Core.Social', operations: { classEvents: 'contracted', learningDeadlineProjection: 'pending-service' } },
+  notification: { status: 'contracted', owner: 'Core.Notification' },
+  administration: { status: 'partial', owner: 'Core.Administration', operations: { staffAccounts: 'contracted', userManagement: 'contracted', studentImport: 'contracted', auditAndDataRequests: 'pending-adapter', dataRequestFulfillment: 'deferred-policy' } },
+  bulkImport: { status: 'contracted', owner: 'Core.Administration' },
+  document: { status: 'pending-contract', owner: 'Document' },
+  tutor: { status: 'pending-contract', owner: 'AI' },
+  learning: { status: 'pending-contract', owner: 'Learning' },
+  intelligence: { status: 'partial', owner: 'Core.Administration / Learner Intelligence', operations: { adminAudit: 'contracted', dataRequestReview: 'pending-adapter', dataRequestFulfillment: 'deferred-policy', reports: 'pending-service', learningAnalytics: 'pending-service' } },
+} as const;
