@@ -3,7 +3,7 @@
 | Thuộc tính | Nội dung |
 |---|---|
 | Mã tài liệu | LUMI-STYLE-002 |
-| Trạng thái | Quy ước biên soạn đề xuất để nhóm rà soát |
+| Trạng thái | Quy ước biên soạn đề xuất để rà soát |
 | Phạm vi | Tất cả tài liệu trong bộ hồ sơ thiết kế phiên bản 2.1 |
 
 ## 1. Nguyên tắc diễn đạt

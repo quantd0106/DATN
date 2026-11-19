@@ -8,9 +8,6 @@ Thu thập sách giáo khoa (SGK) làm nguồn dữ liệu ban đầu cho Docume
 - Cách làm: tìm kiếm và tải thủ công file SGK theo từng bộ sách, sắp xếp vào thư mục tương ứng.
 
 ## Nơi lưu trữ
-Dữ liệu **không commit vào repo** (dung lượng lớn, bản quyền thuộc nhà xuất bản). Toàn bộ file lưu trên Google Drive:
-
-**Thư mục `DataSGK`:** link nội bộ, không công khai trong repo — liên hệ người phụ trách dữ liệu hoặc xem kênh chat của nhóm. Thư mục chỉ chia sẻ cho thành viên nhóm.
 
 | Bộ sách | Thư mục trên Drive |
 |---|---|

@@ -1,6 +1,6 @@
 ---
 name: lumi-frontend-orchestrator
-description: "Coordinate Lumi's Next.js frontend on frontend1: AGY Gemini 3.8 Flash High generates bounded UI, while Codex owns business logic, data integration, permissions, tests, review, contracts and Git safety. Gemini 4 Argon may perform read-only architecture reviews. Use when auditing, planning, implementing, or verifying apps/web in the SE2026_T09_RAG_course_assistant repository."
+description: "Coordinate Lumi's Next.js frontend on frontend1: AGY Gemini 3.8 Flash High generates bounded UI, while Codex owns business logic, data integration, permissions, tests, review, contracts and Git safety. Gemini 4 Argon may perform read-only architecture reviews.
 ---
 
 # Lumi frontend: AGY authors UI, Codex owns logic and integration
@@ -16,7 +16,7 @@ The Codex skill is installed globally and in this repository. Run the bridge fro
 
 ## Activation and prerequisites
 
-1. Work only in the `4-chang-linh-ngu-lam/SE2026_T09_RAG_course_assistant` local checkout, branch `frontend1` (or an explicitly authorized feature branch based on it). Read root `AGENTS.md` and `apps/web/AGENTS.md`; never replace root rules. Confirm `git branch --show-current`, `git status --short`, `git rev-parse HEAD` and preserve pre-existing changes.
+1. Work only in the `https://github.com/quantd0106/DATN` local checkout, branch `frontend1` (or an explicitly authorized feature branch based on it). Read root `AGENTS.md` and `apps/web/AGENTS.md`; never replace root rules. Confirm `git branch --show-current`, `git status --short`, `git rev-parse HEAD` and preserve pre-existing changes.
 2. Read `references/repo-baseline.md`, `apps/web/docs/FRONTEND.md`, `docs/architect/BUSINESS_RULES.md`, relevant service contracts, `apps/web/src/lib/data/integrations.ts`, routes and affected feature implementations. Read the *relevant parts*, not every file blindly.
 3. Verify local `agy --version`, `agy models`, `codex --version`, `node --version` and Node >=22.17.0. On Windows, run `scripts/check-environment.ps1`. Available model slugs must be checked locally, never silently substituted.
 4. Default orchestration reasoning = xhigh; increase to max only for cross-service conflicts, complex exam state machines/security, or independent final architecture review. Avoid wasting expensive reasoning on routine CSS changes.

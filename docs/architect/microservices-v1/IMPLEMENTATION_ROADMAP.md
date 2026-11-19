@@ -13,10 +13,6 @@
 
 **Không chuyển G3 khi chỉ hoàn thành Core Foundation.** Notes/bookmarks gắn nguồn thuộc Document ở G3; báo cáo tổng hợp nhiều service được tích hợp G5, không loại khỏi MVP.
 
-## Phân công G1–G2
-- TV1: Identity/auth/security; TV2: Classroom/membership/permission.
-- TV3: Social (feed/comments/calendar); TV4: Notification/administration/audit, CI và test tích hợp.
-- Mỗi người thực hiện UI/API/test theo feature; shared files có reviewer; contract/mock cho phép làm song song.
 
 ## Thứ tự thực hiện
 1. Chốt API/ERD/quyền và mock; tạo skeleton.

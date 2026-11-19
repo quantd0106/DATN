@@ -108,7 +108,7 @@ erDiagram
 
 | Quyết định | Lợi ích | Đánh đổi / nguy cơ | Dấu hiệu cần thiết kế lại |
 |---|---|---|---|
-| Core modular deployable duy nhất | Triển khai nhanh, transaction chung, thuận tiện nhóm 4 người | Tài nguyên/nhịp deploy trong Core bị gắn nhau | Nhu cầu scale hoặc deploy các module Core độc lập có bằng chứng |
+| Core modular deployable duy nhất | Triển khai nhanh, transaction chung| Tài nguyên/nhịp deploy trong Core bị gắn nhau | Nhu cầu scale hoặc deploy các module Core độc lập có bằng chứng |
 | Same-origin Next.js proxy | Giảm cross-origin browser complexity, allowlist | Thêm một hop và chi phí proxy | Proxy bottleneck hoặc cần api gateway chuyên dụng |
 | PostgreSQL Core schema | Transaction + constraints rõ, dễ test | DB connection pool / lock contention, mối liên kết trong Core | Nhiều writer/scale rõ ràng và metric bottleneck |
 | Transactional outbox | Không mất event khi commit nghiệp vụ | Delivery async eventual consistency, duplication/retry | Lag cao, throughput/delivery SLAs cần broker |

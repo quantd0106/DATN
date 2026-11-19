@@ -2,7 +2,7 @@
 
 **Status:** Baseline hiện hành | **Ngày hệ thống hóa ban đầu:** 2026-10-10
 
-Tài liệu này ghi lại các quyết định nghiệp vụ đã được nhóm sản phẩm thống nhất qua trao đổi. **Không tự ý sửa rule để thuận tiện triển khai.** Khi có thay đổi, xác định Rule ID bị tác động, review và cập nhật trực tiếp các tài liệu hiện hành gồm Architecture/Tasks. Những chi tiết triển khai chưa được chốt phải được ghi là đề xuất, không được ngầm coi là business rule.
+Tài liệu này ghi lại các quyết định nghiệp vụ. **Không tự ý sửa rule để thuận tiện triển khai.** Khi có thay đổi, xác định Rule ID bị tác động, review và cập nhật trực tiếp các tài liệu hiện hành gồm Architecture/Tasks. Những chi tiết triển khai chưa được chốt phải được ghi là đề xuất, không được ngầm coi là business rule.
 
 ## Phạm vi và vai trò
 

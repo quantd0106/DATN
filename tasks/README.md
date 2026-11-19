@@ -64,7 +64,7 @@ Phụ thuộc gồm **hợp đồng cần chốt trước** và **triển khai c
 2. Limiter/idempotency hiện giữ một worker theo quyết định MVP; chỉ mở rộng khi có scale target cụ thể.
 3. SMTP invitation/recovery/retry đã được xác nhận trên staging (#16 đóng). ACCESS/EXPORT/CORRECTION dùng quy trình Admin thủ công đã duyệt; DELETE giữ `IN_REVIEW` đến khi chốt retention và dọn dữ liệu xuyên service (#15).
 4. Document/AI/Learning/Learner Intelligence vẫn deferred theo #22–#25; không tự đặt transfer cutoff, retention hay quyền lịch sử.
-5. Issue #17 đã có benchmark Core subset trên máy CKEY cô lập; full TP-01/user-facing SLO vẫn chưa được xác nhận. #21 còn cần hoàn tất browser workflow acceptance trên Preview; Admin đã redeem invitation và role E2E đã chạy một phần. Self-review + CI thay cho việc chờ review thành viên.
+5. Issue #17 đã có benchmark Core subset trên máy CKEY cô lập; full TP-01/user-facing SLO vẫn chưa được xác nhận. #21 còn cần hoàn tất browser workflow acceptance trên Preview; Admin đã redeem invitation và role E2E đã chạy một phần. Self-review + CI.
 
 ## 5. Điều kiện đóng task
 

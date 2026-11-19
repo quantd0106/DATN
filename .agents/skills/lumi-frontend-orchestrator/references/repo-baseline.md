@@ -1,7 +1,6 @@
 # Verified branch snapshot: `frontend1` (2026-10-20)
 
-Repository: `4-chang-linh-ngu-lam/SE2026_T09_RAG_course_assistant`
-Git tree snapshot SHA: `9dc547c467c093940fcdc9873a14cf45ca1f6a28` (tree; re-read HEAD locally)
+Repository: `https://github.com/quantd0106/DATN`
 
 The `apps/web` subtree contains **236 tracked files, including 72 tiny App Router `page.tsx` route entry points** and **15 `tests/*.test.ts` files** (GitHub tree inspection). Tiny entry points typically call `RouteScreen`. These counts are not proofs of complete pages; actual features live under `src/features`.
 

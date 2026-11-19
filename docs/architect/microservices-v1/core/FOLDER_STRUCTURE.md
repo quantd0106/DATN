@@ -3,10 +3,9 @@
 **Trạng thái:** BASELINE QUY ƯỚC THƯ MỤC; skeleton/Common/Identity đã có triển khai, các module khác trong cây là mục tiêu. **Phạm vi:** `services/core/` trong **một monorepo**; Core là **một FastAPI microservice**, không tách module nội bộ thành các service riêng.
 
 ## 1. Mục tiêu và cách đọc
-- Người mới biết đặt file ở đâu, mỗi thư mục chịu trách nhiệm gì, ai thường sửa.
 - AI coding agent chỉ đọc tài liệu này khi task liên quan Core; đối chiếu `BUSINESS_RULES.md`, `core/DESIGN.md` và `core/API_CONTRACT.md` trước khi triển khai. **Tài liệu này là quy ước tổ chức code, không tự tạo thêm business rule hay endpoint.**
 - Tách theo **chức năng nghiệp vụ** (feature-first), không gom toàn bộ router/model/schema của mọi tính năng vào một thư mục.
-- Không tạo tất cả file rỗng; tạo module/file khi có tính năng thực tế. Tên thư mục và phân công dưới đây có thể được điều chỉnh khi nhóm duyệt.
+- Không tạo tất cả file rỗng; tạo module/file khi có tính năng thực tế. Tên thư mục và phân công dưới đây có thể được điều chỉnh khi duyệt.
 
 ## 2. Cây thư mục mục tiêu (comment từng khu vực)
 
@@ -29,7 +28,7 @@ services/core/                         # Một service FastAPI; build/chạy/tes
 │   │   ├── audit.py                   # Hạ tầng ghi audit; không lưu nội dung chat riêng tư
 │   │   └── outbox.py                  # OutboxEvent + enqueue chung, transaction do producer sở hữu
 │   ├── modules/                        # Mỗi thư mục là một miền chức năng, KHÔNG phải microservice
-│   │   ├── identity/                  # TV1: username/activation Student, email staff, school context, JWT
+│   │   ├── identity/                  # username/activation Student, email staff, school context, JWT
 │   │   │   ├── router.py              # Endpoint HTTP của Identity
 │   │   │   ├── schemas.py             # Pydantic request/response; không trả password_hash
 │   │   │   ├── models.py              # SQLAlchemy ORM thuộc Identity
@@ -37,7 +36,7 @@ services/core/                         # Một service FastAPI; build/chạy/tes
 │   │   │   ├── repository.py          # Truy vấn và ghi dữ liệu Identity
 │   │   │   ├── maintenance.py         # Identity-owned report/scope mapping và fixture bootstrap dev
 │   │   │   └── public.py              # Giao diện nội bộ được module khác phép gọi
-│   │   ├── classroom/                 # TV2: School, roster, lớp môn học, AUTO/MANUAL, teaching assignment
+│   │   ├── classroom/                 # School, roster, lớp môn học, AUTO/MANUAL, teaching assignment
 │   │   │   ├── router.py
 │   │   │   ├── schemas.py
 │   │   │   ├── models.py
@@ -46,11 +45,11 @@ services/core/                         # Một service FastAPI; build/chạy/tes
 │   │   │   ├── permissions.py         # Quyền theo lớp, không chỉ dựa trên role toàn hệ thống
 │   │   │   ├── maintenance.py         # School manifest, lịch sử scope và seed qua workflow Classroom
 │   │   │   └── public.py              # Ví dụ: check_class_access(...) cho các module khác
-│   │   ├── social/                    # TV3: chức năng tương tác lớp
+│   │   ├── social/                    # chức năng tương tác lớp
 │   │   │   ├── feed/                  # Bài đăng bảng tin, ẩn/xóa theo quyền
 │   │   │   ├── comments/              # Bình luận bài đăng, kiểm tra quyền và trạng thái bài
 │   │   │   └── calendar/              # Sự kiện lịch lớp; KHÔNG sở hữu deadline Assessment
-│   │   ├── notification/              # TV4: thông báo trong ứng dụng, trạng thái đã đọc
+│   │   ├── notification/              # thông báo trong ứng dụng, trạng thái đã đọc
 │   │   │   ├── router.py
 │   │   │   ├── schemas.py
 │   │   │   ├── models.py
@@ -59,7 +58,7 @@ services/core/                         # Một service FastAPI; build/chạy/tes
 │   │   │   ├── public.py              # Snapshot người nhận qua Classroom public, không commit
 │   │   │   ├── events.py              # Allowlist payload v1, recipient policy và dedup
 │   │   │   └── worker.py              # Process Core xử lý outbox sau commit, retry/SKIP LOCKED
-│   │   └── administration/            # TV4 phối hợp TV1/TV2: quản trị user/role/class, audit can thiệp
+│   │   └── administration/            # quản trị user/role/class, audit can thiệp
 │   │       ├── router.py
 │   │       ├── schemas.py
 │   │       ├── service.py             # Workflow atomic; gọi public Identity/Classroom, không commit giữa import
@@ -104,23 +103,7 @@ Biến môi trường mẫu dùng `.env.example` tại root monorepo, không ph�
 
 Ví dụ: `social/feed/service.py` muốn xác minh quyền đăng bài thì gọi `classroom/public.py`, **không tự query bảng membership**. Trong Core, gọi Python nội bộ, không HTTP loopback.
 
-## 4. Quy tắc giảm Git conflict cho 4 người
-
-| Người phụ trách chính (đã chọn) | Vùng code ưu tiên | Vùng phối hợp |
-|---|---|---|
-| TV1 | `modules/identity/` | `common/security.py`, `auth_dependencies.py` |
-| TV2 | `modules/classroom/` | Hợp đồng quyền `classroom/public.py` |
-| TV3 | `modules/social/` | Tích hợp quyền lớp, notification events |
-| TV4 | `modules/notification/`, `modules/administration/` | Docker/CI, test tích hợp, audit |
-
-- **Shared files có owner/reviewer:** `main.py`, `bootstrap.py`, `common/`, `pyproject.toml`, `migrations/env.py`, `tests/conftest.py`, `Dockerfile`. Trước khi sửa, trao đổi trong Issue/PR; không tự thêm dependency hay đổi interface của người khác.
-- Mỗi thành viên có thể làm **vertical slice** gồm backend, frontend và test theo feature; bảng phân công không buộc một người chỉ code Backend.
-- Mỗi feature branch ngắn hạn, PR theo chức năng đủ kiểm thử; **không cần mỗi file hoặc mỗi task một commit**. Review chéo trước merge; không dùng commit giả.
-- Migration: mỗi người tạo revision riêng, **không sửa migration đã merge/được áp dụng**. Nếu có nhiều head, phối hợp tạo merge revision sau khi kiểm tra thứ tự phụ thuộc; không tự sửa lịch sử.
-- Để giảm xung đột đăng ký router: module export `router`, một owner cập nhật `bootstrap.py` khi tích hợp. Tránh auto-discovery bằng import động không rõ ràng.
-- Trước khi thay đổi `public.py`, schema chung hoặc permission: thông báo consumer, sửa test hợp đồng, rồi mới merge.
-
-## 5. Luồng phụ thuộc và quy tắc import
+## 4. Luồng phụ thuộc và quy tắc import
 
 ```text
 HTTP request → router → service → repository → PostgreSQL (Core)
@@ -133,7 +116,7 @@ HTTP request → router → service → repository → PostgreSQL (Core)
 - Tách **service-level permission** (Core xác nhận membership) và **document-level permission** (Document xác nhận chia sẻ hiện hành); AI phải kiểm tra cả hai khi truy hồi.
 - Core không sở hữu điểm, đề Assessment, tài liệu nguồn, chat AI hoặc mastery. Lịch chỉ phản ánh deadline do Learning sở hữu; không cập nhật deadline chính thức từ Core.
 
-## 6. Ví dụ một yêu cầu từ đầu đến cuối
+## 5. Ví dụ một yêu cầu từ đầu đến cuối
 
 **Admin đồng bộ ghi danh AUTO (luồng mục tiêu, chưa triển khai):**
 1. `classroom/router.py` nhận yêu cầu Admin; actor và school scope lấy từ backend authentication.
@@ -145,7 +128,7 @@ HTTP request → router → service → repository → PostgreSQL (Core)
 
 Schema/payload, preview và hiệu lực chuyển lớp còn PENDING DESIGN trong [Core Design](DESIGN.md)/[API Contract](API_CONTRACT.md); không dùng ví dụ này làm API đã phát hành. JoinRequest/teacher approval và ownership transfer không thuộc MVP.
 
-## 7. Quy ước cho AI coding agent
+## 6. Quy ước cho AI coding agent
 
 1. Đọc Business Rules và thiết kế/hợp đồng Core liên quan, rồi đọc tài liệu này; không coi cây thư mục mục tiêu là code đã tồn tại.
 2. Xác định module sở hữu nghiệp vụ trước khi tạo file; không tạo `utils.py` hoặc `helpers.py` dùng chung chỉ để tiện.
@@ -156,9 +139,8 @@ Schema/payload, preview và hiệu lực chuyển lớp còn PENDING DESIGN tron
 7. Không tự push main, merge PR hay thay đổi bảo vệ nhánh nếu chưa được cho phép.
 8. Khi cấu trúc triển khai khác tài liệu, cập nhật chính phần liên quan của tài liệu này trong PR; tránh tài liệu lỗi thời.
 
-## 8. Quy tắc khi tạo skeleton
+## 7. Quy tắc khi tạo skeleton
 - Giữ `app/common/` và `app/modules/` đúng cấu trúc; đổi phải qua PR cập nhật thiết kế.
-- TV1–TV4 là **owner chính**; mỗi người vẫn thực hiện frontend/test theo feature.
 - Schema/state machine/quyền theo `DESIGN.md`; API theo `API_CONTRACT.md`; sinh OpenAPI từ FastAPI và kiểm tra contract khi triển khai.
 - `social`, `notification`, `administration` thuộc G1–G2, phải hoàn thành trước khi chuyển sang Document/AI.
 

@@ -1,7 +1,6 @@
 # LUMI FRONTEND — PERFORMANCE & INTERACTION AUDIT
 
-Ngày audit: 2026-10-21. Owner/Final reviewer: Codex. Phạm vi: mã nguồn cục bộ `apps/web` của `D:/app/cnpm/SE2026_T09_RAG_course_assistant`.
-
+Ngày audit: 2026-10-21. Owner/Final reviewer: Codex. Phạm vi: mã nguồn cục bộ `apps/web`.
 **Trạng thái: AUDIT COMPLETE / IMPLEMENTATION NOT STARTED.** Báo cáo và harness đo được tạo; không sửa mã sản phẩm, backend, business rules, package, cấu hình model/provider hay security gates. Không chạy bất kỳ thao tác Git nào. SHA256 đối chiếu **257 file source/config/test: 0 thay đổi, 0 file bị xóa**. Build/dev output nằm trong harness bên ngoài source.
 
 ## A. Executive Summary

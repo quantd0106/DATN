@@ -5,7 +5,7 @@
 ## 1. Quy tắc quản lý quyết định
 
 - **DECIDED:** Có căn cứ trực tiếp từ Business Rules/ADR hoặc policy review được ghi nhận.
-- **PROPOSED:** Nhóm viết thiết kế đề xuất để thảo luận, không được triển khai như quyết định.
+- **PROPOSED:** Viết thiết kế đề xuất để thảo luận, không được triển khai như quyết định.
 - **PENDING:** Thiếu thông tin đủ để chốt; không tự đặt default nghiệp vụ.
 - **DEFERRED:** Đã hoãn theo phạm vi hoặc chưa thể kiểm thử.
 - **CONFLICT:** Tài liệu/mã khác nhau; phải trỏ nguồn và chọn owner có thẩm quyền xử lý.
@@ -58,7 +58,7 @@
 
 | ID | Giả định thực dụng | Cách kiểm chứng |
 |---|---|---|
-| AS-01 | Nhóm cần dùng các tệp Markdown trong monorepo để review/maintain | Owner xem lại định dạng và vị trí thư mục |
+| AS-01 | Cần dùng các tệp Markdown trong monorepo để review/maintain | Owner xem lại định dạng và vị trí thư mục |
 | AS-02 | Dữ liệu mẫu E2E chỉ là synthetic | Kiểm tra seed và test deployment |
 | AS-03 | Future services phải có DB/schema/storage riêng theo ownership, nhưng không nhất thiết máy chủ riêng | ADR/architecture review trước triển khai |
 | AS-04 | Mọi route trên Web không có backend thì hiển thị unavailable live | Đối chiếu integration registry, browser QA |
