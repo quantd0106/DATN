@@ -2,7 +2,6 @@
 
 - **Mã Task:** `TASK-003`
 - **Giai đoạn:** `G1 — Core chức năng đầy đủ`
-- **Owner chính:** `TV1`
 - **Module:** `services/core/app/modules/identity/`
 - **Business Rules liên quan:** `F1`, `K2`, `K4`, `K5`
 - **Tài liệu căn cứ:** [API_CONTRACT.md](../docs/architect/microservices-v1/core/API_CONTRACT.md), [DESIGN.md](../docs/architect/microservices-v1/core/DESIGN.md)
@@ -21,7 +20,7 @@
 - [x] Contract/HTTP tests bao phủ identifier, register 403, no-store, role/school checks, activation/reset replay, cookie/CSRF và OpenAPI; chạy trong Core CI PostgreSQL 16.
 - [x] TASK-013/016 đã tích hợp routes/worker/CI; staff SMTP provider delivery/retry được xác nhận trên staging qua issue #16.
 
-**Kiểm chứng hiện hành (2026-10-30):** Core CI trên PR #35 đạt 380 passed/0 skipped PostgreSQL 16; OpenAPI, Compose smoke và Web build xanh. SMTP Gmail staging delivery/recovery/retry được xác nhận trong issue #16; không áp dụng kết quả đó cho Production.
+**Kiểm chứng hiện hành (2026-10-30):** Core CI đạt 380 passed/0 skipped PostgreSQL 16; OpenAPI, Compose smoke và Web build xanh. SMTP Gmail staging delivery/recovery/retry được xác nhận trong issue #16; không áp dụng kết quả đó cho Production.
 
 ---
 
@@ -77,4 +76,4 @@ Xây dựng các route thuộc prefix `/api/v1/auth`:
 
 **Cập nhật follow-up issue #16 (2026-10-29):** Durable staff invitation/password-reset delivery đã merge vào `main` tại `8100ebd`; worker retry cùng token, Admin reissue invitation có audit. Gmail staging đã nhận invitation và recovery; CI mô phỏng SMTP failure/retry. Issue #16 đóng; Production SMTP vẫn tách biệt. Chi tiết tại [Core README](../services/core/README.md#identity-http-api-task-003) và [API Contract](../docs/architect/microservices-v1/core/API_CONTRACT.md).
 
-**Giới hạn còn lại:** Rate limiter và idempotency TTL 24 giờ dùng RAM một process, không bền vững qua restart/multi-worker; MVP vẫn giữ một worker theo quyết định operator. SMTP provider được kiểm chứng trên staging, chưa có Production Core/SMTP. Các biến cấu hình, phạm vi key và cách chạy tại [Core README](../services/core/README.md#identity-http-api-task-003). Shared/API changes theo dõi bằng self-review và CI theo chỉ đạo TV1.
+**Giới hạn còn lại:** Rate limiter và idempotency TTL 24 giờ dùng RAM một process, không bền vững qua restart/multi-worker; MVP vẫn giữ một worker theo quyết định operator. SMTP provider được kiểm chứng trên staging, chưa có Production Core/SMTP. Các biến cấu hình, phạm vi key và cách chạy tại [Core README](../services/core/README.md#identity-http-api-task-003). Shared/API changes theo dõi bằng self-review và CI.

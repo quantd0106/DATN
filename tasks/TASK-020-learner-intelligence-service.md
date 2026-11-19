@@ -2,7 +2,6 @@
 
 - **Mã Task:** `TASK-020`
 - **Giai đoạn:** `G5 — Learner Intelligence + Hoàn thiện MVP`
-- **Owner chính:** Phụ trách Service Learner Intelligence & Tích hợp MVP
 - **Business Rules liên quan:** `E1-E6`, `F6`, `J1-J5`, `O6`, `O8`, `QAS-11`
 - **Tài liệu căn cứ:** [BUSINESS_RULES.md](../docs/architect/BUSINESS_RULES.md#e-analytics), [QUALITY_ATTRIBUTES.md](../docs/architect/microservices-v1/QUALITY_ATTRIBUTES.md#qas-11--chất-lượng-gợi-ý-recommendation-quality), [ARCHITECTURE.md](../docs/architect/microservices-v1/ARCHITECTURE.md#2-ownership)
 

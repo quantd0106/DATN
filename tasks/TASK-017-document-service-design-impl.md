@@ -2,7 +2,6 @@
 
 - **Mã Task:** `TASK-017`
 - **Giai đoạn:** `G3 — Document + AI`
-- **Owner chính:** Phụ trách Service Document
 - **Business Rules liên quan:** `B1`, `B2`, `B3`, `B4`, `B5`, `B6`, `B7`, `H3`, `H6`, `L6`, `O1`, `O2`, `G5`
 - **Tài liệu căn cứ:** [BUSINESS_RULES.md](../docs/architect/BUSINESS_RULES.md#b-tài-liệu), [ARCHITECTURE.md](../docs/architect/microservices-v1/ARCHITECTURE.md#2-ownership), [ADR-001](../docs/architect/microservices-v1/ADR-001.md)
 
@@ -18,7 +17,7 @@
 - 10 MB là tải mẫu TP-01, không phải giới hạn upload đã được chốt. Chốt hạn mức/validation, version event và thu hồi quyền trong thiết kế, không tự chọn broker/schema.
 
 **Phụ thuộc và nghiệm thu bổ sung:**
-- [ ] Core G2, TASK-008 access contract và thiết kế Document được review; TV2/TV4 và owner AI thống nhất grant/retry/invalidation.
+- [ ] Core G2, TASK-008 access contract và thiết kế Document được review; owner AI thống nhất grant/retry/invalidation.
 - [ ] Test 5 định dạng, version fallback/crash, cross-school/class, revoke giữa truy hồi/mở nguồn, owner-only notes/bookmarks và O2.
 - [ ] Có contract tests và bằng chứng QAS-04/QAS-10; không coi bản nháp route/model dưới đây là phần đã triển khai.
 

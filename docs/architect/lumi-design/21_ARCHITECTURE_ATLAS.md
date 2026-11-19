@@ -1,7 +1,6 @@
 # PHẦN A — HỆ THỐNG SƠ ĐỒ KIẾN TRÚC LUMI
 
 **Mã:** LUMI-ARC-ATLAS-002 · **Phiên bản:** 2.0-DRAFT · **Ngày:** 31/10/2026  
-**Mốc đối chiếu mã nguồn:** nhánh `main`, commit `55324dc37c85c111d439a22f57f5e26544de9ce6` (tại thời điểm đối chiếu).  
 **Phạm vi:** Giao diện web và phần lõi đang triển khai; chỉ xác định ranh giới nghiệp vụ của các dịch vụ Tài liệu, Học tập và Phân tích học tập. Dịch vụ trí tuệ nhân tạo được hoãn nghiên cứu, không có thiết kế kỹ thuật, cơ sở dữ liệu, giao diện lập trình hay kế hoạch kiểm thử chi tiết trong hồ sơ này.
 
 > **Đọc sơ đồ đúng cách:** Không có một sơ đồ duy nhất được gọi là “kiến trúc tổng thể” cho mọi mục đích. Kiến trúc hệ thống phải được trình bày bằng nhiều góc nhìn bổ trợ lẫn nhau. Một tầng xử lý về mặt logic không đồng nghĩa với một dịch vụ độc lập, một tiến trình hay một máy chủ vật lý. Đường liền thể hiện quan hệ đã được xác lập trong thiết kế hiện hành; đường nét đứt thể hiện định hướng hoặc nội dung chưa có bằng chứng triển khai. Mọi thành phần chưa được quyết định phải được ghi nhận rõ là đề xuất hoặc đang chờ xác nhận.

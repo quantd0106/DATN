@@ -2,7 +2,6 @@
 
 - **Mã Task:** `TASK-011`
 - **Giai đoạn:** `G1 — Core chức năng đầy đủ`
-- **Owner chính:** `TV3`
 - **Module:** `services/core/app/modules/social/calendar/`
 - **Business Rules liên quan:** `G3`, `L3`
 - **Tài liệu căn cứ:** [DESIGN.md](../docs/architect/microservices-v1/core/DESIGN.md), [ARCHITECTURE.md](../docs/architect/microservices-v1/ARCHITECTURE.md#2-ownership)
@@ -23,7 +22,7 @@
 
 **Bằng chứng 2026-10-18:** unit/contract Social → 35 passed; `alembic upgrade head --sql` sinh DDL tới 0010 thành công. Integration test PostgreSQL đã được thêm nhưng PostgreSQL 16 Compose chưa chạy do Docker daemon không có; contract TASK-019 vẫn chưa được review nên checklist phụ thuộc giữ nguyên.
 
-**Cập nhật sau PR #8 (2026-10-19):** Core Calendar hiện đã có trong `main`; full Core PostgreSQL 16 suite sau PR #10 đạt 342 passed, 0 skipped và CI PR #10 xanh. Learning-origin hiện chỉ là projection/contract trong Core; Learning API/event thật và owner review contract TASK-019 vẫn chưa có.
+**Cập nhật sau (2026-10-19):** Core Calendar hiện đã có trong `main`; full Core PostgreSQL 16 suite sau đạt 342 passed, 0 skipped và CI xanh. Learning-origin hiện chỉ là projection/contract trong Core; Learning API/event thật và review contract TASK-019 vẫn chưa có.
 
 ---
 

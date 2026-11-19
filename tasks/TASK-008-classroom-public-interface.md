@@ -2,7 +2,6 @@
 
 - **Mã Task:** `TASK-008`
 - **Giai đoạn:** `G1 — Core chức năng đầy đủ`
-- **Owner chính:** `TV2`
 - **Module:** `services/core/app/modules/classroom/`
 - **Business Rules liên quan:** `H4–H5`, `L2`, `M1`, `O4`, `F3`; QAS-04
 - **Tài liệu căn cứ:** [API_CONTRACT.md](../docs/architect/microservices-v1/core/API_CONTRACT.md), [FOLDER_STRUCTURE.md](../docs/architect/microservices-v1/core/FOLDER_STRUCTURE.md#5-luồng-phụ-thuộc-và-quy-tắc-import)
@@ -14,7 +13,7 @@
 
 **Cần sửa:** access theo action, quyền lịch sử và school scope; bỏ quy tắc kết thúc membership là mất mọi quyền. Header phải khớp code `X-Service-Key`, không phải `X-Internal-Service-Key` hoặc user JWT.
 
-**Phụ thuộc:** TASK-005–007 chốt dữ liệu/quyền, TV1 review auth/public, TV3/TV4 và owner Document/AI/Learning review DTO/action contract trước dùng.
+**Phụ thuộc:** TASK-005–007 chốt dữ liệu/quyền, review auth/public, Document/AI/Learning review DTO/action contract trước dùng.
 
 ---
 

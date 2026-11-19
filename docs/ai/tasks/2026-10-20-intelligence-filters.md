@@ -1,4 +1,3 @@
-IMPORTANT: Repair attempt 1 after the prior run stopped with denied action RunCommand and NO source changes. DO NOT repeat that action. Use only file read/edit tools; no command tool even for reading or listing. All paths below are relative to D:/app/cnpm/SE2026_T09_RAG_course_assistant. No need to inspect Git, shell or environment.
 
 # UI-INTELLIGENCE-FILTERS-01
 

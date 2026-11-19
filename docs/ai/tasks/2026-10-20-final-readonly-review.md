@@ -1,5 +1,5 @@
 # Bounded independent review (read-only)
-Repo: D:/app/cnpm/SE2026_T09_RAG_course_assistant, branch frontend1. Use file READ tools ONLY. Do not invoke RunCommand, terminal, shell or Git, do not write any file (including plans/reports), do not edit settings/permissions/models. Codex owns logic; review findings are advisory and Codex verifies. Return the requested structured JSON only through your response.
+Repo:branch frontend1. Use file READ tools ONLY. Do not invoke RunCommand, terminal, shell or Git, do not write any file (including plans/reports), do not edit settings/permissions/models. Codex owns logic; review findings are advisory and Codex verifies. Return the requested structured JSON only through your response.
 Read root/web AGENTS, orchestrator SKILL. Review only these current files for concrete regressions; no full-monorepo inventory:
 - apps/web/src/lib/navigation.ts
 - apps/web/src/components/route-screen.tsx

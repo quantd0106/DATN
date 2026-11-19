@@ -2,7 +2,6 @@
 
 - **Mã Task:** `TASK-018`
 - **Giai đoạn:** `G3 — Document + AI`
-- **Owner chính:** Phụ trách Service AI
 - **Business Rules liên quan:** `C1`, `C2`, `C3`, `C4`, `C5`, `C6`, `D6`, `E5`, `F3`, `H4`, `H5`, `QAS-06`
 - **Tài liệu căn cứ:** [BUSINESS_RULES.md](../docs/architect/BUSINESS_RULES.md#c-ai-tutor), [QUALITY_ATTRIBUTES.md](../docs/architect/microservices-v1/QUALITY_ATTRIBUTES.md#qas-06--chất-lượng-rag-rag-quality), [ARCHITECTURE.md](../docs/architect/microservices-v1/ARCHITECTURE.md)
 

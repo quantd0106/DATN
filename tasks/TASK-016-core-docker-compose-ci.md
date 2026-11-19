@@ -2,11 +2,9 @@
 
 - **Mã Task:** `TASK-016`
 - **Giai đoạn:** `G2 — Core tích hợp`
-- **Owner chính:** `TV4`
 - **Business Rules liên quan:** `F1`, `F7`, `K5`; Core-05/QAS-04
 - **Tài liệu căn cứ:** [QUALITY_ATTRIBUTES.md](../docs/architect/microservices-v1/QUALITY_ATTRIBUTES.md#6-kiểm-thử-core-g1g2), [CONTRIBUTING.md](../docs/CONTRIBUTING.md)
 
-**Cập nhật sau PR #10 (2026-10-19):** [CI trên head `bb7f88d`](https://github.com/4-chang-linh-ngu-lam/SE2026_T09_RAG_course_assistant/actions/runs/39157402992) đã đạt `core-tests`, `compose-smoke`, `web-build`; sau squash merge, `main` là `2f7d70a`. Full Core local trên PostgreSQL 16 đạt 342/342 test, không skip; Compose config hợp lệ. Đây là bằng chứng cho revision đó, không tự chứng nhận PR tương lai, Web nghiệp vụ hoặc toàn Core G2.
 
 ## Rà soát đồng bộ — 2026-10-16
 
@@ -60,11 +58,11 @@ Hoàn thiện hạ tầng đóng gói Docker cho Core Service, chuẩn hóa file
 ## 3. Tiêu chí nghiệm thu (Acceptance Criteria)
 - [x] Lệnh `docker compose up --build -d` khởi động thành công từ môi trường sạch không báo lỗi (project test riêng, thêm `--wait` để xác minh health).
 - [x] Endpoint `/health/live` trả về 200; endpoint `/health/ready` phản ánh chính xác trạng thái kết nối PostgreSQL và quyền dùng schema Core.
-- [x] GitHub Actions CI đạt trên PR #10 ở đúng head `bb7f88d`; mỗi PR/revision mới cần run riêng.
+- [x] GitHub Actions CI đạt; mỗi PR/revision mới cần run riêng.
 - [ ] Toàn bộ checklist nghiệm thu Core tại [IMPLEMENTATION_ROADMAP.md](../docs/architect/microservices-v1/IMPLEMENTATION_ROADMAP.md#checklist-nghiệm-thu-core) được tích hợp kiểm tra tự động.
 
 **Đã triển khai:** Core wheel image multi-stage/non-root/read-only/single worker, migration job trước startup, health typed schemas/timeouts, Compose env/port config, CI PostgreSQL 16 + migration/contract/tests/coverage/public gate/Web/Compose smoke. CI trigger PR và push main/feature/fix/codex; mypy chưa có cấu hình nên không thêm. Không sửa migration đã áp dụng; formatter exclusion chỉ dành cho baseline 0001 cũ, lint vẫn chạy.
 
 **Bằng chứng local (2026-10-12):** Docker 29.8.2, Compose 5.5.1, Linux engine; build và startup project test với volume/cổng/image riêng đạt, Core UID 10001/wheel installed, schema drift không có, Web/health đạt. Toàn bộ 124 test chạy PostgreSQL 16, không warning; app coverage 96%, public interface 100%; lint/format đạt. Khi dừng DB: ready 503 và live 200; sau khởi động lại: ready 200, schema/migration giữ nguyên. Stack test được dọn riêng, không tác động stack/volume khác.
 
-**Chưa nghiệm thu đầy đủ:** PR #10 đã có xác nhận CI remote trên đúng head. Classroom, Social, Notification, Administration và integration backend đã triển khai/test; vẫn cần owner review, mapping School dữ liệu thực, policy/executor data requests, kiểm chứng Web nghiệp vụ và các consumer liên service theo gate tương ứng. Pipeline không chứng minh tính năng chưa triển khai hoặc mọi PR tương lai; checklist G2 tổng thể còn pending. Hướng dẫn chính: [Core README](../services/core/README.md#docker-migration-và-ci-task-016). Shared CI/Compose/contracts vẫn cần TV1/TV4 review trên change set tương ứng.
+**Chưa nghiệm thu đầy đủ:**đã có xác nhận CI remote trên đúng head. Classroom, Social, Notification, Administration và integration backend đã triển khai/test; vẫn cần owner review, mapping School dữ liệu thực, policy/executor data requests, kiểm chứng Web nghiệp vụ và các consumer liên service theo gate tương ứng. Pipeline không chứng minh tính năng chưa triển khai hoặc mọi PR tương lai; checklist G2 tổng thể còn pending. Hướng dẫn chính: [Core README](../services/core/README.md#docker-migration-và-ci-task-016). Shared CI/Compose/contracts vẫn cần review trên change set tương ứng.

@@ -2,14 +2,13 @@
 
 - **Mã Task:** `TASK-009`
 - **Giai đoạn:** `G1 — Core chức năng đầy đủ`
-- **Owner chính:** `TV3`
 - **Module:** `services/core/app/modules/social/feed/`
 - **Business Rules liên quan:** `G1`, `L1`, `L5`
 - **Tài liệu căn cứ:** [DESIGN.md](../docs/architect/microservices-v1/core/DESIGN.md), [API_CONTRACT.md](../docs/architect/microservices-v1/core/API_CONTRACT.md)
 
 ## Rà soát đồng bộ — 2026-10-16
 
-**Hiện trạng tại ngày 2026-10-16:** Feed mới có skeleton; nhận định này đã được thay thế sau khi PR #8 triển khai Social.
+**Hiện trạng tại ngày 2026-10-16:** Feed mới có skeleton; nhận định này đã được thay thế sau khi triển khai Social.
 
 **Cần sửa/bổ sung:**
 - Phụ thuộc action policy TASK-008 và phân công PRIMARY/ASSISTING TASK-007; không suy quyền từ OWNER/CO_LECTURER legacy hoặc global LECTURER.
@@ -20,11 +19,11 @@
 
 **Phụ thuộc và nghiệm thu bổ sung:**
 - [x] TASK-004/005/007/008/014 được tích hợp; cross-school/class, post thuộc lớp khác, LOCKED/ENDED/ARCHIVED và quyền tác giả cũ đều có test.
-- [ ] Test DTO không phụ thuộc email Student, phân trang ổn định và bài đã xóa không lộ qua detail/comments; TV1/TV2 review public contracts.
+- [ ] Test DTO không phụ thuộc email Student, phân trang ổn định và bài đã xóa không lộ qua detail/comments; review public contracts.
 
-**Bằng chứng 2026-10-18:** `pytest tests/social -q -W error` → 35 passed; toàn Core không có `TEST_DATABASE_URL` → 135 passed, 62 skipped. Test PostgreSQL 16/TV1–TV2 review chưa hoàn tất nên checklist review giữ nguyên.
+**Bằng chứng 2026-10-18:** `pytest tests/social -q -W error` → 35 passed; toàn Core không có `TEST_DATABASE_URL` → 135 passed, 62 skipped. Test PostgreSQL 16 review chưa hoàn tất nên checklist review giữ nguyên.
 
-**Cập nhật sau PR #8 (2026-10-19):** Feed hiện đã có trong `main`; full Core PostgreSQL 16 suite trên commit sau PR #10 đạt 342 passed, 0 skipped. CI PR #10 cũng xanh. Các con số 135/62 và nhận định chưa triển khai ở trên là bằng chứng lịch sử, không phải trạng thái mới. Owner review cho shared/action contracts vẫn cần ghi nhận riêng.
+**Cập nhật sau (2026-10-19):** Feed hiện đã có trong `main`; full Core PostgreSQL 16 suite trên commit sau đạt 342 passed, 0 skipped, CI cũng xanh. Các con số 135/62 và nhận định chưa triển khai ở trên là bằng chứng lịch sử, không phải trạng thái mới. Owner review cho shared/action contracts vẫn cần ghi nhận riêng.
 
 ---
 

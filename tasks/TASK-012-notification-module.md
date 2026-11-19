@@ -2,7 +2,6 @@
 
 - **Mã Task:** `TASK-012`
 - **Giai đoạn:** `G1 — Core chức năng đầy đủ`
-- **Owner chính:** `TV4`
 - **Module:** `services/core/app/modules/notification/`
 - **Business Rules liên quan:** `G4`
 - **Tài liệu căn cứ:** [DESIGN.md](../docs/architect/microservices-v1/core/DESIGN.md), [API_CONTRACT.md](../docs/architect/microservices-v1/core/API_CONTRACT.md)
@@ -15,7 +14,7 @@
 
 `ruff check app tests migrations`, `ruff format --check app tests migrations`, `alembic upgrade head`, `alembic check`, worker CLI `--once` và `docker compose config --quiet` đều đạt. Alembic có một head `0011`. Compose được kiểm tra cấu hình; chưa dùng kết quả này để tuyên bố full-stack Web E2E đã chạy.
 
-**Review liên module còn mở:** TV1/TV2/TV3/TV4 cần xem `common/outbox.py`, Classroom public DTO/snapshot, Social snapshot, `bootstrap.py`, `migrations/env.py`, migration 0011 và Compose worker. Contract/event V2 cùng chính sách bỏ qua event V1 legacy ghi tại [API Contract](../docs/architect/microservices-v1/core/API_CONTRACT.md). TASK-013 đã tích hợp import qua event enrollment hiện có; các loại Admin event khác chỉ thêm sau khi có contract. Không dùng outbox chung để giao credential.
+**Review liên module còn mở:**cần xem `common/outbox.py`, Classroom public DTO/snapshot, Social snapshot, `bootstrap.py`, `migrations/env.py`, migration 0011 và Compose worker. Contract/event V2 cùng chính sách bỏ qua event V1 legacy ghi tại [API Contract](../docs/architect/microservices-v1/core/API_CONTRACT.md). TASK-013 đã tích hợp import qua event enrollment hiện có; các loại Admin event khác chỉ thêm sau khi có contract. Không dùng outbox chung để giao credential.
 
 **Quyết định triển khai:**
 - Thay ví dụ JOIN_REQUEST_* bằng nghiệp vụ Admin enrollment/transfer/assignment/archive và feed/deadline theo contract producer đã duyệt; không khôi phục onboarding bằng mã lớp.
@@ -25,10 +24,10 @@
 - Thiết kế thứ tự/read watermark cho read-all cạnh tranh; không tự thêm broker hoặc gộp SMTP credential delivery vào payload nếu chưa có thiết kế bảo mật riêng.
 
 **Phụ thuộc và nghiệm thu bổ sung:**
-- [ ] TV1/TV2/TV3/TV4 review enqueue/event contracts, migration ở TASK-014 và integration ở TASK-015.
+- [ ] review enqueue/event contracts, migration ở TASK-014 và integration ở TASK-015.
 - [x] Test duplicate/replay/out-of-order, rollback producer, worker crash/retry, recipient-only và thu hồi quyền sau notification; không nhân đôi hoặc làm mất thông báo đã nhận xử lý trong các kịch bản kiểm thử.
 
-**Cập nhật sau PR #10 (2026-10-19):** Worker chỉ giao schema V2 có recipient snapshot; backlog V1 được giữ nhưng bỏ qua, gồm bản ghi do app cũ ghi trong rolling deployment. Full Core PostgreSQL 16 đạt 342 passed, 0 skipped; CI PR #10 đạt. Owner review vẫn cần xác nhận riêng.
+**Cập nhật sau (2026-10-19):** Worker chỉ giao schema V2 có recipient snapshot; backlog V1 được giữ nhưng bỏ qua, gồm bản ghi do app cũ ghi trong rolling deployment. Full Core PostgreSQL 16 đạt 342 passed, 0 skipped; CI. Owner review vẫn cần xác nhận riêng.
 
 ---
 

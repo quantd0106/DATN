@@ -2,7 +2,6 @@
 
 - **Mã Task:** `TASK-019`
 - **Giai đoạn:** `G4 — Learning`
-- **Owner chính:** Phụ trách Service Learning
 - **Business Rules liên quan:** `D0-D8`, `I1-I7`, `M1-M4`, `O3`, `O4`, `O5`, `QAS-03`
 - **Tài liệu căn cứ:** [BUSINESS_RULES.md](../docs/architect/BUSINESS_RULES.md#d-quiz-assessment-assignment), [ARCHITECTURE.md](../docs/architect/microservices-v1/ARCHITECTURE.md#2-ownership)
 

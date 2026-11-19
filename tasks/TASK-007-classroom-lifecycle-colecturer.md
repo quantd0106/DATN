@@ -2,7 +2,6 @@
 
 - **Mã Task:** `TASK-007`
 - **Giai đoạn:** `G1 — Core chức năng đầy đủ`
-- **Owner chính:** `TV2`
 - **Module:** `services/core/app/modules/classroom/`
 - **Business Rules liên quan:** `A3`, `A7–A8`, `F5`, `H1–H2`, `H5`, `M2`, `M5`, `O2`
 - **Tài liệu căn cứ:** [DESIGN.md](../docs/architect/microservices-v1/core/DESIGN.md), [API_CONTRACT.md](../docs/architect/microservices-v1/core/API_CONTRACT.md)

@@ -2,14 +2,13 @@
 
 - **Mã Task:** `TASK-010`
 - **Giai đoạn:** `G1 — Core chức năng đầy đủ`
-- **Owner chính:** `TV3`
 - **Module:** `services/core/app/modules/social/comments/`
 - **Business Rules liên quan:** `G2`, `L1`, `L5`
 - **Tài liệu căn cứ:** [DESIGN.md](../docs/architect/microservices-v1/core/DESIGN.md), [API_CONTRACT.md](../docs/architect/microservices-v1/core/API_CONTRACT.md)
 
 ## Rà soát đồng bộ — 2026-10-16
 
-**Hiện trạng tại ngày 2026-10-16:** Comments mới có skeleton; nhận định này đã được thay thế sau khi PR #8 triển khai Social.
+**Hiện trạng tại ngày 2026-10-16:** Comments mới có skeleton; nhận định này đã được thay thế sau khi triển khai Social.
 
 **Cần sửa/bổ sung:**
 - Sửa giới hạn body từ 5.000 thành **1..10.000** theo Core API Contract; author DTO xử lý Student email null và dùng public interface đã chốt.
@@ -23,7 +22,7 @@
 
 **Bằng chứng tại ngày 2026-10-18:** `pytest tests/social -q -W error` → 35 passed; có test body/parent/ARCHIVED/outbox tối thiểu. Checklist thứ hai giữ nguyên vì hợp đồng hiện hành yêu cầu lỗi **ghi outbox** rollback comment, khác câu “notification lỗi không rollback” cũ; PostgreSQL 16 chưa chạy được ở thời điểm này.
 
-**Cập nhật sau PR #8 (2026-10-19):** Comments hiện đã có trong `main`; full Core PostgreSQL 16 suite trên commit sau PR #10 đạt 342 passed, 0 skipped. CI PR #10 cũng xanh. Bằng chứng PostgreSQL 16 mới thay thế giới hạn môi trường trong ghi chú 2026-10-18; các review contract còn thiếu vẫn cần owner xác nhận.
+**Cập nhật sau (2026-10-19):** Comments hiện đã có trong `main`; full Core PostgreSQL 16 suite trên commit sau đạt 342 passed, 0 skipped, CI cũng xanh. Bằng chứng PostgreSQL 16 mới thay thế giới hạn môi trường trong ghi chú 2026-10-18; các review contract còn thiếu vẫn cần xác nhận.
 
 ---
 

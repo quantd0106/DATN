@@ -2,7 +2,6 @@
 
 - **Mã Task:** `TASK-002`
 - **Giai đoạn:** `G1 — Core chức năng đầy đủ`
-- **Owner chính:** `TV1`
 - **Module:** `services/core/app/modules/identity/`
 - **Business Rules liên quan:** `F1`, `K2`, `K4`
 - **Tài liệu căn cứ:** [DESIGN.md](../docs/architect/microservices-v1/core/DESIGN.md), [API_CONTRACT.md](../docs/architect/microservices-v1/core/API_CONTRACT.md)
@@ -19,7 +18,7 @@
 
 **Phụ thuộc và nghiệm thu bổ sung:**
 - [ ] TASK-013/014 kiểm thử chuyển dữ liệu cũ có mapping thật được duyệt, giữ ID/hash/trạng thái và không cấp quyền chéo trường.
-- [x] Chạy lại Identity/Core suite và migration drift checks trên PostgreSQL 16 trong GitHub CI, PR #33 head `b8c9a6d` (360 passed, 0 skipped).
+- [x] Chạy lại Identity/Core suite và migration drift checks trên PostgreSQL 16 trong GitHub CI (360 passed, 0 skipped).
 
 **Kiểm chứng hiện hành (2026-10-30):** Identity scenarios thuộc Core CI PostgreSQL 16 đã đạt 380 passed/0 skipped tại PR #35. Issue #16 sau đó xác nhận Gmail staging invitation/recovery delivery, same-token retry, reissue và simulated failure tests; Production vẫn tách biệt. Legacy School mapping/FK (#13) và Production onboarding (#18) còn mở. Xem [tasks/README](README.md).
 

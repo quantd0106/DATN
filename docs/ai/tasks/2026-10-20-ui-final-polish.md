@@ -1,6 +1,6 @@
 # UI-REVIEW-POLISH-01
 
-Worker AGY gemini-3.8-flash-high. UI only. Read root/web AGENTS and repo orchestrator skill using FILE TOOLS ONLY. Never invoke RunCommand/command/terminal/shell, including read-only commands, listing, Git or tests. Codex handles logic/integration/checks. Repo D:/app/cnpm/SE2026_T09_RAG_course_assistant.
+Worker AGY gemini-3.8-flash-high. UI only. Read root/web AGENTS and repo orchestrator skill using FILE TOOLS ONLY. Never invoke RunCommand/command/terminal/shell, including read-only commands, listing, Git or tests. Codex handles logic/integration/checks.
 
 Exact editable scope:
 - apps/web/src/features/notification/notification-center.tsx

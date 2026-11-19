@@ -2,7 +2,6 @@
 
 - **Mã Task:** `TASK-004`
 - **Giai đoạn:** `G1 — Core chức năng đầy đủ`
-- **Owner chính:** `TV1`
 - **Module:** `services/core/app/modules/identity/`
 - **Business Rules liên quan:** `K1`, `K4`, `O8`
 - **Tài liệu căn cứ:** [API_CONTRACT.md](../docs/architect/microservices-v1/core/API_CONTRACT.md), [FOLDER_STRUCTURE.md](../docs/architect/microservices-v1/core/FOLDER_STRUCTURE.md#5-luồng-phụ-thuộc-và-quy-tắc-import)
@@ -18,12 +17,12 @@
 - Data request chỉ tiếp nhận/xem yêu cầu; thao tác correction/export/delete thực tế và retention thuộc workflow xác minh, không tự động cascade/xóa liên service.
 
 **Phụ thuộc và nghiệm thu bổ sung:**
-- Public contracts và Administration consumers đã được triển khai; owner review TV1/TV4/shared còn chờ ghi nhận.
+- Public contracts và Administration consumers đã được triển khai; review.
 - [x] Public interface 100% line/branch coverage gate chạy trong GitHub CI; coverage này không thay thế nghiệm thu Classroom/Administration.
 - [x] Core API chỉ nhận attestation COMPLETED cho ACCESS/EXPORT/CORRECTION sau xác minh danh tính; PostgreSQL tests kiểm tra audit/redaction và replay. Core không truyền payload hay sửa dữ liệu thay service; DELETE giữ `IN_REVIEW/POLICY_PENDING` đến khi chốt retention/dọn dữ liệu liên service.
-- [ ] Web Admin integration và xác nhận vận hành quy trình thủ công. Issue #13 đã đóng theo xác nhận TV1; manifest chi tiết không lưu trong repo. Production mock hiện không có legacy user rows; backfill trong tương lai vẫn cần manifest có thẩm quyền.
+- [ ] Web Admin integration và xác nhận vận hành quy trình thủ công. Issue #13 đã đóng; manifest chi tiết không lưu trong repo. Production mock hiện không có legacy user rows; backfill trong tương lai vẫn cần manifest có thẩm quyền.
 
-**Kiểm chứng hiện hành (2026-10-29):** PR #33 head `b8c9a6d` chạy PostgreSQL 16 Core CI đạt 360 passed/0 skipped và public interface 100% coverage gate xanh. Đây là branch evidence, không chứng minh đã xuất/xóa dữ liệu hoặc chốt policy. Xem [tasks/README](README.md).
+**Kiểm chứng hiện hành (2026-10-29):chạy PostgreSQL 16 Core CI đạt 360 passed/0 skipped và public interface 100% coverage gate xanh. Đây là branch evidence, không chứng minh đã xuất/xóa dữ liệu hoặc chốt policy. Xem [tasks/README](README.md).
 
 ---
 

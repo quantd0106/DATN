@@ -2,7 +2,6 @@
 
 - **Mã Task:** `TASK-001`
 - **Giai đoạn:** `G0 — Contract Core / Foundation`
-- **Owner chính:** `TV1` (Phối hợp toàn đội)
 - **Module:** `services/core/app/common/`
 - **Business Rules liên quan:** `F1`, `F7`, `K2`, `K5`
 - **Tài liệu căn cứ:** [DESIGN.md](../docs/architect/microservices-v1/core/DESIGN.md), [FOLDER_STRUCTURE.md](../docs/architect/microservices-v1/core/FOLDER_STRUCTURE.md), [ADR-001](../docs/architect/microservices-v1/ADR-001.md)
@@ -13,20 +12,20 @@
 
 **Cần sửa/bổ sung:**
 - Giữ cấu hình và chữ ký đúng code: SQLAlchemy sync + psycopg, `session_version`, `COOKIE_SECURE/COOKIE_HTTPONLY/COOKIE_SAMESITE`, cursor UUID; không bổ sung passlib, offset pagination hoặc JWT claim thay thế khi chưa có nhu cầu.
-- Phối hợp TV2/TV4 ở TASK-005/014 để tạo School và mapping tài khoản cũ được duyệt; không tự gán trường, không coi hai scope null là cùng trường.
+- Phối hợp ở TASK-005/014 để tạo School và mapping tài khoản cũ được duyệt; không tự gán trường, không coi hai scope null là cùng trường.
 - Khi Classroom/Administration cần audit mới, mở rộng allowlist có review và test; nhãn legacy không có nghĩa là cho phép luồng join/chuyển chủ cũ. Quyền theo action/tài nguyên vẫn thuộc module sở hữu, không đưa nghiệp vụ lớp vào Common.
 
 **Phụ thuộc và nghiệm thu bổ sung:**
 - [ ] TASK-008/013 dùng Common với kiểm tra quyền hiện hành, cross-school và thiếu school scope đều fail closed.
-- [ ] Mọi thay đổi shared auth/audit có test hồi quy, TV1 và owner consumer review; giới hạn một process của limiter/cache được TASK-016 giữ đúng.
+- [ ] Mọi thay đổi shared auth/audit có test hồi quy, review; giới hạn một process của limiter/cache được TASK-016 giữ đúng.
 
-**Kiểm chứng hiện hành (2026-10-29):** Core CI trên PR #33 head `b8c9a6d` chạy PostgreSQL 16 và đạt 360 passed/0 skipped; migration drift, OpenAPI, public coverage, Compose smoke và Web build đều xanh. Đây là evidence của PR branch, không xác nhận owner review, production onboarding hoặc full Core G2. Tóm tắt chung: [tasks/README](README.md).
+**Kiểm chứng hiện hành (2026-10-29):** Core CI chạy PostgreSQL 16 và đạt 360 passed/0 skipped; migration drift, OpenAPI, public coverage, Compose smoke và Web build đều xanh. Tóm tắt chung: [tasks/README](README.md).
 
 ---
 
 ## 1. Mục tiêu
 
-**Cập nhật Lumi (2026-10-14):** Common bổ sung `CurrentUser.school_id` từ Identity DB và `require_school_scope` fail closed (404 khi thiếu/khác trường). Audit allowlist thêm nhãn username/credentials, không lưu giá trị mã/mật khẩu. Thêm STUDENT_ACTIVATION_EXPIRE_HOURS (24 giờ). JWT/Argon2id/refresh/cookie policy giữ nguyên. Không tự gán trường cho tài khoản cũ; schema School thuộc TV2. Bằng chứng cập nhật tại Core README.
+**Cập nhật Lumi (2026-10-14):** Common bổ sung `CurrentUser.school_id` từ Identity DB và `require_school_scope` fail closed (404 khi thiếu/khác trường). Audit allowlist thêm nhãn username/credentials, không lưu giá trị mã/mật khẩu. Thêm STUDENT_ACTIVATION_EXPIRE_HOURS (24 giờ). JWT/Argon2id/refresh/cookie policy giữ nguyên. Không tự gán trường cho tài khoản cũ; schema School. Bằng chứng cập nhật tại Core README.
 Xây dựng lớp hạ tầng kỹ thuật dùng chung cho toàn bộ Core service bên trong `services/core/app/common/`, đảm bảo tính thống nhất về xử lý lỗi, xác thực JWT, hash mật khẩu Argon2id, phân trang, truy vấn cơ sở dữ liệu và ghi audit.
 
 ---

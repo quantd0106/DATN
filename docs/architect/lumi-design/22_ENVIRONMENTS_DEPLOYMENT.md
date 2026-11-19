@@ -1,7 +1,6 @@
 # PHẦN B — KIẾN TRÚC TRIỂN KHAI, HẠ TẦNG VÀ CẤU HÌNH MÔI TRƯỜNG
 
 **Mã:** LUMI-DEP-002 · **Trạng thái:** `CODE-GROUNDED + PROPOSED` phải đọc theo từng mục.  
-**Mốc đối chiếu:** `55324dc` ngày 31/10/2026; không sử dụng tài liệu này làm bằng chứng trạng thái runtime tại thời điểm đọc khác.
 
 ## B1. Định nghĩa ba kiến trúc cần tách biệt
 

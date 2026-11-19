@@ -61,9 +61,7 @@
 | 12 | `apps/web/README.md`, `apps/web/src/lib/data/integrations.ts`, `apps/web/FRONTEND_COMPLETION.md` | Web routes, data mode, live vs mock limitations |
 | 13 | `tasks/README.md`, `tasks/TASK-001`…`TASK-020` | Task-level scope/evidence, một số snapshot lịch sử |
 
-**Repository URL:** https://github.com/4-chang-linh-ngu-lam/SE2026_T09_RAG_course_assistant
 
-**Mốc đối chiếu:** `55324dc37c85c111d439a22f57f5e26544de9ce6` (31/10/2026). Thông tin CI/runtime có thể thay đổi; không suy ra trạng thái ngoài revision này.
 
 ## 3. Ba tài liệu mẫu do người dùng cung cấp
 

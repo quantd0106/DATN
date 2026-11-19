@@ -2,7 +2,6 @@
 
 - **Mã Task:** `TASK-013`
 - **Giai đoạn:** `G1 — Core chức năng đầy đủ`
-- **Owner chính:** `TV4` (Phối hợp với `TV1`, `TV2`)
 - **Module:** `services/core/app/modules/administration/`
 - **Business Rules liên quan:** `F1`, `F2`, `F4`, `F7`, `K1`, `K5`
 - **Tài liệu căn cứ:** [DESIGN.md](../docs/architect/microservices-v1/core/DESIGN.md), [API_CONTRACT.md](../docs/architect/microservices-v1/core/API_CONTRACT.md)
@@ -19,7 +18,7 @@
 
 **Container smoke:** Docker build Core thành công với wheel và dependencies thực; runtime UID 10001, package nằm trong site-packages, defusedxml bật, OpenAPI có Administration routes. Image chạy `alembic upgrade head`, `alembic check` và Notification worker `--once` thành công trên PostgreSQL 16 test. Đây là smoke Core/package, không phải full-stack Web E2E.
 
-**Owner review còn cần xác nhận sau merge:** TV1 review Identity admin helpers/revocation/last-admin lock; TV2 review public roster append/session ownership và scope audit Classroom; TV3 review scope audit Social; TV4/common owner review audit metadata/index, migration 0012, bootstrap và dependencies openpyxl/defusedxml. CI PR #10 xanh, nhưng CI không thay owner approval. Contract đầy đủ tại [API_CONTRACT.md](../docs/architect/microservices-v1/core/API_CONTRACT.md#administration--implemented-task-013).
+**Owner review còn cần xác nhận sau merge:** review Identity admin helpers/revocation/last-admin lock; review public roster append/session ownership và scope audit Classroom; review scope audit Social; review audit metadata/index, migration 0012, bootstrap và dependencies openpyxl/defusedxml. CI xanh, nhưng CI không thay owner approval. Contract đầy đủ tại [API_CONTRACT.md](../docs/architect/microservices-v1/core/API_CONTRACT.md#administration--implemented-task-013).
 
 **Quyết định triển khai:**
 - Student dùng helper provision/issue-code/legacy username đã có; staff dùng email invitation ADMIN/LECTURER. Không cho `/admin/users` tạo Student bằng email hoặc đăng ký lại route Student hiện có.
@@ -30,7 +29,7 @@
 - ACCESS/EXPORT/CORRECTION chỉ COMPLETED sau xác minh và attestation xử lý thủ công; DELETE luôn giữ IN_REVIEW khi chưa có retention/dọn dữ liệu liên service. Không đưa raw reason/chat vào audit hoặc tự thực thi dữ liệu ngoài Core.
 
 **Phụ thuộc và nghiệm thu bổ sung:**
-- [ ] TASK-004/005–008/012/014 chốt public contracts, mapping trường và schema; TV1/TV2/TV4 review trước code workflow tương ứng.
+- [ ] TASK-004/005–008/012/014 chốt public contracts, mapping trường và schema; review trước code workflow tương ứng.
 - [x] Test cross-school, thiếu scope, Admin cuối cạnh tranh, revoke phiên, legacy giữ ID và import trùng/lỗi/retry/stale preview.
 - [x] Test audit cùng transaction/không trùng/không chứa mã hoặc chat trong các kịch bản đã chạy; không đánh dấu COMPLETED khi chưa có hành động thực tế thành công.
 - [x] Test XLSX qua HTTP; import → append roster → AUTO enrollment → outbox → Notification. Inject lỗi outbox rollback user/roster/membership/audit/batch, retry thành công.

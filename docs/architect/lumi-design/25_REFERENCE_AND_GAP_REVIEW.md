@@ -1,8 +1,5 @@
 # PHẦN E — THAM KHẢO TÀI LIỆU VIỆT NAM VÀ ĐÁNH GIÁ MỨC ĐỘ HOÀN THIỆN
 
-**Mã:** LUMI-REF-002 · **Ngày đối chiếu:** 31/10/2026 · **Mục đích:** xác định chính xác các phần mà bộ hồ sơ Lumi 1.0 còn thiếu và lý do bổ sung.  
-**Tuyên bố nguồn:** các tài liệu công khai dưới đây là **tư liệu tham khảo về phương pháp/hình thức**, không phải đặc tả nghiệp vụ hay tài liệu nội bộ chính thức của Lumi. Không suy luận một công ty áp dụng đúng mọi bước trong bài blog/slide của họ.
-
 ## E1. Kết quả nghiên cứu tài liệu thực tế ở Việt Nam
 
 | Nguồn công khai | Thông tin có thể kiểm chứng | Bài học đưa vào Lumi | Giới hạn |
