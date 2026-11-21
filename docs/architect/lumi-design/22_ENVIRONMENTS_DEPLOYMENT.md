@@ -30,15 +30,18 @@ flowchart LR
 
 | Đơn vị | Image / command | Cổng | Phụ thuộc trước startup | Dữ liệu bền vững | Ghi chú an toàn |
 |---|---|---|---|---|---|
-| `db` | `postgres:16-alpine` | Host `127.0.0.1:5432` (cấu hình được) | Không | Docker volume `pgdata` | Health `pg_isready`; password local mẫu không dùng production |
-| `migrate` | Core image, `python -m alembic upgrade head` | Không public | `db` healthy | DB | `read_only`, `tmpfs`, drop capabilities; restart no |
-| `core` | Core FastAPI image | Host `127.0.0.1:8000` | `db` healthy, `migrate` success | DB | Health `/health/ready`; `read_only`, non-root image theo docs |
-| `notification-worker` | Core image, `python -m app.background_worker` | Không public | `db` healthy, `migrate` success | DB + SMTP | Worker chung notification và staff-credential delivery |
-| `web` | Next.js build `apps/web` | Host `127.0.0.1:3000` | `core` healthy | Không phải DB nghiệp vụ | Live adapter, `CORE_API_URL=http://core:8000` |
+| `db` | `postgres:16-alpine` | Host `127.0.0.1:5432` (cấu hình được) | Không | Docker volume `pgdata` | Health `pg_isready`; khởi tạo 2 role/schema tách biệt (`core`, `document` qua `init-document-db.sh`); password mẫu không dùng production |
+| `migrate` | Core image, `python -m alembic upgrade head` | Không public | `db` healthy | Schema `core` | `read_only`, `tmpfs`, drop capabilities; restart no |
+| `document-migrate` | Document image, `python -m alembic upgrade head` | Không public | `db` healthy | Schema `document` | Chạy với role `document_svc`; cô lập quyền khỏi `core.*` |
+| `core` | Core FastAPI image | Host `127.0.0.1:8000` | `db` healthy, `migrate` success | Schema `core` | Health `/health/ready`; `read_only`, non-root image |
+| `document` | Document FastAPI image | Host `127.0.0.1:8001` | `db` healthy, `document-migrate` success, `core` healthy | Schema `document` + volume `document_data` | Health `/health/ready`; gọi `POST /internal/v1/auth/introspect` ở Core |
+| `notification-worker` | Core image, `python -m app.background_worker` | Không public | `db` healthy, `migrate` success | Schema `core` + SMTP | Worker chung notification và staff-credential delivery |
+| `document-worker` | Document image, `python -m app.worker` | Không public | `db` healthy, `document-migrate` success | Schema `document` + volume `document_data` | Xử lý IDP 5 định dạng bằng lease + `FOR UPDATE SKIP LOCKED` |
+| `web` | Next.js build `apps/web` | Host `127.0.0.1:3000` | `core` healthy, `document` healthy | Không phải DB nghiệp vụ | Live adapter, `CORE_API_URL=http://core:8000`, `DOCUMENT_API_URL=http://document:8001` |
 
-**Quan trọng:** bảng chỉ phản ánh file Compose hiện tại (khối lượng Core), không chứng minh Docker đang chạy trên máy của người đọc. Cổng `127.0.0.1` chỉ giới hạn truy cập từ host; khi triển khai qua reverse proxy public cần thiết kế TLS, ingress, network rules và domain riêng. `db` và `migrate` không phải microservices nghiệp vụ.
+**Quan trọng:** bảng phản ánh cấu trúc `compose.yaml` hiện hành (một monolith dữ liệu bị tách schema cho Core + Document trong local demo), không chứng minh Docker đang chạy sẵn trên máy của người đọc nếu chưa khởi chạy stack. Cổng `127.0.0.1` chỉ giới hạn truy cập từ host; khi triển khai public cần thiết kế TLS, ingress, network rules và domain riêng. `db`, `migrate` và `document-migrate` không phải microservices nghiệp vụ.
 
-**Định hướng mở rộng G3 cho demo bảo vệ (theo [ADR-002](../microservices-v1/ADR-002-document-service.md), chưa triển khai code trong `compose.yaml`):** khi tích hợp Document Service (`TASK-017E`), môi trường demo bảo vệ tiếp tục chạy tập trung trên **Docker Compose** với `document-migrate`, `document`, `document-worker`, volume lưu tệp cục bộ `document_data`, và `web` định tuyến `/api/v1/*` sang `CORE_API_URL` hoặc `DOCUMENT_API_URL`. Mô hình này tránh giới hạn kích thước body của Vercel Functions khi upload tệp mẫu `10 MB` (`TP-01`) hoặc tệp tới `20 MB`.
+**Trạng thái triển khai Document trên Docker Compose (`TASK-017E` — `IMPLEMENTED & VERIFIED`):** Đã tích hợp `document-migrate`, `document`, `document-worker`, volume cục bộ `document_data` và `web` định tuyến nhị phân `/api/v1/*` tới `CORE_API_URL` hoặc `DOCUMENT_API_URL`. Mô hình này tránh giới hạn body (~`4,5 MB`) của Vercel Functions khi upload tệp mẫu `10 MB` (`TP-01`) hoặc tệp tới `20 MB`. Bổ sung CI Compose smoke và full Compose E2E tại [TASK-017G](../../../tasks/TASK-017G-document-ci-and-compose-smoke.md) & [TASK-017H](../../../tasks/TASK-017H-document-compose-e2e-and-demo-runbook.md); hạ tầng Cloud Run / GCS cho P2 tại [TASK-017I](../../../tasks/TASK-017I-document-p2-cloud-and-governance.md).
 
 ### B2.2. Chuỗi khởi động và điều kiện thành công
 

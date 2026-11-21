@@ -107,6 +107,103 @@ jobs:
           name: core-class-list-load
           path: services/core/core-load.json
           if-no-files-found: error
+  document-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: document_ci
+          POSTGRES_USER: document_ci
+          POSTGRES_PASSWORD: ci-only-${{ github.run_id }}-${{ github.run_attempt }}
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U document_ci -d document_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGDATABASE: document_ci
+      PGUSER: document_ci
+      PGPASSWORD: ci-only-${{ github.run_id }}-${{ github.run_attempt }}
+      DOCUMENT_DB_USER: document_svc
+    defaults:
+      run:
+        working-directory: services/document
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Document and IDP test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            postgresql-client poppler-utils tesseract-ocr tesseract-ocr-vie tesseract-ocr-eng pandoc
+          pip install -e '.[dev]'
+      - name: Lint and format
+        run: |
+          lint_paths=(app tests migrations)
+          if [[ -d scripts ]]; then
+            lint_paths+=(scripts)
+          fi
+          ruff check --no-cache "${lint_paths[@]}"
+          ruff format --check --no-cache "${lint_paths[@]}"
+      - name: Provision disposable databases and verify Document role isolation
+        run: |
+          DOCUMENT_DB_PASSWORD=$(openssl rand -hex 32)
+          echo "::add-mask::$DOCUMENT_DB_PASSWORD"
+
+          psql -X -v ON_ERROR_STOP=1 -c 'CREATE DATABASE alembic_check_db;'
+          PGDATABASE=alembic_check_db psql -X -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE SCHEMA core;
+          CREATE TABLE core.users (id integer PRIMARY KEY);
+          SQL
+          PGDATABASE=alembic_check_db DOCUMENT_DB_PASSWORD="$DOCUMENT_DB_PASSWORD" sh docker/init-document-db.sh
+          # The pytest fixture creates and drops its own schema in document_ci.
+          psql -X -v ON_ERROR_STOP=1 -c 'GRANT CONNECT, CREATE ON DATABASE document_ci TO document_svc;'
+
+          if output=$(PGDATABASE=alembic_check_db PGUSER="$DOCUMENT_DB_USER" PGPASSWORD="$DOCUMENT_DB_PASSWORD" \
+            psql -X -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -c 'SELECT 1 FROM core.users LIMIT 1;' 2>&1); then
+            echo 'Document role unexpectedly read core.users' >&2
+            exit 1
+          fi
+          if ! grep -q '42501:' <<< "$output"; then
+            printf 'Expected insufficient_privilege from PostgreSQL, got:\n%s\n' "$output" >&2
+            exit 1
+          fi
+
+          database_url="postgresql+psycopg://$DOCUMENT_DB_USER:$DOCUMENT_DB_PASSWORD@$PGHOST:$PGPORT"
+          {
+            echo "ALEMBIC_DATABASE_URL=$database_url/alembic_check_db"
+            echo "TEST_DATABASE_URL=$database_url/$PGDATABASE"
+          } >> "$GITHUB_ENV"
+      - name: Verify Alembic roundtrip and detect drift
+        env:
+          # Keep document visible as a named schema for Alembic autogenerate.
+          PGOPTIONS: '-c search_path=pg_catalog'
+        run: |
+          export DOCUMENT_DATABASE_URL="$ALEMBIC_DATABASE_URL"
+          alembic upgrade head
+          alembic check
+          alembic heads --verbose
+          alembic downgrade base
+          alembic upgrade head
+      - name: Full Document tests against PostgreSQL
+        run: |
+          : "${TEST_DATABASE_URL:?Document tests require disposable PostgreSQL}"
+          pytest -p no:cacheprovider -q -W error --cov=app --cov-branch \
+            --cov-report=term-missing --cov-report=xml --junitxml=test-results.xml --cov-fail-under=90
+      - name: Upload Document test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: document-test-evidence
+          path: |
+            services/document/coverage.xml
+            services/document/test-results.xml
+          if-no-files-found: warn
   web-build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -118,55 +215,249 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: npm install --no-audit --no-fund
-      - run: npm run build
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - run: NEXT_PUBLIC_DATA_MODE=live npm run build
 
   compose-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       COMPOSE_PROJECT_NAME: core-ci-${{ github.run_id }}-${{ github.run_attempt }}
+      POSTGRES_DB: test_ci_smoke
       POSTGRES_PORT: '15432'
       CORE_PORT: '18000'
+      DOCUMENT_PORT: '18001'
       WEB_PORT: '13000'
+      DATABASE_URL: postgresql+psycopg://rag_course:change-me-local-only@db:5432/test_ci_smoke
+      DOCUMENT_DB_USER: document_svc
       NEXT_PUBLIC_DATA_MODE: live
       CORE_API_URL: http://core:8000
+      DOCUMENT_API_URL: http://document:8001
       WEB_ORIGIN: http://localhost:13000
+      PUBLIC_WEB_URL: http://localhost:13000
       CORS_ORIGINS: '["http://localhost:13000"]'
+      COOKIE_SECURE: 'false'
     steps:
       - uses: actions/checkout@v4
       - name: Configure isolated test credentials
         shell: bash
         run: |
-          for name in SECRET_KEY INTERNAL_SERVICE_SECRET; do
+          for name in SECRET_KEY INTERNAL_SERVICE_SECRET DOCUMENT_DB_PASSWORD CORE_SEED_ADMIN_PASSWORD; do
             value=$(openssl rand -hex 32)
             echo "::add-mask::$value"
             echo "$name=$value" >> "$GITHUB_ENV"
+            printf -v "$name" '%s' "$value"
           done
+          echo "DOCUMENT_DATABASE_URL=postgresql+psycopg://$DOCUMENT_DB_USER:$DOCUMENT_DB_PASSWORD@db:5432/$POSTGRES_DB" >> "$GITHUB_ENV"
       - name: Build and start a clean Compose project
-        run: docker compose up --build -d --wait --wait-timeout 180
-      - name: Verify runtime user, installed package and migration
+        run: docker compose up --build -d --wait --wait-timeout 240
+      - name: Verify Core and Document runtime and migrations
         run: |
-          test "$(docker compose exec -T core id -u)" != "0"
-          docker compose exec -T core python -c "from pathlib import Path; import app; assert 'site-packages' in str(Path(app.__file__))"
+          test "$(docker inspect --format '{{.State.Status}}:{{.State.ExitCode}}' "$(docker compose ps -aq document-migrate)")" = 'exited:0'
+          for service in core document; do
+            docker compose exec -T "$service" sh -ec 'test "$(id -u)" -ne 0'
+            docker compose exec -T "$service" python -c "from pathlib import Path; import app; assert 'site-packages' in Path(app.__file__).resolve().parts"
+          done
           docker compose exec -T core python -m alembic check
-      - name: Verify combined notification and credential worker
-        run: docker compose exec -T notification-worker python -m app.background_worker --once --batch-size 100
-      - name: Probe live, ready and Web
+          # Reflect document as a named schema despite the runtime role's search_path.
+          docker compose exec -T -e PGOPTIONS='-c search_path=pg_catalog' document python -m alembic check
+      - name: Verify one-shot worker commands
         run: |
-          curl --fail --silent http://localhost:18000/health/live | python -c "import json,sys; assert json.load(sys.stdin) == {'status':'live'}"
-          curl --fail --silent http://localhost:18000/health/ready | python -c "import json,sys; assert json.load(sys.stdin) == {'status':'ready','db':'connected'}"
-          curl --fail --silent http://localhost:13000/ > /dev/null
-          test "$(curl --silent --output /tmp/web-proxy.json --write-out '%{http_code}' http://localhost:13000/api/v1/users/me)" = "401"
-          python -c "import json; assert json.load(open('/tmp/web-proxy.json'))['error']['code'] == 'UNAUTHENTICATED'"
+          docker compose exec -T notification-worker python -m app.background_worker --once --batch-size 100
+          docker compose exec -T document-worker python -m app.worker --once
+      - name: Verify Document role cannot read Core tables
+        run: |
+          if output=$(docker compose exec -T -e PGPASSWORD="$DOCUMENT_DB_PASSWORD" db \
+            psql -X -h 127.0.0.1 -U "$DOCUMENT_DB_USER" -d "$POSTGRES_DB" \
+            -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -c 'SELECT 1 FROM core.users LIMIT 1;' 2>&1); then
+            echo 'Document role unexpectedly read core.users' >&2
+            exit 1
+          fi
+          if ! grep -q '42501:' <<< "$output"; then
+            printf 'Expected insufficient_privilege from PostgreSQL, got:\n%s\n' "$output" >&2
+            exit 1
+          fi
+      - name: Seed Core for authenticated smoke checks
+        run: |
+          school_id=$(python3 -c 'from uuid import uuid4; print(uuid4())')
+          docker compose exec -T -e CORE_SEED_ADMIN_PASSWORD="$CORE_SEED_ADMIN_PASSWORD" \
+            core python -m app.maintenance seed-dev \
+            --environment test --expected-database "$POSTGRES_DB" --school-id "$school_id" \
+            --school-name 'Compose CI School'
+      - name: Verify Web document journey and Document outage recovery
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import secrets
+          import subprocess
+          import time
+          from textwrap import dedent
+          from urllib.error import HTTPError, URLError
+          from urllib.request import Request, urlopen
+
+          web = os.environ["WEB_ORIGIN"]
+          core = f"http://localhost:{os.environ['CORE_PORT']}"
+          document = f"http://localhost:{os.environ['DOCUMENT_PORT']}"
+          api = "/api/v1"
+          policy = f"{api}/documents/policy"
+
+          def request(path, *, base=web, method="GET", token=None, payload=None, body=None,
+                      content_type=None, expected=200):
+              headers = {"Origin": web}
+              if token:
+                  headers["Authorization"] = f"Bearer {token}"
+              if payload is not None:
+                  body = json.dumps(payload).encode()
+                  content_type = "application/json"
+              if content_type:
+                  headers["Content-Type"] = content_type
+              req = Request(base + path, data=body, headers=headers, method=method)
+              try:
+                  response = urlopen(req, timeout=20)
+              except HTTPError as error:
+                  response = error
+              with response:
+                  data = response.read()
+                  result = json.loads(data) if data and response.headers.get_content_type() == "application/json" else None
+                  if response.status != expected:
+                      code = (result or {}).get("error", {}).get("code")
+                      raise AssertionError(f"{method} {base}{path}: expected {expected}, got {response.status} ({code})")
+                  return result
+
+          def login(identifier, password):
+              return request(f"{api}/auth/login", method="POST",
+                             payload={**identifier, "password": password})["access_token"]
+
+          def wait_for_response(path, *, base=web, token=None):
+              deadline = time.monotonic() + 60
+              while True:
+                  try:
+                      return request(path, base=base, token=token)
+                  except (AssertionError, URLError, TimeoutError):
+                      if time.monotonic() >= deadline:
+                          raise
+                      time.sleep(2)
+
+          for base in (core, document):
+              assert request("/health/live", base=base) == {"status": "live"}
+              readiness = request("/health/ready", base=base)
+              assert readiness["status"] == "ready" and readiness["db"] == "connected"
+          wait_for_response("/")
+          for path in (f"{api}/users/me", policy):
+              assert request(path, expected=401)["error"]["code"] == "UNAUTHENTICATED"
+
+          admin = login({"email": "admin@seed.example.com"}, os.environ["CORE_SEED_ADMIN_PASSWORD"])
+          lecturer_email = "primary@seed.example.com"
+          # Seed discards staff passwords. Capture the normal recovery token inside
+          # Core for this synthetic account and redeem it via the Web proxy.
+          recovery_code = dedent("""
+              import sys
+              import app.model_registry
+              from app.common.db import SessionLocal
+              from app.modules.identity.schemas import ForgotPasswordRequest
+              from app.modules.identity.service import IdentityService
+
+              with SessionLocal() as session:
+                  delivery = IdentityService(session).forgot_password(ForgotPasswordRequest(email=sys.argv[1]))
+                  if delivery is None:
+                      raise SystemExit("Seeded lecturer could not request a password reset")
+                  print(delivery.token.get_secret_value())
+          """)
+          recovery = subprocess.check_output(
+              ["docker", "compose", "exec", "-T", "core", "python", "-c", recovery_code, lecturer_email],
+              text=True,
+          ).strip()
+          lecturer_password = secrets.token_hex(32)
+          request(f"{api}/auth/password/reset", method="POST", expected=204,
+                  payload={"token": recovery, "new_password": lecturer_password})
+          lecturer = login({"email": lecturer_email}, lecturer_password)
+          classes = request(f"{api}/classes", token=lecturer)["items"]
+          class_id = next(item["id"] for item in classes if item["name"] == "Seed Math 9 MANUAL")
+          class_documents = f"{api}/classes/{class_id}/documents"
+
+          username = "ci.document.student"
+          student_password = secrets.token_hex(32)
+          created = request(f"{api}/admin/students", method="POST", token=admin, expected=201,
+                            payload={"username": username})
+          request(f"{api}/auth/activate", method="POST", expected=204,
+                  payload={"username": username, "activation_code": created["code"],
+                           "new_password": student_password})
+          request(f"{api}/admin/classes/{class_id}/members", method="POST", token=admin,
+                  payload={"student_id": created["student"]["id"]}, expected=201)
+          student = login({"username": username}, student_password)
+
+          assert "PDF" in request(policy, token=lecturer)["allowed_formats"]
+          lesson = "The water cycle moves water through evaporation, condensation, and precipitation."
+          pdf_code = dedent("""
+              import sys
+              import pymupdf
+
+              with pymupdf.open() as pdf:
+                  pdf.new_page().insert_text((60, 85), sys.argv[1])
+                  sys.stdout.buffer.write(pdf.tobytes())
+          """)
+          pdf = subprocess.check_output(
+              ["docker", "compose", "exec", "-T", "document", "python", "-c", pdf_code, lesson],
+          )
+          boundary = secrets.token_hex(16)
+          form = (
+              f'--{boundary}\r\nContent-Disposition: form-data; name="title"\r\n\r\nWater cycle\r\n'
+              f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="lesson.pdf"\r\n'
+              'Content-Type: application/pdf\r\n\r\n'
+          ).encode() + pdf + f"\r\n--{boundary}--\r\n".encode()
+          upload = request(f"{api}/documents", method="POST", token=lecturer, expected=201,
+                           body=form, content_type=f"multipart/form-data; boundary={boundary}")
+          doc_id = upload["id"]
+          assert upload["latest_version"]["processing_status"] == "PENDING"
+          deadline = time.monotonic() + 120
+          while True:
+              detail = request(f"{api}/documents/{doc_id}", token=lecturer)["document"]
+              version = detail["latest_version"]
+              status = version["processing_status"]
+              if status == "SUCCESS":
+                  break
+              if status not in {"PENDING", "PROCESSING"} or time.monotonic() >= deadline:
+                  raise AssertionError(f"Document did not reach SUCCESS: {status} ({version['error_code']})")
+              time.sleep(2)
+          ready = request(f"{api}/documents?status=READY", token=lecturer)["items"]
+          assert any(item["id"] == doc_id for item in ready)
+          grant = request(f"{class_documents}/grants", method="POST", token=lecturer,
+                          payload={"document_id": doc_id}, expected=201)
+          assert grant["is_active"] is True
+          reader = request(f"{class_documents}/{doc_id}/reader", token=student)
+          assert reader["document"]["id"] == doc_id and reader["is_source_accessible"] is True
+          assert any(lesson in paragraph for page in reader["pages"] for paragraph in page["paragraphs"])
+          print("Verified upload, worker publication, class grant and student reader.", flush=True)
+
+          subprocess.run(["docker", "compose", "stop", "document"], check=True)
+          assert any(item["id"] == class_id for item in request(f"{api}/classes", token=student)["items"])
+          assert request(policy, token=lecturer, expected=503)["error"]["code"] == "UPSTREAM_UNAVAILABLE"
+          subprocess.run(["docker", "compose", "start", "document"], check=True)
+          wait_for_response("/health/ready", base=document)
+          wait_for_response(policy, token=lecturer)
+          print("Verified Document outage isolation and recovery.")
+          PY
       - name: Verify DB outage and recovery
         run: |
           docker compose stop db
-          test "$(curl --silent --max-time 10 -o /tmp/core-ready.json -w '%{http_code}' http://localhost:18000/health/ready)" = "503"
-          python -c "import json; assert json.load(open('/tmp/core-ready.json'))['error']['code'] == 'SERVICE_UNAVAILABLE'"
-          curl --fail --silent http://localhost:18000/health/live > /dev/null
+          for port in "$CORE_PORT" "$DOCUMENT_PORT"; do
+            status=$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' \
+              "http://localhost:$port/health/ready")
+            if [[ "$status" != 503 ]]; then
+              echo "Expected readiness 503 on port $port, got $status" >&2
+              exit 1
+            fi
+            test "$(curl --fail --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' \
+              "http://localhost:$port/health/live")" = 200
+          done
           docker compose start db
-          curl --fail --silent --retry 10 --retry-delay 2 --retry-all-errors http://localhost:18000/health/ready > /dev/null
+          for port in "$CORE_PORT" "$DOCUMENT_PORT"; do
+            test "$(curl --fail --silent --show-error --max-time 10 --retry 15 --retry-delay 2 --retry-all-errors \
+              --output /dev/null --write-out '%{http_code}' "http://localhost:$port/health/ready")" = 200
+          done
+          test "$(docker inspect --format '{{.State.Status}}:{{.RestartCount}}' "$(docker compose ps -q document-worker)")" = 'running:0'
       - name: Diagnose failed stack
         if: failure()
         run: |

@@ -21,10 +21,10 @@ flowchart LR
     C --> SM[SMTP staff invite/recovery]
     CW[Notification / credential worker] --> DB
     CW --> SM
-    P -. future contract .-> D[Document - PROPOSED]
+    P -. document binary/json .-> D[Document - P0/P1 IMPLEMENTED]
     P -. future contract .-> L[Learning - PROPOSED]
     P -. future contract .-> I[Learner Intelligence - PROPOSED]
-    D -. action check .-> C
+    D -- introspect & action check --> C
     L -. action check .-> C
     I -. authorized evidence .-> L
     FUT[Future AI - NOT DESIGNED] -. placeholder only .-> P
@@ -42,7 +42,7 @@ flowchart LR
 | Core Social | Posts, comments, CORE calendar | Core schema | IMPLEMENTED |
 | Core Notification | Recipient inbox, V2 outbox delivery | Core schema | IMPLEMENTED |
 | Core Administration | User management, import, review, audit query | Core schema | IMPLEMENTED/một phần policy |
-| Document | Source, version, class grant, notes/bookmark | DB và file storage riêng | PROPOSED |
+| Document | Source, version, class grant, notes/bookmark, IDP worker | Schema `document` (`document_svc`) + volume cục bộ (`StorageBackend`) | P0/P1 IMPLEMENTED — VERIFIED (`ADR-002`; P2 GCS -> `TASK-017I`) |
 | Learning | Practice/Assessment/Assignment, attempt/submission/grade | DB/schema riêng | PROPOSED |
 | Learner Intelligence | Evidence, mastery, recommendation, report exports | DB/schema riêng | PROPOSED |
 
@@ -127,17 +127,17 @@ flowchart TB
 | Web | Next.js 15, React 19, TypeScript | UI cache chiến lược mới, CDN SLA |
 | Core | Python 3.12, FastAPI, SQLAlchemy, Alembic, PostgreSQL | Cross-process rate limiter/idempotency |
 | Runtime dev | Docker Compose | HA topology/auto scaling production |
-| Document | Ownership & supported formats | Object storage, extraction workers, queue |
+| Document | `ADR-002`: PostgreSQL schema `document`, `StorageBackend` local volume (`atomic replace`), `FOR UPDATE SKIP LOCKED` worker | `GCSStorageBackend` + signed URL, malware scan, quota, retention (`TASK-017I` P2) |
 | Learning | Business process | Schema vật lý, grading engine, timer orchestration |
 | Intelligence | Evidence & privacy principles | Mastery algorithm, scoring thresholds, storage |
 
 ## 11. ADR cần bổ sung/đề xuất
 
-- ADR-002: Document storage/upload/processing/version consistency.
-- ADR-003: Learning attempt state, timeout, idempotency và grade approval.
-- ADR-004: Cross-service access checks và event envelope/versioning.
-- ADR-005: Intelligence evidence, calibration và suppression methodology.
-- ADR-006: Core multi-worker/idempotency nếu mục tiêu triển khai thay đổi.
-- ADR-007: Privacy retention/executor và export governance.
+- ADR-002: Document storage/upload/processing/version consistency (`ACCEPTED — P0/P1 IMPLEMENTED & VERIFIED`, xem [ADR-002](../microservices-v1/ADR-002-document-service.md)).
+- ADR-003 (PROPOSED): Learning attempt state, timeout, idempotency và grade approval.
+- ADR-004 (PROPOSED): Cross-service access checks và event envelope/versioning.
+- ADR-005 (PROPOSED): Intelligence evidence, calibration và suppression methodology.
+- ADR-006 (PROPOSED): Core multi-worker/idempotency nếu mục tiêu triển khai thay đổi.
+- ADR-007 (PROPOSED): Privacy retention/executor và export governance.
 
-Tất cả ở trạng thái **PROPOSED**, không ghi dưới dạng quyết định đã duyệt.
+Các ADR-003 đến ADR-007 đang ở trạng thái **PROPOSED**, không ghi dưới dạng quyết định đã duyệt.

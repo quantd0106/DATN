@@ -35,13 +35,13 @@
 | `FR-NO-01` | Người dùng xem inbox của chính mình, mark-read/read-all; không xem notification người… | G4,K5 | 03_FRS_Core.md, 09_LLD_Core.md — CORE BACKEND / E2E PENDING | `TC-024`, `TC-030` |
 | `FR-NO-02` | Notification phát tới audience đúng thời điểm sự kiện; dedup/retry không gửi nhầm ngư… | F7,L3 | 03_FRS_Core.md, 09_LLD_Core.md — CORE BACKEND / E2E PENDING | `TC-023` |
 | `FR-NO-03` | Payload notification không chứa password, token, nội dung chat riêng tư, tài liệu ngu… | F3,K5 | 03_FRS_Core.md, 09_LLD_Core.md — CORE BACKEND / E2E PENDING | `TC-031` |
-| `FR-DOC-01` | Lecturer có thư viện cá nhân và sở hữu nguồn; một nguồn chia sẻ nhiều lớp | B1,B2 | 04_FRS_Document.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `DOC-T01`, `DOC-T02` |
-| `FR-DOC-02` | Hỗ trợ PDF/PPTX/DOCX/TXT/Markdown với xử lý/validation và thông tin lỗi | B3,B5 | 04_FRS_Document.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `DOC-T03`, `DOC-T04` |
-| `FR-DOC-03` | Quản lý version, chỉ công bố version đã SUCCESS; khi bản mới lỗi dùng bản thành công … | B4,H3 | 04_FRS_Document.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `DOC-T05` |
-| `FR-DOC-04` | PRIMARY/ASSISTING được grant/revoke vào lớp theo quyền hiện hành; không sửa tệp nguồn… | B2,B6,O1 | 04_FRS_Document.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `DOC-T06`, `DOC-T07` |
-| `FR-DOC-05` | Revoke chặn nguồn tại lần kiểm tra mới, không chỉ ẩn giao diện; cảnh báo trước xóa ng… | B6,B7 | 04_FRS_Document.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `DOC-T02`, `DOC-T08`, `DOC-T09`, `DOC-T10` |
-| `FR-DOC-06` | Student/teacher lưu notes/bookmarks chỉ chủ sở hữu xem/sửa; giữ chữ tự viết và che qu… | G5,H6,L6,O2 | 04_FRS_Document.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `DOC-T11`, `DOC-T12`, `DOC-T13` |
-| `FR-DOC-07` | Xử lý crash/retry không làm mất file gốc/previous successful version | H3,QAS-10 | 04_FRS_Document.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `DOC-T05` |
+| `FR-DOC-01` | Lecturer có thư viện cá nhân và sở hữu nguồn; một nguồn chia sẻ nhiều lớp | B1,B2 | 04_FRS_Document.md, document/DESIGN.md, document/API_CONTRACT.md — P0/P1 IMPLEMENTED (PG16/Compose) | `DOC-T01`, `DOC-T02` |
+| `FR-DOC-02` | Hỗ trợ PDF/PPTX/DOCX/TXT/Markdown với xử lý/validation và thông tin lỗi | B3,B5 | 04_FRS_Document.md, document/DESIGN.md, services/document/tests/ — P0/P1 IMPLEMENTED (PG16 IDP 5 định dạng) | `DOC-T03`, `DOC-T04` |
+| `FR-DOC-03` | Quản lý version, chỉ công bố version đã SUCCESS; khi bản mới lỗi dùng bản thành công … | B4,H3 | 04_FRS_Document.md, document/DESIGN.md, document/CODEX_ORCHESTRATION.md — P0/P1 IMPLEMENTED | `DOC-T05` |
+| `FR-DOC-04` | PRIMARY/ASSISTING được grant/revoke vào lớp theo quyền hiện hành; không sửa tệp nguồn… | B2,B6,O1 | 04_FRS_Document.md, core/API_CONTRACT.md (`manage_class_documents`), document/API_CONTRACT.md — P0/P1 IMPLEMENTED | `DOC-T06`, `DOC-T07` |
+| `FR-DOC-05` | Revoke chặn nguồn tại lần kiểm tra mới, không chỉ ẩn giao diện; cảnh báo trước xóa ng… | B6,B7 | 04_FRS_Document.md, document/API_CONTRACT.md (`409 B6`, fail closed `503`) — P0/P1 IMPLEMENTED | `DOC-T02`, `DOC-T08`, `DOC-T09`, `DOC-T10` |
+| `FR-DOC-06` | Student/teacher lưu notes/bookmarks chỉ chủ sở hữu xem/sửa; giữ chữ tự viết và che qu… | G5,H6,L6,O2 | 04_FRS_Document.md, document/API_CONTRACT.md, apps/web/ — P1 IMPLEMENTED (PG16 + Compose full E2E 13/13 PASS ở TASK-017H) | `DOC-T11`, `DOC-T12`, `DOC-T13` |
+| `FR-DOC-07` | Xử lý crash/retry không làm mất file gốc/previous successful version | H3,QAS-10 | 04_FRS_Document.md, document/DESIGN.md (`attempt_count`/`available_at`, `SKIP LOCKED`) — P1 IMPLEMENTED (PG16 + QAS-10 Compose worker kill PASS ở TASK-017H) | `DOC-T05` |
 | `FR-LE-01` | Tách Practice, Assessment và Assignment, tách kết quả luyện tập khỏi điểm chính thức | D0,D3,D8 | 05_FRS_Learning.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `LE-T01` |
 | `FR-LE-02` | Bốn loại câu hỏi: single, multiple, true/false, short answer | D2 | 05_FRS_Learning.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `LE-T01` |
 | `FR-LE-03` | Nội dung assessment đã công bố bất biến; mỗi attempt gắn một đề version cụ thể | I4,O3 | 05_FRS_Learning.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `LE-T04`, `LE-T05` |
@@ -76,7 +76,7 @@
 | Source | Được chuyển thành | Chưa tạo ra kết luận gì? |
 |---|---|---|
 | Business Rules A/F/G/K/L/M/O | BRD, SRS Core, FRS Core, Core LLD, UC | Không có nghĩa mọi UI E2E đã nghiệm thu |
-| Business Rules B/G5/H3/H6/O1/O2 | Document FRS/LLD, UC-11, DOC-T01..13 | Không có Document backend hay storage contract approved |
+| Business Rules B/G5/H3/H6/O1/O2 | Document FRS, ADR-002, document/DESIGN.md, DOC-T01..13 | P0/P1 IMPLEMENTED — VERIFIED trên PostgreSQL 16 (`99 passed in 22.90s`, `94.19%`) & Compose full E2E (`13/13 PASS`, `TASK-017G`/`H`); P2 GCS/retention/Cloud Run ở `TASK-017I` |
 | Business Rules D/I/M/O3..5 | Learning FRS/LLD, UC-12/13, LE-T01..25 | Không có Learning backend, grade engine hoặc approval UI live |
 | Business Rules E/J/F6/O6/O8 | Intelligence FRS/LLD, UC-14, LI-T01..16 | Không có model/evidence contract approved hay QAS-11 report |
 | Quality Attributes QAS-01..11 | SRS NFR, HLD, TP | Những mục liên quan AI không được triển khai trong hồ sơ này |

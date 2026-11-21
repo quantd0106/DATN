@@ -315,6 +315,10 @@
 
 ## Document Service — future proposal
 
+> [!NOTE]
+> **Cập nhật trạng thái kiểm chứng (2026-11-22) — Giữ nguyên tiêu đề mục để bảo toàn anchor liên kết:**
+> Toàn bộ nhóm `DOC-T01` → `DOC-T13` (`P0` và `P1`) đã triển khai và kiểm chứng tự động cả ở PostgreSQL 16 (`99 passed in 22.90s`, coverage `94.19%`) lẫn Compose full-stack qua Web Proxy ([verify_compose_e2e.py](../../../services/document/scripts/verify_compose_e2e.py): **`13 PASS, 0 FAIL, 0 SKIP`** gồm đủ 5 định dạng, `NEEDS_REVIEW -> /accept`, `H3` fallback, `B6`, `H6/L6/O2`, crash recovery `QAS-10`, cô lập `document_svc` & `503`). Xem [TASK-017G](../../../tasks/TASK-017G-document-ci-and-compose-smoke.md), [TASK-017H](../../../tasks/TASK-017H-document-compose-e2e-and-demo-runbook.md) và [DEMO_RUNBOOK.md](../microservices-v1/document/DEMO_RUNBOOK.md).
+
 
 ### DOC-T01 — Document owner library
 

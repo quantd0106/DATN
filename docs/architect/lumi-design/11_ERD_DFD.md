@@ -34,6 +34,8 @@ erDiagram
 
 ## 2. Candidate ERD Document — PROPOSED
 
+> **Cập nhật hiện trạng (2026-11-21):** Sơ đồ dưới đây là mức khái niệm ban đầu (ví dụ khối `PROCESSING_JOB`). Thiết kế vật lý **P0/P1 đã triển khai và kiểm chứng** gồm `7` bảng trong schema `document` (`0001_initialize_document_schema.py`: `documents`, `document_versions` chứa `attempt_count`/`available_at` + lease/`SKIP LOCKED`, `class_document_grants`, `source_bound_notes`, `document_bookmarks`, `outbox_events`, `audit_events`) — xem [Document DESIGN](../microservices-v1/document/DESIGN.md) và bảng đối chiếu trong [CODEX_ORCHESTRATION](../microservices-v1/document/CODEX_ORCHESTRATION.md).
+
 ```mermaid
 erDiagram
   DOCUMENT ||--o{ DOCUMENT_VERSION : versions
@@ -230,7 +232,7 @@ sequenceDiagram
 | Sơ đồ | Hiện trạng | Điều kiện cập nhật |
 |---|---|---|
 | Core ERD physical | Logical snapshot này; migration là chuẩn | Sau mỗi migration/ORM change |
-| Document logical/physical | PROPOSED | Sau ADR storage/schema/API |
+| Document logical/physical | P0/P1 IMPLEMENTED — VERIFIED (`0001_initialize_document_schema.py`, 7 bảng schema `document`) · P2 -> `TASK-017I` | Xem `ADR-002` & `Document DESIGN` |
 | Learning attempt/grade | PROPOSED | Sau quyết định version/transfer/approval |
 | Intelligence evidence | PROPOSED | Sau model/evaluation contract |
 | AI | **OUT OF SCOPE** | Không vẽ trong giai đoạn này |

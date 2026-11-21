@@ -8,7 +8,7 @@
 
 ## Rà soát đồng bộ & Chốt thiết kế P1 — 2026-11-21
 
-**Hiện trạng P1.** TASK-017A–E đã triển khai và được kiểm chứng qua integration tests trên PostgreSQL 16, Web unit/build và Compose HTTP smoke. TASK-017F vẫn `READY FOR EXECUTION`, với phần cập nhật báo cáo và slide nằm ngoài repo mã nguồn. Quyết định thiết kế và hợp đồng tại [ADR-002](../docs/architect/microservices-v1/ADR-002-document-service.md), [Document DESIGN](../docs/architect/microservices-v1/document/DESIGN.md), [Document API Contract](../docs/architect/microservices-v1/document/API_CONTRACT.md) và [Document FOLDER STRUCTURE](../docs/architect/microservices-v1/document/FOLDER_STRUCTURE.md).
+**Hiện trạng P0/P1 & Cẩm nang điều phối Codex CLI:** [TASK-017A](TASK-017A-core-document-prereqs.md) → [TASK-017E](TASK-017E-compose-demo-and-deployment.md) đã triển khai và kiểm chứng qua integration tests PostgreSQL 16, Web unit/build và Compose HTTP smoke. Cẩm nang điều phối Codex CLI (`sol 6.2`, `high`) + đối chiếu Mục 3/Mục 4 (P0/P1/P2) đặt tại [CODEX_ORCHESTRATION.md](../docs/architect/microservices-v1/document/CODEX_ORCHESTRATION.md). [TASK-017F](TASK-017F-doc-ai-event-and-report-sync.md) giữ checklist đồng bộ AI + báo cáo/slide ngoài Git; hoàn thiện CI và full Compose E2E + Runbook bảo vệ giao cho [TASK-017G](TASK-017G-document-ci-and-compose-smoke.md) và [TASK-017H](TASK-017H-document-compose-e2e-and-demo-runbook.md); phần P2 sau bảo vệ gom vào [TASK-017I](TASK-017I-document-p2-cloud-and-governance.md). Tài liệu thiết kế và hợp đồng tại [ADR-002](../docs/architect/microservices-v1/ADR-002-document-service.md), [Document DESIGN](../docs/architect/microservices-v1/document/DESIGN.md), [Document API Contract](../docs/architect/microservices-v1/document/API_CONTRACT.md) và [Document FOLDER STRUCTURE](../docs/architect/microservices-v1/document/FOLDER_STRUCTURE.md).
 
 **Tám điểm lệch đã chốt trước khi code:**
 1. **Trạng thái phiên bản:** Backend lưu 5 giá trị `PENDING | PROCESSING | SUCCESS | NEEDS_REVIEW | FAILED`. Không lưu `SUPERSEDED` trong DB (tính dẫn xuất `is_serving` / `is_superseded` lúc đọc để bảo toàn Rule `H3`). Web live decoder map `SUCCESS → READY` và `MARKDOWN → MD`.
@@ -20,20 +20,24 @@
 7. **Ranh giới IDP vs AI Indexing:** `SUCCESS` nghĩa là Canonical artifact đã trích xuất và lưu bền vững (`services/rag/idp/canonical.py` hiện xuất `idp-canonical-1`; harness AI hỗ trợ `idp-canonical-1` và `idp-canonical-2`). Document phát `document.version.published`; AI tự lập chỉ mục bất đồng bộ và chỉ phục vụ khi bundle đủ (`complete: true`). Sửa Hình 2.16 trong báo cáo/slide cho khớp.
 8. **Chính sách upload P1:** **`20 MB` (`20_971_520` bytes)** và **`300 trang`**, công bố qua `GET /api/v1/documents/policy` (đồng bộ mock từ 50 MB về 20 MB).
 
-**Kế hoạch triển khai chia nhỏ thành 6 sub-task:**
+**Kế hoạch triển khai phân kỳ P0 / P1 / P2 (giao Codex CLI theo [CODEX_ORCHESTRATION.md](../docs/architect/microservices-v1/document/CODEX_ORCHESTRATION.md)):**
 
-| Sub-task | Phạm vi chính | Phụ thuộc |
-|---|---|---|
-| [TASK-017A](TASK-017A-core-document-prereqs.md) | Core: thêm `manage_class_documents` và `POST /internal/v1/auth/introspect` | Core G1/G2 |
-| [TASK-017B](TASK-017B-document-service-foundation.md) | Document Backend: `services/document/`, schema `document`, policy `20 MB/300 trang`, validation, grants, reader/download, notes/bookmarks, internal API | `TASK-017A` |
-| [TASK-017C](TASK-017C-document-idp-worker-and-review.md) | Document Worker & Review: `worker.py`, tích hợp `services/rag/idp`, `NEEDS_REVIEW`, `/accept`, `/retry`, outbox `document.version.published` | `TASK-017B` |
-| [TASK-017D](TASK-017D-web-proxy-and-document-ui.md) | Web Proxy & Live UI: `DOCUMENT_API_URL`, `arrayBuffer()`, `FormData`, decoder `SUCCESS→READY`, nút chấp nhận `NEEDS_REVIEW`, sync 20 MB/300 trang | `TASK-017B`, `TASK-017C` |
-| [TASK-017E](TASK-017E-compose-demo-and-deployment.md) | Docker Compose Demo & P2 GCS roadmap: `Dockerfile`, `compose.yaml`, test TP-01 10 MB, cô lập lỗi QAS-01/02 | `TASK-017B`, `TASK-017C`, `TASK-017D` |
-| [TASK-017F](TASK-017F-doc-ai-event-and-report-sync.md) | Hợp đồng Document↔AI (`TASK-018`) và Checklist sửa Báo cáo / Slide (Hình 2.16) | Chạy song song từ `ADR-002` |
+| Sub-task | Ưu tiên | Phạm vi chính | Trạng thái / Phụ thuộc |
+|---|---|---|---|
+| [TASK-017A](TASK-017A-core-document-prereqs.md) | `P0` | Core: thêm `manage_class_documents` và `POST /internal/v1/auth/introspect` | `DONE — VERIFIED` · Core G1/G2 |
+| [TASK-017B](TASK-017B-document-service-foundation.md) | `P0 / P1` | Document Backend: `services/document/`, schema `document` (7 bảng), policy `20 MB/300 trang`, validation, grants, reader/download, notes/bookmarks (`F16`/`H6`/`L6`/`O2`), delete `B6 409`, internal API | `DONE — VERIFIED` · `TASK-017A` |
+| [TASK-017C](TASK-017C-document-idp-worker-and-review.md) | `P0 / P1` | Document Worker & Review: `worker.py`, tích hợp `services/rag/idp`, `NEEDS_REVIEW`, `/accept`, `/retry`, H3 fallback, outbox `document.version.published` | `DONE — VERIFIED` · `TASK-017B` |
+| [TASK-017D](TASK-017D-web-proxy-and-document-ui.md) | `P0 / P1` | Web Proxy & Live UI: `DOCUMENT_API_URL`, `arrayBuffer()`, `FormData`, 12 hàm Web port, decoder `SUCCESS→READY`, nút `/accept`, notes/bookmark + cảnh báo `B6` | `DONE — VERIFIED` · `TASK-017B`, `TASK-017C` |
+| [TASK-017E](TASK-017E-compose-demo-and-deployment.md) | `P0` | Docker Compose Demo: `Dockerfile`, `compose.yaml`, cô lập `document_svc`, smoke PDF `10 MB`, test `413` & `503` | `DONE — VERIFIED` · `TASK-017B..D` |
+| [TASK-017F](TASK-017F-doc-ai-event-and-report-sync.md) | `P0 + Báo cáo` | Hợp đồng Document↔AI (`TASK-018`) và Checklist sửa Báo cáo / Slide ngoài Git (Hình 2.16 & thuật ngữ v1) | `TODO / IN PROGRESS` · song song |
+| [TASK-017G](TASK-017G-document-ci-and-compose-smoke.md) | `P0 / P1` *(Wave 1A)* | GitHub Actions CI cho `services/document/`, thêm `npm run check` vào `web-build`, nâng cấp `compose-smoke` gồm Document + fault isolation | `DONE — VERIFIED` *(local PG16 & Compose)* |
+| [TASK-017H](TASK-017H-document-compose-e2e-and-demo-runbook.md) | `P0 / P1` *(Wave 1B)* | Script Compose full E2E (`verify_compose_e2e.py`) phủ 5 định dạng, `NEEDS_REVIEW -> /accept`, `H3`, `B6`, `H6/L6/O2`, `QAS-10`, `QAS-01/02` + `DEMO_RUNBOOK.md` | `DONE — VERIFIED` *(13/13 PASS qua Web Proxy)* |
+| [TASK-017I](TASK-017I-document-p2-cloud-and-governance.md) | `P2` *(Sau bảo vệ)* | GCS signed URL (`StorageBackend`), malware scan, quota, retention (`OD-02`/`OD-03`), thông báo khi share *(blocked by Core API)*, Cloud Run deploy | `DEFERRED (P2)` · Wave 2 |
 
 **Phụ thuộc và nghiệm thu bổ sung:**
-- [x] Hoàn tất triển khai và kiểm chứng code/runtime của `TASK-017A` → `TASK-017E`.
-- [ ] Hoàn tất `TASK-017F` (hợp đồng Document↔AI và cập nhật báo cáo/slide ngoài repo).
+- [x] Hoàn tất triển khai và kiểm chứng code/runtime của `TASK-017A` → `TASK-017E`, cùng Wave 1A ([TASK-017G](TASK-017G-document-ci-and-compose-smoke.md)) và Wave 1B ([TASK-017H](TASK-017H-document-compose-e2e-and-demo-runbook.md)).
+- [ ] Hoàn tất [TASK-017F](TASK-017F-doc-ai-event-and-report-sync.md) (cập nhật `Bao_cao_DATN.docx` & slide ngoài Git theo Nhóm A/B và kiểm chứng đầu-cuối khi dựng AI HTTP).
+- [ ] Hoàn tất Wave 2 ([TASK-017I](TASK-017I-document-p2-cloud-and-governance.md)) sau bảo vệ khi chốt `OD-02`, `OD-03` và Core internal notification API.
 - [x] Document suite kiểm tra IDP thật cho 5 định dạng, `NEEDS_REVIEW` accept, H3 fallback/crash, cross-school/class, thu hồi grant trước lượt mở nguồn kế tiếp, owner-only notes/bookmarks và O2.
 - [ ] Kiểm chứng thu hồi quyền giữa lúc AI truy hồi và người dùng mở nguồn trong luồng Document↔AI.
 - [x] Core, Document và Web đã có kết quả unit/contract tests.
@@ -71,15 +75,15 @@ Thiết kế và triển khai Document Service (`services/document/`) độc l�
 - [x] Chạy integration tests PostgreSQL 16 cho hai giao diện nội bộ của Core.
 - [x] Round trip IDP thật cho `PDF`, `PPTX`, `DOCX`, `TXT`, `MARKDOWN` trên PostgreSQL 16 + local storage. Contract test chặn tệp >20 MB (`413`) và >300 trang/ZIP-bomb/PDF mã hóa (`422`).
 - [x] Qua Web proxy trong Docker Compose, tải lên PDF 10 MB, chờ `SUCCESS`, cấp grant và kiểm chứng Student đọc/tải. Tệp vượt 20 MB trả `413`.
-- [ ] Mở rộng smoke trên Docker Compose sang `PPTX`, `DOCX`, `TXT` và `MARKDOWN`.
-- [x] Contract test `NEEDS_REVIEW` → chủ sở hữu gọi `/accept` → `SUCCESS` và phát outbox `document.version.published`. Đồng giáo viên bị từ chối.
-- [ ] Chạy luồng review trên trình duyệt với mẫu fast OCR hoặc DOCX có công thức kích hoạt `NEEDS_REVIEW` trên Compose.
+- [x] Mở rộng smoke trên Docker Compose sang `PPTX`, `DOCX`, `TXT` và `MARKDOWN` *(đạt tại [TASK-017H](TASK-017H-document-compose-e2e-and-demo-runbook.md) — `13/13 PASS` qua Web Proxy)*.
+- [x] Contract test `NEEDS_REVIEW` → chủ sở hữu gọi `/accept` → `SUCCESS` và phát outbox `document.version.published`. Đồng giáo viên bị từ chối *(kèm kiểm chứng Compose live trên `review.docx` `LATEX_INVALID` trong `TASK-017H`)*.
+- [ ] Chạy walkthrough thao tác tay trên trình duyệt với `review.docx` (`NEEDS_REVIEW`), tệp `10 MB` và kịch bản bảo vệ theo [DEMO_RUNBOOK.md](../docs/architect/microservices-v1/document/DEMO_RUNBOOK.md) *(API & worker trên Compose đã pass tự động qua [TASK-017H](TASK-017H-document-compose-e2e-and-demo-runbook.md))*.
 - [x] Test Document kiểm tra lỗi phiên bản (Rule H3): upload v2 bị `FAILED` hoặc đang `NEEDS_REVIEW` → lớp học vẫn đọc được v1 `SUCCESS`.
 - [x] Contract test thu hồi chia sẻ (Rule B6). Lượt đọc kế tiếp che nội dung nguồn, API tải từ chối và `active-grants` loại nguồn ngay.
 - [x] Contract test ghi chú cá nhân (H6/L6/O2). Thu hồi grant giữ chữ tự viết và che `source_quote`. Lớp `ARCHIVED` cho sửa ghi chú khi còn quyền nguồn.
 - [x] Web live build, binary proxy test (`arrayBuffer()`) và decoder (`SUCCESS → READY`, `MARKDOWN → MD`) đạt.
-- [x] Kiểm chứng tuyến Core/Document bằng request HTTP tới `web:3000` khi dừng Document.
-- [ ] Chạy manual browser E2E với Core + Document trong Docker Compose, gồm upload tệp mẫu 10 MB.
+- [x] Kiểm chứng tuyến Core/Document bằng request HTTP tới `web:3000` khi dừng Document *(tự động hóa CI tại [TASK-017G](TASK-017G-document-ci-and-compose-smoke.md))*.
+- [ ] Chạy manual browser E2E với Core + Document trong Docker Compose, gồm upload tệp mẫu 10 MB *(runbook tại [TASK-017H](TASK-017H-document-compose-e2e-and-demo-runbook.md))*.
 
 ### Bằng chứng kiểm định (2026-11-21)
 
@@ -93,5 +97,6 @@ Windows 11 · Python 3.12.5 · Node 24.15.0 · Docker Desktop 29.7.2 (linux) · 
 | Document · PostgreSQL 16 | **`99 passed in 11.59s`**, gồm Alembic `upgrade head`/`downgrade base`, `FOR UPDATE SKIP LOCKED`, IDP thật cho 5 định dạng, `NEEDS_REVIEW → /accept → SUCCESS`, H3 fallback, H6/L6/O2 redaction và packaging contract. Xem [TASK-017B](TASK-017B-document-service-foundation.md) và [TASK-017C](TASK-017C-document-idp-worker-and-review.md). |
 | Web | `npm run check` → `check:boundaries` đạt, `tsc --noEmit` có 0 lỗi, **277/277 tests passed** (exit 0). `NEXT_PUBLIC_DATA_MODE=live npm run build` → biên dịch thành công, **32/32** trang, `check:release` đạt (`Release output contains no preview fixture marker.`), exit 0. |
 | Compose (repo root) | `docker compose config --quiet` → exit 0. `docker compose up --build -d --wait` → tất cả service `Healthy` hoặc `Exited 0`, Core/Document readiness đều `200`, `document_svc` bị từ chối đọc `core.users`. Smoke HTTP xác nhận PDF `10,500,004` byte đi hết luồng upload/xử lý/grant/đọc/tải, tệp `20,971,521` byte trả `413` và khi dừng Document, `/api/v1/classes` trả `200`, `/api/v1/documents/policy` trả `503`. Xem [TASK-017E](TASK-017E-compose-demo-and-deployment.md). |
+| Wave 1 CI & Compose E2E (2026-11-22) | `core-ci.yml` (`5` jobs) hợp lệ YAML; Ruff `53` tệp (gồm `scripts/`) sạch; Document PG16 `alembic` roundtrip + **`99 passed in 22.90s`** (`94.19%` branch-enabled coverage); `verify_compose_e2e.py` trên `lumi-verify-017` đạt **`13 PASS, 0 FAIL, 0 SKIP (72.41s)`** (đủ 5 định dạng, `NEEDS_REVIEW -> /accept`, `H3` & `/retry`, `B6`, `H6/L6/O2`, crash recovery `QAS-10` `attempt_count 1 -> 2`, p95 đọc `32.4–40.0 ms`, `42501` isolation, `503` service/DB outage & recovery). Xem [TASK-017G](TASK-017G-document-ci-and-compose-smoke.md) và [TASK-017H](TASK-017H-document-compose-e2e-and-demo-runbook.md). |
 
 Luồng Web được kiểm chứng bằng unit tests, live build và request HTTP trực tiếp tới `web:3000`. Kiểm thử thao tác thủ công trong trình duyệt còn mở. Nghiệm thu toàn bộ tải TP-01 còn mở theo [Quality Attributes](../docs/architect/microservices-v1/QUALITY_ATTRIBUTES.md#1-cấu-hình-kiểm-thử-tp-01).

@@ -1,6 +1,6 @@
 # FRS-DOCUMENT — THƯ VIỆN TÀI LIỆU, VERSION, GRANT, NOTES
 
-**Mã:** LUMI-FRS-DOC-001 · **Trạng thái:** **DESIGN BASELINE (P1) — READY FOR IMPLEMENTATION**, chưa có backend Document theo [TASK-017](../../../tasks/TASK-017-document-service-design-impl.md), [ADR-002](../microservices-v1/ADR-002-document-service.md), [Document DESIGN](../microservices-v1/document/DESIGN.md) và [Document API Contract](../microservices-v1/document/API_CONTRACT.md).
+**Mã:** LUMI-FRS-DOC-001 · **Trạng thái:** **P0/P1 IMPLEMENTED — VERIFIED** (backend, worker, Web UI và Compose demo theo [ADR-002](../microservices-v1/ADR-002-document-service.md), [Document DESIGN](../microservices-v1/document/DESIGN.md), [Document API Contract](../microservices-v1/document/API_CONTRACT.md), [CODEX_ORCHESTRATION](../microservices-v1/document/CODEX_ORCHESTRATION.md) và [TASK-017](../../../tasks/TASK-017-document-service-design-impl.md); CI/E2E hoàn tất thêm ở `TASK-017G`/`H`; P2 mở rộng ở `TASK-017I`).
 
 ## 1. Mục tiêu và nguồn quy tắc
 
@@ -9,7 +9,7 @@ Service Document sở hữu tệp nguồn, phiên bản, chia sẻ theo lớp v�
 ## 2. FRS-D01 — Thư viện cá nhân
 
 - **Actor:** Lecturer có tài khoản ACTIVE.
-- **Điểm vào:** `/teacher/library` (UI đã có route, nhưng backend Document chưa khả dụng).
+- **Điểm vào:** `/teacher/library` (UI + Web binary proxy live tới `DOCUMENT_API_URL` đã triển khai theo `TASK-017D`).
 - **List:** tài liệu do bản thân sở hữu, tên, loại, version thành công hiện hành, trạng thái xử lý, lớp được chia sẻ; chỉ metadata được phép.
 - **Create:** metadata tối thiểu, lựa chọn tệp. Server xác minh owner từ credential, không nhận owner_user_id từ form để phân quyền.
 - **Edit/Delete:** chỉ owner nguồn; trước xóa nếu có nhiều class grants đang dùng phải hiển thị danh sách ảnh hưởng và xác nhận riêng (`confirm_multi_class=true`).
@@ -63,7 +63,7 @@ Service Document sở hữu tệp nguồn, phiên bản, chia sẻ theo lớp v�
 
 ## 8. Các quyết định P1 đã chốt (ADR-002) và phần còn mở cho P2
 
-- **Đã chốt ở mức thiết kế P1 ([ADR-002](../microservices-v1/ADR-002-document-service.md), chờ code):**
+- **Đã triển khai & kiểm chứng P0/P1 ([ADR-002](../microservices-v1/ADR-002-document-service.md), [TASK-017](../../../tasks/TASK-017-document-service-design-impl.md)):** CI/Compose full E2E hoàn thiện tiếp tại [TASK-017G](../../../tasks/TASK-017G-document-ci-and-compose-smoke.md) và [TASK-017H](../../../tasks/TASK-017H-document-compose-e2e-and-demo-runbook.md); phần **P2** theo dõi tại [TASK-017I](../../../tasks/TASK-017I-document-p2-cloud-and-governance.md):
   - Trạng thái máy chủ (`PENDING`, `PROCESSING`, `SUCCESS`, `NEEDS_REVIEW`, `FAILED`), `SUPERSEDED` là dẫn xuất lúc đọc (không lưu DB để giữ H3), Web ánh xạ `SUCCESS → READY` và `MARKDOWN → MD`.
   - Chủ sở hữu chấp nhận thủ công (`POST .../accept`) cho `NEEDS_REVIEW → SUCCESS` (kèm nút nhỏ trên Web).
   - Xác thực người dùng liên service qua Core `POST /internal/v1/auth/introspect` (`X-Service-Key`, fail closed, không chia sẻ `SECRET_KEY`); kiểm tra chia sẻ/thu hồi qua Core action `manage_class_documents`.

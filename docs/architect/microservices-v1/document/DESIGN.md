@@ -1,8 +1,8 @@
 # Document Service — Thiết kế v1
 
-**Trạng thái P1:** `IMPLEMENTED — VERIFIED`
+**Trạng thái P0/P1:** `IMPLEMENTED — VERIFIED` · **Điều phối hoàn thiện & đối chiếu P0/P1/P2:** [CODEX_ORCHESTRATION.md](CODEX_ORCHESTRATION.md)
 
-Thiết kế P1 dựa trên [ADR-002](../ADR-002-document-service.md).
+Thiết kế v1 dựa trên [ADR-002](../ADR-002-document-service.md). Tài liệu thiết kế tóm tắt gọi lớp trừu tượng lưu tệp là `BlobStore` (hiện thực là `StorageBackend` / `LocalVolumeStorage` với khóa `source/{document_id}/{version_id}` & `canonical/{document_id}/{version_id}.json`) và nhóm xử lý worker là `processing_jobs` (hiện thực P0/P1 gom cột claim/lease `attempt_count`, `available_at` cùng `FOR UPDATE SKIP LOCKED` + `pg_advisory_xact_lock` ngay trên `document.document_versions` trong tổng `7` bảng schema `document`, gồm thêm `audit_events`); phần Cloud Run / GCS / quota / malware scan / retention thuộc pha P2 tại [TASK-017I](../../../../tasks/TASK-017I-document-p2-cloud-and-governance.md).
 
 Ngày 2026-11-21, suite Document trên PostgreSQL 16 đạt **`99 passed in 11.59s`**, gồm Alembic `upgrade head`/`downgrade base`, worker lease với `FOR UPDATE SKIP LOCKED`, IDP thật cho 5 định dạng, luồng `/accept`, H3 và H6/L6/O2. Compose smoke trên Docker Desktop 29.7.2 (linux) xác minh xử lý PDF 10 MB và role `document_svc` bị từ chối đọc `core.users`. Xem [TASK-017C](../../../../tasks/TASK-017C-document-idp-worker-and-review.md) và [TASK-017E](../../../../tasks/TASK-017E-compose-demo-and-deployment.md).
 

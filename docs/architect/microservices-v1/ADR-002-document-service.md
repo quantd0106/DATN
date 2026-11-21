@@ -1,6 +1,6 @@
 # ADR-002 — Thiết kế triển khai G3 cho Document Service và giải quyết 8 điểm lệch trước khi code
 
-**Trạng thái:** `ACCEPTED (P1 Design Baseline — chờ triển khai code)` · **Ngày:** `2026-11-21`  
+**Trạng thái:** `ACCEPTED — P0/P1 IMPLEMENTED & VERIFIED (P2 deferred -> TASK-017I)` · **Ngày:** `2026-11-21`
 **Business Rules liên quan:** `B1–B7`, `G5`, `H3`, `H6`, `L6`, `O1`, `O2`, `F5`, `F7`, `K2`, `QAS-01`, `QAS-02`, `QAS-04`, `QAS-10`, `FT-03`, `FT-05`, `FT-07`  
 **Tài liệu căn cứ:** [BUSINESS_RULES.md](../BUSINESS_RULES.md), [ADR-001](ADR-001.md), [ARCHITECTURE](ARCHITECTURE.md), [QUALITY_ATTRIBUTES](QUALITY_ATTRIBUTES.md)
 
@@ -101,9 +101,10 @@ Ghi nhận thực tế mã nguồn tại thời điểm ra quyết định:
 
 ## 3. Tài liệu và Task dẫn xuất
 
+- Cẩm nang điều phối Codex CLI & bảng ánh xạ Thiết kế tóm tắt Mục 3 / P0-P1-P2: [document/CODEX_ORCHESTRATION.md](document/CODEX_ORCHESTRATION.md)
 - Thiết kế chi tiết Document Service: [document/DESIGN.md](document/DESIGN.md)
 - Hợp đồng API Document Service & bảng Web Proxy allowlist: [document/API_CONTRACT.md](document/API_CONTRACT.md)
 - Cấu trúc mã nguồn `services/document/`: [document/FOLDER_STRUCTURE.md](document/FOLDER_STRUCTURE.md)
 - Cập nhật Core contract & design: [core/API_CONTRACT.md](core/API_CONTRACT.md), [core/DESIGN.md](core/DESIGN.md)
 - Cập nhật FRS & môi trường: [04_FRS_Document.md](../lumi-design/04_FRS_Document.md), [22_ENVIRONMENTS_DEPLOYMENT.md](../lumi-design/22_ENVIRONMENTS_DEPLOYMENT.md)
-- Kế hoạch triển khai theo từng công việc: [TASK-017](../../../tasks/TASK-017-document-service-design-impl.md) (`TASK-017A` → `TASK-017F`) và [TASK-018](../../../tasks/TASK-018-ai-service-rag-tutor.md).
+- Kế hoạch triển khai theo từng công việc: [TASK-017](../../../tasks/TASK-017-document-service-design-impl.md) (`TASK-017A` → `TASK-017I`, gồm P0/P1 CI/E2E [TASK-017G](../../../tasks/TASK-017G-document-ci-and-compose-smoke.md), [TASK-017H](../../../tasks/TASK-017H-document-compose-e2e-and-demo-runbook.md) và P2 cloud/governance [TASK-017I](../../../tasks/TASK-017I-document-p2-cloud-and-governance.md)) và [TASK-018](../../../tasks/TASK-018-ai-service-rag-tutor.md).

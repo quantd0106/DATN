@@ -53,3 +53,24 @@ lost, reader and personal-history responses use a generic document title and ret
 the user's own note text. Validation errors put the upload failure reason in
 `error.details.reason`, and delete conflicts include the affected classes in
 `error.details`.
+
+### Verify a live Compose stack
+
+Start a disposable stack and run Core `seed-dev` as described in the
+[defense demo runbook](../../docs/architect/microservices-v1/document/DEMO_RUNBOOK.md).
+From `services/document`, set `CORE_SEED_ADMIN_PASSWORD`, `INTERNAL_SERVICE_SECRET`
+and `DOCUMENT_DB_PASSWORD` to the stack's values, then run:
+
+```powershell
+.\.venv\Scripts\python.exe -B scripts/verify_compose_e2e.py `
+  --web-url http://127.0.0.1:13000 --origin http://localhost:13000 `
+  --compose-project lumi-doc-demo --db-name dev_rag_course
+```
+
+Use the actual Compose project name and match `--origin` to Web's `WEB_ORIGIN`
+and Core's CORS configuration. The suite creates synthetic users, classes and
+documents. With no lecturer credentials supplied, it uses the seeded staff
+password-reset flow on the disposable database. Set `E2E_LECTURER_PASSWORD` and
+`E2E_ASSISTING_PASSWORD` to use existing passwords. Pass `--skip-docker-faults`
+to omit the worker kill and Document stop checks. The DB role check still runs
+when Docker is available.

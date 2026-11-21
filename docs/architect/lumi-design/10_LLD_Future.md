@@ -1,8 +1,9 @@
 # PHẠM VI THIẾT KẾ CHI TIẾT CỦA CÁC DỊCH VỤ CHƯA TRIỂN KHAI
 
-**Mã tài liệu:** LUMI-LLD-FUT-001 · **Trạng thái:** Chưa phê duyệt thiết kế chi tiết.
+**Mã tài liệu:** LUMI-LLD-FUT-001 · **Trạng thái:** Learning & Learner Intelligence chưa phê duyệt thiết kế chi tiết; **Document Service đã tách khỏi phạm vi chưa thiết kế (P0/P1 `IMPLEMENTED — VERIFIED`)**.
 
-Các dịch vụ Quản lý tài liệu, Học tập và Phân tích học tập chưa có triển khai phía máy chủ tại mốc đối chiếu. Vì vậy, hồ sơ chuẩn **không ban hành mô hình cơ sở dữ liệu vật lý, API hoặc cấu hình hạ tầng** cho các dịch vụ này.
+- **Document Service:** Đã phê duyệt kiến trúc và hợp đồng P0/P1 tại [ADR-002](../microservices-v1/ADR-002-document-service.md), [Document DESIGN](../microservices-v1/document/DESIGN.md), [Document API Contract](../microservices-v1/document/API_CONTRACT.md) và [CODEX_ORCHESTRATION](../microservices-v1/document/CODEX_ORCHESTRATION.md) (`P2` theo dõi tại [TASK-017I](../../../tasks/TASK-017I-document-p2-cloud-and-governance.md)).
+- **Học tập (Learning) và Phân tích học tập (Learner Intelligence):** Chưa có triển khai phía máy chủ tại mốc đối chiếu. Vì vậy, hồ sơ chuẩn **không ban hành mô hình cơ sở dữ liệu vật lý, API hoặc cấu hình hạ tầng** cho hai dịch vụ này.
 
 ## Nội dung được quyết định ở mức nghiệp vụ
 
