@@ -6,14 +6,18 @@ from uuid import uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
+from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from app.common.auth_dependencies import CurrentUser
 from app.common.config import settings
+from app.common.db import get_db
 from app.common.errors import AppError
 from app.common.outbox import OutboxEvent
 from app.common.pagination import Pagination
+from app.main import app
 from app.modules.classroom.models import (
     ClassMembership,
     EnrollmentMode,
@@ -103,6 +107,7 @@ def classroom(engine):
             "other_admin": account(Role.ADMIN, other_school_id),
             "teacher": account(Role.LECTURER, school_id),
             "teacher2": account(Role.LECTURER, school_id),
+            "other_teacher": account(Role.LECTURER, other_school_id),
             "student": account(Role.STUDENT, school_id),
             "student2": account(Role.STUDENT, school_id),
         }
@@ -170,6 +175,88 @@ def test_class_display_and_roster_follow_current_access(classroom):
     for actor in (users["student"], users["teacher2"], users["other_admin"]):
         with pytest.raises(AppError):
             service.list_members(klass.id, actor)
+
+
+def test_internal_document_access_tracks_current_assignments_and_class_status(
+    classroom, monkeypatch
+):
+    session, service, users = classroom
+    admin, teacher, assistant, student = (
+        users["admin"],
+        users["teacher"],
+        users["teacher2"],
+        users["student"],
+    )
+    course, room = _setup(service, users)
+    klass = _class(service, admin, course.id, teacher.id, room.id, mode=EnrollmentMode.MANUAL)
+    service.add_member(klass.id, admin, student.id)
+    service.set_teachers(
+        klass.id,
+        admin,
+        TeachingAssignmentsRequest(
+            primary_lecturer_id=teacher.id, assisting_lecturer_ids=[assistant.id]
+        ),
+    )
+    service_key = "test-only classroom service credential"
+    monkeypatch.setattr(settings, "internal_service_secret", SecretStr(service_key))
+    monkeypatch.setitem(app.dependency_overrides, get_db, lambda: session)
+
+    with TestClient(app, headers={"X-Service-Key": service_key}) as client:
+
+        def access(user_id, class_id=klass.id):
+            response = client.get(
+                f"/internal/v1/classes/{class_id}/access",
+                params={"user_id": str(user_id), "action": "manage_class_documents"},
+            )
+            assert response.status_code == 200
+            result = response.json()
+            assert result["class_id"] == str(class_id)
+            assert result["user_id"] == str(user_id)
+            assert result["action"] == "manage_class_documents"
+            return result
+
+        for actor, role in ((teacher, "PRIMARY"), (assistant, "ASSISTING")):
+            result = access(actor.id)
+            assert result["allowed"] is True
+            assert result["class_status"] == "ACTIVE"
+            assert result["teaching_role"] == role
+
+        for actor in (student, admin):
+            result = access(actor.id)
+            assert result["allowed"] is False
+            assert result["class_status"] == "ACTIVE"
+            assert result["teaching_role"] is None
+
+        for result in (
+            access(users["other_teacher"].id),
+            access(teacher.id, uuid4()),
+            access(uuid4()),
+        ):
+            assert result["allowed"] is False
+            assert "class_status" not in result
+            assert result["school_id"] is None
+
+        service.set_teachers(
+            klass.id, admin, TeachingAssignmentsRequest(primary_lecturer_id=teacher.id)
+        )
+        result = access(assistant.id)
+        assert result["allowed"] is False
+        assert result["class_status"] == "ACTIVE"
+
+        teacher_account = session.get(User, teacher.id)
+        teacher_account.status = UserStatus.LOCKED
+        session.flush()
+        result = access(teacher.id)
+        assert result["allowed"] is False
+        assert "class_status" not in result
+
+        teacher_account.status = UserStatus.ACTIVE
+        session.flush()
+        service.set_archived(klass.id, admin, archived=True)
+        result = access(teacher.id)
+        assert result["allowed"] is False
+        assert result["class_status"] == "ARCHIVED"
+        assert result["teaching_role"] is None
 
 
 def test_admin_only_assignments_manual_transfer_and_archive(classroom):

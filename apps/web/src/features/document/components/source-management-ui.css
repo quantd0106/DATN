@@ -132,6 +132,19 @@
   border: 1px solid #fde68a;
 }
 
+.lumi-source-badge-review {
+  background: #fde68a;
+  color: #78350f;
+  border: 1px solid #f59e0b;
+}
+
+.lumi-source-btn-accept {
+  color: #78350f;
+  background: #fffbeb;
+  border-color: #f59e0b;
+  white-space: nowrap;
+}
+
 .lumi-source-badge-failed {
   background: #fef2f2;
   color: #b91c1c;

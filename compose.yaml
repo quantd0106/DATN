@@ -100,17 +100,134 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+  document-db-init:
+    image: postgres:16-alpine
+    command: ["sh", "/init/init-document-db.sh"]
+    volumes:
+      - ./services/document/docker/init-document-db.sh:/init/init-document-db.sh:ro
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGDATABASE: ${POSTGRES_DB:-rag_course}
+      PGUSER: ${POSTGRES_USER:-rag_course}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-change-me-local-only}
+      DOCUMENT_DB_USER: ${DOCUMENT_DB_USER:-document_svc}
+      DOCUMENT_DB_PASSWORD: ${DOCUMENT_DB_PASSWORD:-document-change-me-local-only}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+  document-migrate:
+    image: ${DOCUMENT_IMAGE:-rag-course-document:local}
+    build:
+      context: .
+      dockerfile: services/document/Dockerfile
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    environment:
+      DOCUMENT_DATABASE_URL: ${DOCUMENT_DATABASE_URL:-postgresql+psycopg://document_svc:document-change-me-local-only@db:5432/rag_course}
+    depends_on:
+      db:
+        condition: service_healthy
+      document-db-init:
+        condition: service_completed_successfully
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+  document:
+    image: ${DOCUMENT_IMAGE:-rag-course-document:local}
+    build:
+      context: .
+      dockerfile: services/document/Dockerfile
+    environment:
+      DOCUMENT_DATABASE_URL: ${DOCUMENT_DATABASE_URL:-postgresql+psycopg://document_svc:document-change-me-local-only@db:5432/rag_course}
+      CORE_API_URL: ${CORE_API_URL:-http://core:8000}
+      INTERNAL_SERVICE_SECRET:
+      DOCUMENT_STORAGE_PATH: /var/lib/lumi-document
+      DOCUMENT_MAX_SIZE_BYTES: ${DOCUMENT_MAX_SIZE_BYTES:-20971520}
+      DOCUMENT_MAX_PAGES: ${DOCUMENT_MAX_PAGES:-300}
+      CORE_CLIENT_TIMEOUT_SECONDS: ${CORE_CLIENT_TIMEOUT_SECONDS:-3.0}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:3000"]}
+    ports:
+      - "127.0.0.1:${DOCUMENT_PORT:-8001}:8001"
+    volumes:
+      - document_data:/var/lib/lumi-document
+    depends_on:
+      db:
+        condition: service_healthy
+      document-migrate:
+        condition: service_completed_successfully
+      core:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health/ready', timeout=3)"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+  document-worker:
+    image: ${DOCUMENT_IMAGE:-rag-course-document:local}
+    build:
+      context: .
+      dockerfile: services/document/Dockerfile
+    command: ["python", "-m", "app.worker"]
+    environment:
+      DOCUMENT_DATABASE_URL: ${DOCUMENT_DATABASE_URL:-postgresql+psycopg://document_svc:document-change-me-local-only@db:5432/rag_course}
+      DOCUMENT_STORAGE_PATH: /var/lib/lumi-document
+      DOCUMENT_MAX_SIZE_BYTES: ${DOCUMENT_MAX_SIZE_BYTES:-20971520}
+      DOCUMENT_MAX_PAGES: ${DOCUMENT_MAX_PAGES:-300}
+      DOCUMENT_WORKER_LEASE_SECONDS: ${DOCUMENT_WORKER_LEASE_SECONDS:-300}
+      DOCUMENT_WORKER_POLL_SECONDS: ${DOCUMENT_WORKER_POLL_SECONDS:-1.0}
+    volumes:
+      - document_data:/var/lib/lumi-document
+    depends_on:
+      db:
+        condition: service_healthy
+      document-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
   web:
     build:
       context: ./apps/web
     environment:
       NEXT_PUBLIC_DATA_MODE: ${NEXT_PUBLIC_DATA_MODE:-live}
       CORE_API_URL: ${CORE_API_URL:-http://core:8000}
+      DOCUMENT_API_URL: ${DOCUMENT_API_URL:-http://document:8001}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
     ports:
       - "127.0.0.1:${WEB_PORT:-3000}:3000"
     depends_on:
       core:
         condition: service_healthy
+      document:
+        condition: service_healthy
 volumes:
   pgdata:
+  document_data:

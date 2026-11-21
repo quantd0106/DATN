@@ -5,7 +5,7 @@ import type { RouteDefinition } from '@/config/routes';
 import { routeHref } from '@/config/routes';
 import type { DocumentCapabilityPolicy, DocumentFormat, DocumentItem, ProcessingStatus, WorkspaceData } from '@/lib/domain';
 import { adapter } from '@/lib/data';
-import { documentFileError, documentFileSelection } from '@/lib/document-upload';
+import { documentFileError, documentFileSelection, documentUploadLimits } from '@/lib/document-upload';
 import { StatePanel, Icon, Dialog } from '@/components/ui';
 import '../library.css';
 
@@ -89,6 +89,7 @@ export function TeacherLibraryView({ data, reload }: Props) {
     startTransition(async () => {
       try {
         await adapter.document.uploadDocument({
+          file: selectedFile,
           name: selectedFile.name,
           size: selectedFile.size,
           type: selectedFile.type,
@@ -151,6 +152,7 @@ export function TeacherLibraryView({ data, reload }: Props) {
             <option value="READY">Sẵn sàng</option>
             <option value="PROCESSING">Đang xử lý</option>
             <option value="PENDING">Chờ xử lý</option>
+            <option value="NEEDS_REVIEW">Cần rà soát</option>
             <option value="FAILED">Xử lý thất bại</option>
           </select>
         </div>
@@ -240,6 +242,7 @@ export function TeacherLibraryView({ data, reload }: Props) {
                         <span className="badge info animate-pulse">Đang xử lý</span>
                       )}
                       {doc.processingStatus === 'PENDING' && <span className="badge warning">Chờ xử lý</span>}
+                      {doc.processingStatus === 'NEEDS_REVIEW' && <span className="badge warning">Cần rà soát</span>}
                       {doc.processingStatus === 'FAILED' && (
                         <>
                           <span className="badge danger" title={doc.processingError}>
@@ -341,7 +344,7 @@ export function TeacherLibraryView({ data, reload }: Props) {
             />
             <p id="ux-doc-file-help" className="lumi-library-file-hint">
               Hỗ trợ {capability?.allowedExtensions.join(', ') ?? 'chưa xác định'}.
-              {capability && ` Tối đa ${(capability.maxSizeBytes / 1024 / 1024).toFixed(0)} MB.`} Chọn tệp khác để thay thế.
+              {capability && ` ${documentUploadLimits(capability)}`} Chọn tệp khác để thay thế.
             </p>
             {selectedFile && (
               <div className="lumi-library-selected-file">

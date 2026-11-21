@@ -2,6 +2,7 @@ import { createLiveIntelligencePort } from './live-intelligence';
 import { createLiveIdentitySession } from './live-identity';
 import { createLiveCore } from './live-core';
 import { createLiveAccounts } from './live-accounts';
+import { createLiveDocument } from './live-document';
 import { createLiveClassroomAdminPort } from './live-classroom-admin';
 import { createUnavailablePracticeAuthoringPort } from './practice-authoring-unavailable';
 import { createUnavailableAssignmentPort } from './assignment-unavailable';
@@ -12,6 +13,7 @@ import { ApiError } from '../api/errors';
 const session = createLiveIdentitySession();
 const core = createLiveCore(session);
 const accounts = createLiveAccounts(session);
+const document = createLiveDocument(session, core.classroomReads);
 
 export const adapter: DataAdapter = {
   source: 'live',
@@ -26,36 +28,7 @@ export const adapter: DataAdapter = {
   social: core.social,
   calendar: core.calendar,
   notifications: core.notifications,
-  document: {
-    async previewClassSource() { throw new ApiError('UNAVAILABLE', 'Nguồn tài liệu chưa sẵn sàng. Vui lòng quay lại sau.', 503); },
-    async uploadDocument() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ tải lên tài liệu chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async uploadVersion() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ cập nhật phiên bản tài liệu chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async retryProcessing() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ xử lý tài liệu chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async shareDocument() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ chia sẻ tài liệu chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async revokeShare() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ thu hồi chia sẻ tài liệu chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async deleteDocument() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ xóa tài liệu chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async saveNote() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ lưu ghi chú chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async deleteNote() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ xóa ghi chú chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async toggleBookmark() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ đánh dấu tài liệu chưa sẵn sàng trên máy chủ.', 503);
-    },
-  },
+  document: document.document,
   tutor: {
     async updateConfig() {
       throw new ApiError('UNAVAILABLE', 'Dịch vụ cấu hình trợ lý Lumi chưa sẵn sàng trên máy chủ.', 503);
@@ -96,5 +69,7 @@ export const adapter: DataAdapter = {
       throw new ApiError('UNAVAILABLE', 'Dịch vụ rà soát câu hỏi luyện tập chưa sẵn sàng trên máy chủ.', 503);
     },
   },
-  workspace: core.workspace,
+  workspace: {
+    load: (routeId, params, signal) => document.loadWorkspace(routeId, params, signal) ?? core.workspace.load(routeId, params, signal),
+  },
 };

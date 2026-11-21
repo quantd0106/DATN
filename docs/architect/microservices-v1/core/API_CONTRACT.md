@@ -69,7 +69,7 @@ Chỉ Admin cùng trường tạo môn/lớp hành chính/lớp môn học, phâ
 
 Các mutation quản trị quan trọng yêu cầu `X-Admin-Reason` là một trong `ADMIN_INTERVENTION`, `POLICY_VIOLATION`, `USER_REQUEST`; audit chỉ lưu reason_code hợp lệ, không lưu nguyên văn tự do. Roster và membership dùng constraint, version và transaction để chống trùng/mất lịch sử; HTTP Idempotency-Key vẫn dùng RAM một process theo phần Auth, không bảo đảm replay response qua restart. Chuyển lớp hiện có mốc hiệu lực khi transaction ghi dữ liệu; Learning xử lý attempt/bài nộp dở theo hợp đồng riêng chưa triển khai. School row được tạo từ school_id đã gán cho Admin; hệ thống không tự mapping trường cho user legacy.
 
-Access action hiện gồm `read_class_content`, `participate_current_class`, `moderate_class_content`, `manage_class_calendar`, `read_own_history`, `read_document_source`, `use_ai_tutor`, `grade_submitted_work`. Đọc lịch sử cá nhân không cấp quyền xem nội dung lớp mới hoặc mở nguồn bị thu hồi; consumer vẫn phải xác minh chủ tài nguyên/Document grant/Learning assignment. Action sai trả validation error; DB/service không xác minh được trả lỗi hạ tầng và consumer fail closed. Khi từ chối, access-check trả thêm `class_status` nếu lớp tồn tại và cùng trường với user (consumer phân biệt lớp archived → 409 với lớp không thấy/khác trường → 404-che); trường hợp không tìm thấy hoặc khác trường vẫn bỏ `class_status`. Consumer ghi dữ liệu có thể yêu cầu khóa chia sẻ hàng lớp (`FOR SHARE`) trong transaction ghi của mình qua tùy chọn lock của check, để mutation Classroom đang giữ `FOR UPDATE` kịp commit trước khi quyết định quyền — không tự sửa bảng Classroom.
+Access action hiện gồm `read_class_content`, `participate_current_class`, `moderate_class_content`, `manage_class_calendar`, `read_own_history`, `read_document_source`, `use_ai_tutor`, `grade_submitted_work` và `manage_class_documents`. Action `manage_class_documents` có trạng thái `IMPLEMENTED — VERIFIED` (TASK-017A) theo [ADR-002](../ADR-002-document-service.md) và áp dụng cho G3 Document (lớp `ACTIVE`, cùng `school_id`, actor là `LECTURER` đang có phân công `PRIMARY` hoặc `ASSISTING`; không mượn `manage_class_calendar`). Đọc lịch sử cá nhân không cấp quyền xem nội dung lớp mới hoặc mở nguồn bị thu hồi; consumer vẫn phải xác minh chủ tài nguyên/Document grant/Learning assignment. Action sai trả validation error; DB/service không xác minh được trả lỗi hạ tầng và consumer fail closed. Khi từ chối, access-check trả thêm `class_status` nếu lớp tồn tại và cùng trường với user (consumer phân biệt lớp archived → 409 với lớp không thấy/khác trường → 404-che); trường hợp không tìm thấy hoặc khác trường vẫn bỏ `class_status`. Consumer ghi dữ liệu có thể yêu cầu khóa chia sẻ hàng lớp (`FOR SHARE`) trong transaction ghi của mình qua tùy chọn lock của check, để mutation Classroom đang giữ `FOR UPDATE` kịp commit trước khi quyết định quyền — không tự sửa bảng Classroom.
 
 **Còn chờ tích hợp:** xử lý pending attempt theo Learning, policy retention/fulfillment, mapping School cho tài khoản cũ và HTTP idempotency bền vững cho các Classroom mutations ngoài import. Import Student CSV/XLSX đã có preview/confirm bền vững, tùy chọn append roster; Notification worker/recipient đã triển khai tại TASK-012. Những phần còn lại chưa được tính là Core G2 hoàn tất.
 
@@ -155,7 +155,23 @@ Mọi route trên dùng Bearer với role/status hiện hành. Ngoài role ADMIN
 
 **Public boundaries:** Identity `admin_actor`, `admin_update_user_roles`, `admin_check_student_import`, `admin_list_data_requests`, `admin_get_data_request`, `admin_resolve_data_request` trả DTO; hỗ trợ `session=` caller sở hữu. Classroom `admin_preview_roster(...,session,lock=False) -> RosterImportSnapshot` và `admin_append_roster(...,expected_roster_version,actor_id,correlation_id,reason_code,session)` không commit. Administration không import model/repository Identity/Classroom hoặc SQL sang service khác.
 
-Credential nội bộ hiện dùng header `X-Service-Key` so với `INTERNAL_SERVICE_SECRET`, cấp scope `core:check_access`. Không dùng Bearer JWT của người dùng thay service credential; `user_id` chỉ được tin sau khi xác thực service, và endpoint vẫn phải kiểm tra quyền hiện hành/action.
+Credential nội bộ hiện dùng header `X-Service-Key` so với `INTERNAL_SERVICE_SECRET`, cấp scope `core:check_access` và `core:introspect_auth`. Không dùng Bearer JWT của người dùng thay service credential; `user_id` chỉ được tin sau khi xác thực service, và endpoint vẫn phải kiểm tra quyền hiện hành/action.
+
+<a name="internal-auth-introspection-proposed--ready-for-implementation-task-017a"></a>
+
+### Internal Auth Introspection — IMPLEMENTED — VERIFIED (TASK-017A)
+
+Ngày 2026-11-21, các ca Core cho quyền tài liệu theo phân công/trạng thái lớp và luồng login → introspect → logout-all đạt **`25 passed in 6.69s` (0 skipped)** trên PostgreSQL 16 với Docker Desktop 29.7.2 (linux). Lần chạy unit/contract trước đó đạt `132 passed, 1 skipped` và `100.00%` statement/branch coverage cho `app.modules.identity.public`. Xem [TASK-017A](../../../../tasks/TASK-017A-core-document-prereqs.md).
+
+- **Endpoint:** `POST /internal/v1/auth/introspect` (chỉ nội bộ, không mở qua Web proxy; yêu cầu `X-Service-Key` với scope `core:introspect_auth`, `Cache-Control: no-store`).
+- **Mục đích:** Theo [ADR-002](../ADR-002-document-service.md), Core **không chia sẻ `SECRET_KEY` HS256** cho Document hoặc service khác; service ngoài Core xác thực Bearer JWT qua endpoint này.
+- **Request JSON:** `{"token": "<bearer_jwt>"}` (tuyệt đối không truyền qua query/URL hoặc ghi log).
+- **Behavior & Response:**
+  - Core kiểm tra chữ ký + `exp`/`iat` + DB `users.status == "ACTIVE"` + `users.session_version == claims.session_version`.
+  - Hợp lệ → `200 {"active": true, "user": {"id": "UUID", "status": "ACTIVE", "roles": ["..."], "school_id": "UUID|null", "display_name": "str|null"}, "exp": 1700000000}`.
+  - Không hợp lệ / hết hạn / sai chữ ký / `LOCKED` / `PENDING_VERIFICATION` / `session_version` cũ (sau `logout-all`, đổi mật khẩu, đổi vai trò) → `200 {"active": false}`.
+  - Thiếu/sai `X-Service-Key` → `401`; thiếu `INTERNAL_SERVICE_SECRET` hoặc `SECRET_KEY` hoặc lỗi DB → `503` (consumer bắt buộc **fail closed**).
+  - **Không cache ở MVP/P1** để bảo đảm thu hồi phiên có hiệu lực tức thì.
 
 Python public interface Identity cho consumer Core được đặc tả tại [Core README](../../../../services/core/README.md#identity-public-interface-và-data-requests-task-004). Admin mutation bắt buộc actor/correlation ID, trả DTO thay ORM và ghi audit cùng transaction; consumer không import model/repository Identity hoặc ghi audit trùng.
 

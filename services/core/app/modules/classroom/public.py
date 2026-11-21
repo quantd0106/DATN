@@ -152,7 +152,10 @@ def check_class_action(
             allowed = active_class and (current_student or current_teacher)
         elif action == ClassAccessAction.MODERATE_CLASS_CONTENT:
             allowed = active_class and (current_teacher or is_admin)
-        elif action == ClassAccessAction.MANAGE_CLASS_CALENDAR:
+        elif action in (
+            ClassAccessAction.MANAGE_CLASS_CALENDAR,
+            ClassAccessAction.MANAGE_CLASS_DOCUMENTS,
+        ):
             allowed = active_class and current_teacher
         elif action == ClassAccessAction.READ_OWN_HISTORY:
             allowed = "STUDENT" in roles and repository.has_membership_history(class_id, user_id)
@@ -160,8 +163,11 @@ def check_class_action(
             allowed = current_student or current_teacher
         elif action == ClassAccessAction.USE_AI_TUTOR:
             allowed = active_class and current_student
-        else:  # GRADE_SUBMITTED_WORK; Learning checks the assigned submission separately.
+        elif action == ClassAccessAction.GRADE_SUBMITTED_WORK:
+            # Learning checks the assigned submission separately.
             allowed = active_class and current_teacher
+        else:
+            allowed = False
 
         if not allowed:
             return denied

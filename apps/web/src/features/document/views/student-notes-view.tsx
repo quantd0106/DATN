@@ -110,7 +110,10 @@ export function StudentNotesView({ data, reload }: Props) {
     startTransition(async () => {
       try {
         if (deleteTarget.kind === 'note') await adapter.document.deleteNote(deleteTarget.item.id);
-        else await adapter.document.toggleBookmark(deleteTarget.item.documentId, deleteTarget.item.classId);
+        else {
+          const bookmark = deleteTarget.item;
+          await adapter.document.toggleBookmark(bookmark.documentId, bookmark.classId, bookmark.locator, bookmark.version, bookmark.pageNumber);
+        }
         setDeleteTarget(null);
         reload();
       } catch (err) {

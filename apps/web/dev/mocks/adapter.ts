@@ -1,4 +1,5 @@
 import { documentFileError } from '../../src/lib/document-upload';
+import { documentVersionState } from '../../src/lib/document-versions';
 import { createIntelligencePort } from './intelligence';
 import { auditedPort, readPreviewAudit } from './audit';
 import { createDataRequestReview } from './data-request-review';
@@ -97,6 +98,23 @@ let notifications: NotificationItem[] = structuredClone(initialNotifications);
 // Stage 2 stateful mock stores:
 let documents: DocumentItem[] = structuredClone(mockDocuments);
 let documentVersions: Record<string, DocumentVersion[]> = structuredClone(mockDocumentVersions);
+const uploadedDocumentFiles = new Map<string, { blob: Blob; filename: string }>();
+
+function updateMockServingVersion(doc: DocumentItem, versions: DocumentVersion[]) {
+  const { latest, serving } = documentVersionState(versions);
+  if (latest) {
+    doc.processingStatus = latest.status;
+    doc.processingError = latest.errorMessage;
+  }
+  if (!serving) return;
+  doc.currentVersion = serving.versionNumber;
+  doc.updatedAt = new Date().toISOString();
+  for (const version of versions) {
+    version.isServing = version === serving;
+    version.isSuperseded = version.status === 'READY' && version !== serving;
+  }
+  for (const grant of documentGrants[doc.id] ?? []) grant.servingVersion = serving.versionNumber;
+}
 let documentGrants: Record<string, ClassDocumentGrant[]> = structuredClone(mockDocumentGrants);
 let personalNotes: PersonalNoteItem[] = structuredClone(initialPersonalNotes);
 let bookmarks: BookmarkItem[] = structuredClone(initialBookmarks);
@@ -836,6 +854,17 @@ export const adapter: DataAdapter = {
       if (!doc || !content || (content.viewingVersion ?? content.servingVersion) !== input.version || !content.pageContents?.length) throw new ApiError('UNAVAILABLE', 'Nội dung đọc của phiên bản này chưa sẵn sàng.', 503);
       return { documentId: doc.id, classId: input.classId, title: doc.title, version: input.version, totalPages: content.totalPages, pages: structuredClone(content.pageContents) };
     },
+    async downloadClassDocument(classId, documentId, version) {
+      const user = signedIn();
+      const grant = (documentGrants[documentId] ?? []).find(item => item.classId === classId && item.isShared);
+      const selected = version ?? grant?.servingVersion;
+      if (selected === undefined || !previewContext.sourceAccessible(user.id, classId, documentId, selected)) {
+        throw new ApiError('FORBIDDEN', 'Bạn hiện không có quyền tải nguồn tài liệu này.', 403);
+      }
+      const file = uploadedDocumentFiles.get(`${documentId}:${selected}`);
+      if (!file) throw new ApiError('UNAVAILABLE', 'Tệp gốc chưa khả dụng trong bản xem trước.', 503);
+      return file;
+    },
     async uploadDocument(file) {
       const user = signedIn();
       if (!user.roles.includes('LECTURER')) {
@@ -849,9 +878,6 @@ export const adapter: DataAdapter = {
       const ext = '.' + file.name.split('.').pop()?.toLowerCase();
       if (!documentCapabilityPolicy.allowedExtensions.includes(ext)) {
         throw new ApiError('VALIDATION_ERROR', `Định dạng tệp ${ext} không được hỗ trợ. Vui lòng chọn PDF, PPTX, DOCX, TXT hoặc MD.`);
-      }
-      if (file.size > documentCapabilityPolicy.maxSizeBytes) {
-        throw new ApiError('VALIDATION_ERROR', 'Kích thước tệp vượt quá giới hạn 50MB cho phép.');
       }
       const format: DocumentFormat = ext === '.pdf' ? 'PDF' : ext === '.pptx' ? 'PPTX' : ext === '.docx' ? 'DOCX' : ext === '.txt' ? 'TXT' : 'MD';
       const docId = 'doc-' + crypto.randomUUID();
@@ -873,6 +899,7 @@ export const adapter: DataAdapter = {
       documents.unshift(newDoc);
       documentVersions[docId] = [
         {
+          id: crypto.randomUUID(),
           versionNumber: 1,
           filename: file.name,
           fileSizeFormatted: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
@@ -881,6 +908,7 @@ export const adapter: DataAdapter = {
           isServing: true,
         },
       ];
+      if (file.file) uploadedDocumentFiles.set(`${docId}:1`, { blob: file.file, filename: file.name });
       documentGrants[docId] = [];
       return structuredClone(newDoc);
     },
@@ -904,30 +932,35 @@ export const adapter: DataAdapter = {
       const maxVer = vers.length > 0 ? Math.max(...vers.map(v => v.versionNumber)) : doc.currentVersion;
       const nextVer = maxVer + 1;
       const isFailed = file.name.toLowerCase().includes('draft') || file.name.toLowerCase().includes('fail');
+      const status = isFailed ? 'FAILED' : file.name.toLowerCase().includes('review') ? 'NEEDS_REVIEW' : 'READY';
       const version: DocumentVersion = {
+        id: crypto.randomUUID(),
         versionNumber: nextVer,
         filename: file.name,
         fileSizeFormatted: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
         uploadedAt: 'Vừa xong',
-        status: isFailed ? 'FAILED' : 'READY',
+        status,
         errorMessage: isFailed ? 'Lỗi phân tích cú pháp font vector tại trang 4.' : undefined,
-        isServing: !isFailed,
+        isServing: status === 'READY',
       };
-      if (!isFailed) {
-        for (const v of vers) {
-          v.isServing = false;
-        }
-        doc.currentVersion = nextVer;
-        doc.updatedAt = new Date().toISOString();
-        const grants = documentGrants[documentId] ?? [];
-        for (const g of grants) {
-          g.servingVersion = nextVer;
-        }
-      }
       documentVersions[documentId] = [version, ...vers];
+      updateMockServingVersion(doc, documentVersions[documentId]);
+      if (file.file) uploadedDocumentFiles.set(`${documentId}:${nextVer}`, { blob: file.file, filename: file.name });
       return structuredClone(version);
     },
-    async retryProcessing(documentId, versionNumber) {
+    async acceptVersion(documentId, versionId) {
+      const user = signedIn();
+      const doc = documents.find(item => item.id === documentId && item.ownerId === user.id);
+      if (!doc || !user.roles.includes('LECTURER')) throw new ApiError('NOT_FOUND', 'Tài liệu không tồn tại.', 404);
+      const versions = documentVersions[documentId] ?? [];
+      const version = versions.find(item => item.id === versionId);
+      if (!version) throw new ApiError('NOT_FOUND', 'Không tìm thấy phiên bản tài liệu.', 404);
+      if (version.status !== 'NEEDS_REVIEW') throw new ApiError('CONFLICT', 'Phiên bản không ở trạng thái cần rà soát.', 409);
+      version.status = 'READY';
+      updateMockServingVersion(doc, versions);
+      return structuredClone(version);
+    },
+    async retryProcessing(documentId, versionNumber, versionId) {
       const user = signedIn();
       const doc = documents.find(d => d.id === documentId);
       if (!doc) throw new ApiError('NOT_FOUND', 'Tài liệu không tồn tại.', 404);
@@ -935,23 +968,12 @@ export const adapter: DataAdapter = {
         throw new ApiError('FORBIDDEN', 'Chỉ chủ sở hữu mới có quyền thao tác trên tài liệu này.', 403);
       }
       const vers = documentVersions[documentId] ?? [];
-      const targetVer = versionNumber !== undefined ? vers.find(v => v.versionNumber === versionNumber) : [...vers].sort((a,b) => b.versionNumber-a.versionNumber)[0];
+      const targetVer = versionId ? vers.find(v => v.id === versionId) : versionNumber !== undefined ? vers.find(v => v.versionNumber === versionNumber) : documentVersionState(vers).latest;
       if (!targetVer) throw new ApiError('NOT_FOUND', 'Không tìm thấy phiên bản tài liệu.', 404);
       targetVer.status = 'READY';
       targetVer.errorMessage = undefined;
 
-      // Consistent single serving version among READY versions:
-      const readyVersions = vers.filter(v => v.status === 'READY');
-      const maxReadyVer = Math.max(...readyVersions.map(v => v.versionNumber));
-      for (const v of vers) {
-        v.isServing = (v.versionNumber === maxReadyVer);
-      }
-      doc.currentVersion = maxReadyVer;
-      doc.processingStatus = 'READY';
-      const grants = documentGrants[documentId] ?? [];
-      for (const g of grants) {
-        g.servingVersion = maxReadyVer;
-      }
+      updateMockServingVersion(doc, vers);
       return structuredClone(doc);
     },
     async shareDocument(documentId, classIds) {
@@ -1024,13 +1046,17 @@ export const adapter: DataAdapter = {
       doc.sharedClasses = existing.filter(g => g.isShared).map(g => ({ classId: g.classId, className: g.className, grantedAt: g.grantedAt ?? 'Hôm nay' }));
       doc.sharedClassCount = doc.sharedClasses.length;
     },
-    async deleteDocument(documentId) {
+    async deleteDocument(documentId, options) {
       const user = signedIn();
       const doc = documents.find(d => d.id === documentId);
       if (!doc) throw new ApiError('NOT_FOUND', 'Tài liệu không tồn tại.', 404);
       if (doc.ownerId !== user.id) {
         throw new ApiError('FORBIDDEN', 'Chỉ chủ sở hữu mới có quyền xóa tài liệu nguồn.', 403);
       }
+      if ((documentGrants[documentId] ?? []).some(grant => grant.isShared) && !options?.confirmMultiClass) {
+        throw new ApiError('CONFLICT', 'Hãy xác nhận xóa tài liệu đang được chia sẻ.', 409);
+      }
+      for (const version of documentVersions[documentId] ?? []) uploadedDocumentFiles.delete(`${documentId}:${version.versionNumber}`);
       documents = documents.filter(d => d.id !== documentId);
       delete documentVersions[documentId];
       delete documentGrants[documentId];
@@ -1098,7 +1124,7 @@ export const adapter: DataAdapter = {
       }
       personalNotes = personalNotes.filter(n => n.id !== noteId);
     },
-    async toggleBookmark(documentId, classId, locator, version) {
+    async toggleBookmark(documentId, classId, locator, version, pageNumber) {
       const user = signedIn();
       if (!user.roles.includes('STUDENT')) {
         throw new ApiError('FORBIDDEN', 'Chỉ học sinh mới có dấu trang cá nhân.', 403);
@@ -1117,7 +1143,7 @@ export const adapter: DataAdapter = {
         return { bookmarked: false };
       }
       const capturedVersion = version ?? grant.servingVersion ?? doc.currentVersion;
-      const pageNum = locator?.match(/\d+/)?.[0] ? parseInt(locator.match(/\d+/)![0], 10) : 1;
+      const pageNum = pageNumber ?? (locator?.match(/\d+/)?.[0] ? parseInt(locator.match(/\d+/)![0], 10) : 1);
       const newBm: BookmarkItem = {
         id: 'bm-' + crypto.randomUUID(),
         userId: user.id,

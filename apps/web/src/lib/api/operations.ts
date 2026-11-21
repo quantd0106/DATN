@@ -1,5 +1,5 @@
-// This allowlist contains only Core operations documented in the current API contract.
-export const operations = {
+// Public operations from the Core and Document API contracts.
+const coreOperations = {
   login: ['POST', '/auth/login'], refresh: ['POST', '/auth/refresh'], logout: ['POST', '/auth/logout'], logoutAll: ['POST', '/auth/logout-all'],
   activate: ['POST', '/auth/activate'], verifyEmail: ['POST', '/auth/verify-email'], forgot: ['POST', '/auth/password/forgot'], reset: ['POST', '/auth/password/reset'],
   me: ['GET', '/users/me'], updateProfile: ['PATCH', '/users/me'], dataRequests: ['GET', '/users/me/data-requests'], createDataRequest: ['POST', '/users/me/data-requests'],
@@ -29,7 +29,41 @@ export const operations = {
   adminArchiveClass: ['POST', '/admin/classes/:classId/archive'], adminRestoreClass: ['POST', '/admin/classes/:classId/restore'],
 } as const;
 
+const documentOperations = {
+  documentPolicy: ['GET', '/documents/policy'],
+  documents: ['GET', '/documents'],
+  createDocument: ['POST', '/documents'],
+  documentDetail: ['GET', '/documents/:documentId'],
+  updateDocument: ['PATCH', '/documents/:documentId'],
+  deleteDocument: ['DELETE', '/documents/:documentId'],
+  uploadDocumentVersion: ['POST', '/documents/:documentId/versions'],
+  acceptDocumentVersion: ['POST', '/documents/:documentId/versions/:versionId/accept'],
+  retryDocumentVersion: ['POST', '/documents/:documentId/versions/:versionId/retry'],
+  grantClassDocument: ['POST', '/classes/:classId/documents/grants'],
+  revokeClassDocument: ['DELETE', '/classes/:classId/documents/grants/:documentId'],
+  classDocuments: ['GET', '/classes/:classId/documents'],
+  classDocumentReader: ['GET', '/classes/:classId/documents/:documentId/reader'],
+  classDocumentDownload: ['GET', '/classes/:classId/documents/:documentId/download'],
+  myNotes: ['GET', '/users/me/notes'],
+  createClassNote: ['POST', '/classes/:classId/notes'],
+  updateNote: ['PATCH', '/notes/:noteId'],
+  deleteNote: ['DELETE', '/notes/:noteId'],
+  myBookmarks: ['GET', '/users/me/bookmarks'],
+  toggleClassBookmark: ['POST', '/classes/:classId/bookmarks/toggle'],
+} as const;
+
+export const operations = { ...coreOperations, ...documentOperations };
 export type OperationId = keyof typeof operations;
+export type UpstreamService = 'core' | 'document';
+
+export function operationUpstream(id: OperationId): UpstreamService {
+  return Object.hasOwn(documentOperations, id) ? 'document' : 'core';
+}
+
+export function operationTimeoutMs(id: OperationId): number {
+  return id === 'createDocument' || id === 'uploadDocumentVersion' || id === 'classDocumentDownload' ? 60_000 : 15_000;
+}
+
 export const successStatus: Record<OperationId, number> = {
   login: 200, refresh: 200, logout: 204, logoutAll: 204, activate: 204, verifyEmail: 200, forgot: 200, reset: 204,
   me: 200, updateProfile: 200, dataRequests: 200, createDataRequest: 201, createStudent: 201, issueStudentCode: 200,
@@ -48,7 +82,15 @@ export const successStatus: Record<OperationId, number> = {
   adminSyncEnrollment: 200, adminAddClassMember: 201, adminEndClassMember: 204, adminTransferClassMember: 200,
   adminSetManualRoster: 200,
   adminArchiveClass: 200, adminRestoreClass: 200,
+  documentPolicy: 200, documents: 200, createDocument: 201, documentDetail: 200, updateDocument: 200,
+  deleteDocument: 204, uploadDocumentVersion: 201, acceptDocumentVersion: 200, retryDocumentVersion: 200,
+  grantClassDocument: 201, revokeClassDocument: 204, classDocuments: 200, classDocumentReader: 200, classDocumentDownload: 200,
+  myNotes: 200, createClassNote: 201, updateNote: 200, deleteNote: 204, myBookmarks: 200, toggleClassBookmark: 200,
 };
+
+export function isExpectedSuccessStatus(id: OperationId, status: number): boolean {
+  return status === successStatus[id] || (id === 'grantClassDocument' && status === 200);
+}
 
 export const operationQueryParameters: Partial<Record<OperationId, readonly string[]>> = {
   dataRequests: ['cursor', 'limit'], classes: ['cursor', 'limit'], classMembers: ['cursor', 'limit'],
@@ -56,6 +98,11 @@ export const operationQueryParameters: Partial<Record<OperationId, readonly stri
   calendarEvents: ['cursor', 'limit', 'from', 'to'], notifications: ['cursor', 'limit'],
   adminAuditEvents: ['cursor', 'limit', 'actor_id', 'action', 'since', 'until'],
   adminDataRequests: ['cursor', 'limit'], adminUsers: ['cursor', 'limit', 'user_id', 'account_type', 'role', 'status', 'search', 'username_missing'],
+  documents: ['cursor', 'limit', 'status', 'format', 'search'],
+  deleteDocument: ['confirm_multi_class'],
+  classDocuments: ['cursor', 'limit', 'format', 'search'],
+  classDocumentReader: ['version'], classDocumentDownload: ['version'],
+  myNotes: ['cursor', 'limit', 'class_id', 'document_id'], myBookmarks: ['cursor', 'limit', 'class_id'],
 };
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

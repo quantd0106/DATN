@@ -1,5 +1,9 @@
 import type {DocumentCapabilityPolicy} from './domain';
 export type UploadFile = {name:string;size:number;type:string};
+export function documentUploadLimits(policy: DocumentCapabilityPolicy): string {
+  const size = `Tối đa ${(policy.maxSizeBytes / 1024 / 1024).toFixed(0)} MB`;
+  return policy.maxPages ? `${size} · tối đa ${policy.maxPages} trang.` : `${size}.`;
+}
 export function documentFileError(file:UploadFile|null|undefined, policy?:DocumentCapabilityPolicy):string|null {
   if(!policy)return 'Chính sách tải lên tài liệu chưa sẵn sàng trên hệ thống.';
   if(!file)return 'Vui lòng chọn tệp tin tải lên.';

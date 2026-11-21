@@ -190,10 +190,11 @@ export type HistoryClassData = {
 
 // Stage 2: Document, Library, Reader, Notes and AI Tutor View Models
 export type DocumentFormat = 'PDF' | 'PPTX' | 'DOCX' | 'TXT' | 'MD';
-export type ProcessingStatus = 'READY' | 'PROCESSING' | 'PENDING' | 'FAILED';
+export type ProcessingStatus = 'READY' | 'PROCESSING' | 'PENDING' | 'NEEDS_REVIEW' | 'FAILED';
 
 export type DocumentCapabilityPolicy = {
-  maxSizeBytes: number; // e.g. 52428800 (50MB)
+  maxSizeBytes: number;
+  maxPages?: number;
   allowedExtensions: string[];
   allowedMimeTypes: string[];
 };
@@ -222,6 +223,7 @@ export type DocumentItem = {
 };
 
 export type DocumentVersion = {
+  id?: string;
   versionNumber: number;
   filename: string;
   fileSizeFormatted: string;
@@ -229,6 +231,8 @@ export type DocumentVersion = {
   status: ProcessingStatus;
   errorMessage?: string;
   isServing?: boolean;
+  isSuperseded?: boolean;
+  reviewSummary?: { reviewItemCount: number; flagCodes: string[]; flaggedPages: number[] };
 };
 
 export type ClassDocumentGrant = {
@@ -239,6 +243,7 @@ export type ClassDocumentGrant = {
   grantedAt?: string;
   servingVersion: number;
   classStatus?: ClassSummary['status'];
+  canRevoke?: boolean;
 };
 
 export type PersonalNoteItem = {
@@ -250,7 +255,7 @@ export type PersonalNoteItem = {
   version?: number;
   classId: string;
   className: string;
-  classStatus: 'ACTIVE' | 'ARCHIVED';
+  classStatus?: ClassSummary['status'];
   locator: string; // e.g. "Trang 3", "Slide 5", "Mục 2"
   pageNumber?: number;
   sourceQuote?: string;
@@ -269,6 +274,7 @@ export type BookmarkItem = {
   version?: number;
   classId: string;
   className: string;
+  classStatus?: ClassSummary['status'];
   locator: string;
   pageNumber?: number;
   createdAt: string;

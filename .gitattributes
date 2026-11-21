@@ -1,1 +1,2 @@
 services/rag/tests/fixtures/generated/*.pdf binary
+*.sh text eol=lf

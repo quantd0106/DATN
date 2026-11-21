@@ -73,15 +73,17 @@ export interface DataAdapter {
   };
   document: {
     previewClassSource(input: {classId: string; documentId: string; version: number}): Promise<ClassSourcePreview>;
-    uploadDocument(file: { name: string; size: number; type: string; title: string; description?: string }): Promise<DocumentItem>;
-    uploadVersion(documentId: string, file: { name: string; size: number; type: string }): Promise<DocumentVersion>;
-    retryProcessing(documentId: string, versionNumber?: number): Promise<DocumentItem>;
+    uploadDocument(file: { name: string; size: number; type: string; file?: File | Blob; title: string; description?: string }): Promise<DocumentItem>;
+    uploadVersion(documentId: string, file: { name: string; size: number; type: string; file?: File | Blob }): Promise<DocumentVersion>;
+    acceptVersion(documentId: string, versionId: string): Promise<DocumentVersion>;
+    retryProcessing(documentId: string, versionNumber?: number, versionId?: string): Promise<DocumentItem>;
+    downloadClassDocument(classId: string, documentId: string, version?: number): Promise<{ blob: Blob; filename?: string }>;
     shareDocument(documentId: string, classIds: string[]): Promise<void>;
     revokeShare(documentId: string, classId: string): Promise<void>;
-    deleteDocument(documentId: string): Promise<void>;
+    deleteDocument(documentId: string, options?: { confirmMultiClass?: boolean }): Promise<void>;
     saveNote(input: { id?: string; documentId: string; classId: string; locator: string; noteText: string; version?: number; pageNumber?: number; sourceQuote?: string }): Promise<PersonalNoteItem>;
     deleteNote(noteId: string): Promise<void>;
-    toggleBookmark(documentId: string, classId: string, locator?: string, version?: number): Promise<{ bookmarked: boolean }>;
+    toggleBookmark(documentId: string, classId: string, locator?: string, version?: number, pageNumber?: number): Promise<{ bookmarked: boolean }>;
   };
   tutor: {
     updateConfig(classId: string, instructions: string): Promise<TeacherTutorInstructionConfig>;

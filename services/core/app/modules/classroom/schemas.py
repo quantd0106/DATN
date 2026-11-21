@@ -21,6 +21,7 @@ class ClassAccessAction(StrEnum):
     PARTICIPATE_CURRENT_CLASS = "participate_current_class"
     MODERATE_CLASS_CONTENT = "moderate_class_content"
     MANAGE_CLASS_CALENDAR = "manage_class_calendar"
+    MANAGE_CLASS_DOCUMENTS = "manage_class_documents"
     READ_OWN_HISTORY = "read_own_history"
     READ_DOCUMENT_SOURCE = "read_document_source"
     USE_AI_TUTOR = "use_ai_tutor"

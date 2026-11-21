@@ -5,12 +5,15 @@
 - **Business Rules liên quan:** `C1`, `C2`, `C3`, `C4`, `C5`, `C6`, `D6`, `E5`, `F3`, `H4`, `H5`, `QAS-06`
 - **Tài liệu căn cứ:** [BUSINESS_RULES.md](../docs/architect/BUSINESS_RULES.md#c-ai-tutor), [QUALITY_ATTRIBUTES.md](../docs/architect/microservices-v1/QUALITY_ATTRIBUTES.md#qas-06--chất-lượng-rag-rag-quality), [ARCHITECTURE.md](../docs/architect/microservices-v1/ARCHITECTURE.md)
 
-## Rà soát đồng bộ — 2026-10-16
+## Rà soát đồng bộ — 2026-11-21
 
-**Hiện trạng:** chưa có AI Service/RAG. Model và schema bên dưới là draft cần thiết kế, chưa chốt provider/vector store/queue hoặc hợp đồng HTTP Document.
+**Hiện trạng:** Chưa có AI Service HTTP/runtime hoàn chỉnh (chỉ có thư viện RAG cục bộ tại `services/rag/`); hợp đồng giao tiếp giữa Document Service và AI Service đã được chốt ở mức `DESIGN BASELINE` tại [ADR-002](../docs/architect/microservices-v1/ADR-002-document-service.md), [Document API Contract](../docs/architect/microservices-v1/document/API_CONTRACT.md) và [TASK-017F](TASK-017F-doc-ai-event-and-report-sync.md).
 
-**Cần sửa/bổ sung:**
-- Sau Core G2, chốt quyền action với TASK-008 và source/version/grant với TASK-017. Core allowed không thay Document grant; kiểm tra trước retrieval/prompt và khi mở citation, fail closed khi dependency lỗi.
+**Cần sửa/bổ sung theo ADR-002:**
+- **Ranh giới IDP vs Lập chỉ mục:** Document Service kết thúc ở `SUCCESS` (Canonical artifact đã lưu bền vững và phát outbox event `document.version.published`). AI Service tiêu thụ bất đồng bộ `document.version.published`, gọi `GET /internal/v1/documents/{document_id}/versions/{version_id}/canonical` (`X-Service-Key`) để tự chunking, nhúng vector và lập chỉ mục BM25. **Chỉ phục vụ truy hồi phiên bản mới khi bundle chỉ mục hoàn chỉnh (`complete: true`, đúng `QAS-10 / FT-05`).**
+- **Canonical schema thực tế:** `services/rag/idp/canonical.py` hiện xuất `idp-canonical-1`, trong khi `services/rag/retrieval/canonical_harness.py` hỗ trợ cả `idp-canonical-1` và `idp-canonical-2`. AI Service đọc trường `canonical_schema_version` trong sự kiện/API của Document.
+- **Xác thực người dùng & quyền kép (`B7`, `QAS-04`):** AI Service xác thực Bearer JWT qua Core `POST /internal/v1/auth/introspect` (`TASK-017A`, không dùng chung `SECRET_KEY`), gọi Core `GET /internal/v1/classes/{class_id}/access?action=use_ai_tutor` (hoặc quyền đọc lịch sử riêng) và gọi Document `GET /internal/v1/classes/{class_id}/documents/active-grants` để lọc đúng `(document_id, serving_version_id)` đang có grant hiện hành.
+- **Thu hồi tức thì (`B6`, `B7`):** Lắng nghe `document.grant.changed` và `document.deleted`, đồng thời kiểm tra lại `active-grants` ở thời điểm truy hồi và trước khi trả trích dẫn; fail closed khi Core hoặc Document không khả dụng.
 - Tách quyền hỏi mới (lớp hiện hành + grant + assessment policy) và đọc lịch sử chat owner được phép sau transfer/archive. Không dùng membership ACTIVE làm điều kiện duy nhất cho mọi lần đọc.
 - Chat riêng tư mặc định; chia sẻ một hội thoại cụ thể chỉ khi người dùng chủ động và theo contract được duyệt. Không thêm Admin read-all hoặc gửi nguyên văn chat qua audit/notification/analytics.
 - Khi source bị thu hồi, giữ lịch sử hợp lệ nhưng che quote/nguồn không còn quyền; không truy hồi mới từ index stale. Phân biệt kiến thức chung, citation đáng tin và thiếu căn cứ.

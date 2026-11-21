@@ -1,5 +1,6 @@
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager, nullcontext
+from dataclasses import dataclass
 from typing import Annotated
 from uuid import UUID
 
@@ -39,6 +40,7 @@ from app.modules.identity.maintenance import (
     maintenance_correct_staging_admin_email,
     maintenance_identity_report,
 )
+from app.modules.identity.models import Role as _Role
 from app.modules.identity.models import RoleAssignment as _RoleAssignment
 from app.modules.identity.models import User as _User
 from app.modules.identity.models import UserStatus as _UserStatus
@@ -59,6 +61,7 @@ __all__ = [
     "AdminUserUpdateCommand",
     "DataRequestResponse",
     "DataResolutionCommand",
+    "IntrospectionSubject",
     "Mutation",
     "ResolutionNote",
     "RoleUpdateCommand",
@@ -88,6 +91,7 @@ __all__ = [
     "check_user_is_lecturer",
     "get_current_user_snapshot",
     "get_identity_user_lookup",
+    "get_introspection_subject",
     "get_mutation",
     "get_token_sender",
     "get_user_roles",
@@ -267,6 +271,43 @@ def get_current_user_snapshot(session: Session, user_id: UUID) -> CurrentUser | 
         session_version=first.session_version,
         school_id=first.school_id,
         roles=[row.role.value for row in rows if row.role is not None],
+    )
+
+
+@dataclass(frozen=True)
+class IntrospectionSubject:
+    id: UUID
+    status: _UserStatus
+    session_version: int
+    school_id: UUID | None
+    display_name: str | None
+    roles: list[_Role]
+
+
+def get_introspection_subject(session: Session, user_id: UUID) -> IntrospectionSubject | None:
+    """Read the account and current role assignments in one statement."""
+    rows = session.execute(
+        select(
+            _User.id,
+            _User.status,
+            _User.session_version,
+            _User.school_id,
+            _User.display_name,
+            _RoleAssignment.role,
+        )
+        .outerjoin(_RoleAssignment, _RoleAssignment.user_id == _User.id)
+        .where(_User.id == user_id)
+    ).all()
+    if not rows:
+        return None
+    first = rows[0]
+    return IntrospectionSubject(
+        id=first.id,
+        status=first.status,
+        session_version=first.session_version,
+        school_id=first.school_id,
+        display_name=first.display_name,
+        roles=[row.role for row in rows if row.role is not None],
     )
 
 

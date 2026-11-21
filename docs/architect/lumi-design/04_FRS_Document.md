@@ -1,10 +1,10 @@
 # FRS-DOCUMENT — THƯ VIỆN TÀI LIỆU, VERSION, GRANT, NOTES
 
-**Mã:** LUMI-FRS-DOC-001 · **Trạng thái:** **PROPOSED / DESIGN REVIEW REQUIRED**, chưa có backend Document theo TASK-017.
+**Mã:** LUMI-FRS-DOC-001 · **Trạng thái:** **DESIGN BASELINE (P1) — READY FOR IMPLEMENTATION**, chưa có backend Document theo [TASK-017](../../../tasks/TASK-017-document-service-design-impl.md), [ADR-002](../microservices-v1/ADR-002-document-service.md), [Document DESIGN](../microservices-v1/document/DESIGN.md) và [Document API Contract](../microservices-v1/document/API_CONTRACT.md).
 
 ## 1. Mục tiêu và nguồn quy tắc
 
-Service Document sở hữu tệp nguồn, phiên bản, chia sẻ theo lớp và ghi chú/bookmark gắn nguồn. Source of truth: B1–B7, G5, H3, H6, L6, O1, O2. Không đọc SQL Core; cần xác minh current action/class scope qua interface dịch vụ được phê duyệt. Không mô tả hay thiết kế pipeline AI.
+Service Document sở hữu tệp nguồn, phiên bản, chia sẻ theo lớp và ghi chú/bookmark gắn nguồn. Source of truth: B1–B7, G5, H3, H6, L6, O1, O2. Không đọc SQL Core; cần xác minh danh tính người dùng (`POST /internal/v1/auth/introspect`) và current action/class scope qua interface dịch vụ được phê duyệt. Không mô tả hay thiết kế pipeline lập chỉ mục AI.
 
 ## 2. FRS-D01 — Thư viện cá nhân
 
@@ -12,26 +12,27 @@ Service Document sở hữu tệp nguồn, phiên bản, chia sẻ theo lớp v�
 - **Điểm vào:** `/teacher/library` (UI đã có route, nhưng backend Document chưa khả dụng).
 - **List:** tài liệu do bản thân sở hữu, tên, loại, version thành công hiện hành, trạng thái xử lý, lớp được chia sẻ; chỉ metadata được phép.
 - **Create:** metadata tối thiểu, lựa chọn tệp. Server xác minh owner từ credential, không nhận owner_user_id từ form để phân quyền.
-- **Edit/Delete:** chỉ owner nguồn; trước xóa nếu có nhiều class grants đang dùng phải hiển thị danh sách ảnh hưởng và xác nhận riêng.
-- **Errors:** 401/403/404, duplicate nếu contract định nghĩa, validation upload, storage unavailable; không xóa từ UI trước khi backend xác nhận.
+- **Edit/Delete:** chỉ owner nguồn; trước xóa nếu có nhiều class grants đang dùng phải hiển thị danh sách ảnh hưởng và xác nhận riêng (`confirm_multi_class=true`).
+- **Errors:** 401/403/404, 409 (xác nhận đa lớp), 413 (`FILE_TOO_LARGE` > 20 MB), validation upload (422), storage unavailable; không xóa từ UI trước khi backend xác nhận.
 - **AC:** DOC-T01, DOC-T02.
 
 ## 3. FRS-D02 — Upload và xử lý phiên bản
 
 - **Format được chốt:** PDF, PPTX, DOCX, TXT, Markdown.
-- **Điều kiện trước upload:** owner source; loại file hợp lệ; size limit, MIME-sniffing và chống file zip-bomb **cần thiết kế/duyệt**, không dùng 10 MB TP-01 làm upload cap.
-- **Luồng:** nhận blob → lưu bền vững → ghi version PENDING → worker xử lý → SUCCESS hoặc FAILED → chỉ SUCCESS đủ điều kiện hiển thị sử dụng.
-- **Retry:** worker crash, timeout hoặc upload v2 fail không làm mất v1 thành công; báo lỗi có thể khắc phục, không lộ stack trace.
-- **Visibility:** lớp dùng newest SUCCESS version trong phạm vi grant hiện hành; version FAILED không tự trở thành active.
+- **Chính sách & điều kiện trước upload (P1 theo ADR-002):** owner source; loại file hợp lệ qua kiểm tra magic-byte và cấu trúc ZIP/PDF; giới hạn **20 MB (`20_971_520` bytes)** và **tối đa 300 trang** (PDF/slide PPTX), công bố thống nhất qua `GET /api/v1/documents/policy`; từ chối PDF mã hóa và chống ZIP-bomb (vẫn không lấy mức mẫu 10 MB của TP-01 làm giới hạn trần).
+- **Luồng và 5 trạng thái máy chủ:** nhận blob → lưu bền vững → ghi version `PENDING` → worker IDP chạy `PROCESSING` → `SUCCESS` (tự động đạt ngưỡng tin cậy và đã lưu Canonical) hoặc `NEEDS_REVIEW` (ví dụ fast OCR hoặc công thức/bảng DOCX cần rà soát) hoặc `FAILED` → chỉ `SUCCESS` đủ điều kiện phục vụ lớp.
+- **Lối thoát `NEEDS_REVIEW`:** chỉ **chủ sở hữu tài liệu nguồn** được phép thực hiện thao tác chấp nhận (`POST .../accept`) để chuyển `NEEDS_REVIEW → SUCCESS` (trên Web UI có nút nhỏ **"Chấp nhận"** trong lịch sử phiên bản).
+- **Ranh giới Canonical và lập chỉ mục:** `SUCCESS` nghĩa là tài liệu Canonical đã được trích xuất và lưu bền vững, đồng thời Document phát sự kiện transactional outbox `document.version.published` (việc lập chỉ mục thuộc phạm vi dịch vụ ngoài Document).
+- **Trạng thái hiển thị và fallback (Rule H3):** Không lưu trạng thái `SUPERSEDED` trong DB; phiên bản `SUCCESS` có số hiệu lớn nhất là bản đang phục vụ (`is_serving`), các bản `SUCCESS` cũ hơn mang cờ dẫn xuất `is_superseded` ("Bản lưu"). Trên giao diện Web live, `SUCCESS` được giải mã thành `READY`. Worker crash, timeout, upload v2 lỗi hoặc v2 đang ở `NEEDS_REVIEW` đều giữ nguyên v1 `SUCCESS` đang phục vụ; báo lỗi có thể khắc phục, không lộ stack trace.
 - **AC:** DOC-T03–DOC-T05, QAS-10.
 
 ## 4. FRS-D03 — Chia sẻ tài liệu vào lớp
 
 - **Actor:** PRIMARY/ASSISTING hiện hành của lớp, với tài liệu nguồn thuộc quyền hợp lệ.
-- **Điều kiện:** lớp ACTIVE; actor vẫn có teaching assignment; document ownership hoặc quyền chia sẻ theo policy; không thể sửa/xóa nguồn người khác.
-- **Tạo grant:** idempotent/unique theo class/document; audit ai chia sẻ và thời điểm. Có thể share một nguồn nhiều lớp.
+- **Điều kiện:** xác minh Core action `manage_class_documents` (lớp `ACTIVE`, cùng `school_id`, actor còn `TeachingAssignment` hiện hành); document ownership hoặc quyền chia sẻ theo policy; không thể sửa/xóa/chấp nhận phiên bản nguồn của người khác. Không dùng `manage_class_calendar` thay cho `manage_class_documents`.
+- **Tạo grant:** idempotent/unique theo class/document (chỉ khi tài liệu có bản `SUCCESS`); audit ai chia sẻ và thời điểm. Có thể share một nguồn nhiều lớp.
 - **Revoke:** tác động ngay tại lần kiểm tra quyền sau; không dùng permission snapshot hoặc cache stale để mở tài liệu.
-- **Lỗi:** class archived; actor mất assignment; cross-school; grant đã thu hồi; storage failure.
+- **Lỗi:** class archived (409); actor mất assignment (403); cross-school (404); grant đã thu hồi; storage failure.
 - **AC:** DOC-T06–DOC-T08.
 
 ## 5. FRS-D04 — Xem/tải tài liệu
@@ -60,12 +61,16 @@ Service Document sở hữu tệp nguồn, phiên bản, chia sẻ theo lớp v�
 | SourceBoundNote | Chủ sở hữu note | Chủ sở hữu note | Chủ sở hữu note |
 | Bookmark | Chủ sở hữu bookmark | Chủ sở hữu bookmark | Chủ sở hữu bookmark |
 
-## 8. Các quyết định cần phê duyệt trước code
+## 8. Các quyết định P1 đã chốt (ADR-002) và phần còn mở cho P2
 
-- File/object storage, encryption at rest, malware scanning, quota và upload size.
-- Metadata page/slide extraction, parser versions và tính chính xác vị trí bookmark.
-- API upload multipart hay presigned URL, TTL download, revoke propagation.
-- Worker queue, lock, retry/backoff, dead letter và retention file/version.
-- Trạng thái tài liệu xóa khi vẫn đang share, model permission owner/granter sau chuyển lớp.
+- **Đã chốt ở mức thiết kế P1 ([ADR-002](../microservices-v1/ADR-002-document-service.md), chờ code):**
+  - Trạng thái máy chủ (`PENDING`, `PROCESSING`, `SUCCESS`, `NEEDS_REVIEW`, `FAILED`), `SUPERSEDED` là dẫn xuất lúc đọc (không lưu DB để giữ H3), Web ánh xạ `SUCCESS → READY` và `MARKDOWN → MD`.
+  - Chủ sở hữu chấp nhận thủ công (`POST .../accept`) cho `NEEDS_REVIEW → SUCCESS` (kèm nút nhỏ trên Web).
+  - Xác thực người dùng liên service qua Core `POST /internal/v1/auth/introspect` (`X-Service-Key`, fail closed, không chia sẻ `SECRET_KEY`); kiểm tra chia sẻ/thu hồi qua Core action `manage_class_documents`.
+  - Hạn mức upload P1: **20 MB (`20_971_520` bytes)**, **tối đa 300 trang**, trả về qua `GET /api/v1/documents/policy`; upload multipart trực tiếp qua Next.js proxy (đọc body nhị phân bằng `arrayBuffer()`) trong môi trường **Docker Compose** để demo bảo vệ.
+  - Ranh giới Canonical: `SUCCESS` đồng nghĩa Canonical artifact đã trích xuất và lưu bền vững, phát sự kiện `document.version.published` (lập chỉ mục nằm ngoài Document).
+- **Còn mở cho P2 / vận hành production thật:**
+  - Upload trực tiếp qua signed URL lên GCS (để vượt trần kích thước body của Vercel Functions khi chạy cloud).
+  - Encryption at rest key management, quét mã độc chuyên sâu (malware scanning), và chính sách lưu giữ pháp lý (retention) trước xóa vĩnh viễn tệp/phiên bản.
 
-Các route trong TASK-017 chỉ là **endpoint tham khảo**, không phải approved contract. Xem LLD Future.
+Chi tiết cấu trúc dữ liệu và hợp đồng API nằm tại [Document DESIGN](../microservices-v1/document/DESIGN.md) và [Document API Contract](../microservices-v1/document/API_CONTRACT.md). Xem thêm [LLD Future](10_LLD_Future.md).

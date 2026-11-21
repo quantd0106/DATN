@@ -29,7 +29,23 @@ test('LF-104 historical failure never becomes current failure after a higher REA
 });
 test('LF-104 latest replacement failure keeps serving READY; retry is the exact numeric version',()=>{
  const state=documentVersionState([v(3,'FAILED'),v(1,'FAILED'),v(2,'READY',true)]);assert.equal(state.failed?.versionNumber,3);assert.equal(state.serving?.versionNumber,2);
- for(const status of ['PENDING','PROCESSING'] as const){const pending=documentVersionState([v(3,'FAILED'),v(2,'READY'),v(4,status)]);assert.equal(pending.failed,null);assert.equal(pending.latest?.status,status);assert.equal(pending.serving?.versionNumber,2);}
+ for(const status of ['PENDING','PROCESSING','NEEDS_REVIEW'] as const){const pending=documentVersionState([v(3,'FAILED'),v(2,'READY'),v(4,status)]);assert.equal(pending.failed,null);assert.equal(pending.latest?.status,status);assert.equal(pending.serving?.versionNumber,2);}
  const onlyFailed=documentVersionState([v(1,'FAILED')]);assert.equal(onlyFailed.serving,null);assert.equal(onlyFailed.failed?.versionNumber,1);
  assert.deepEqual(documentVersionState([]),{ordered:[],latest:null,serving:null,failed:null});
+});
+
+test('mock review keeps serving the previous version until the owner accepts', async () => {
+ await adapter.identity.login({ email: 'ha.nguyen@lumi.example', password: 'ValidPassword123!' });
+ const doc = await adapter.document.uploadDocument({ ...good, title: 'Review validation' });
+ const review = await adapter.document.uploadVersion(doc.id, { ...good, name: 'review.pdf' });
+ assert.equal(review.status, 'NEEDS_REVIEW');
+ assert.ok(review.id);
+ const before = await adapter.workspace.load('t.libraryDocument', { documentId: doc.id });
+ assert.equal(before.kind === 'ready' && before.sourceDocumentDetail?.versions.find(version => version.isServing)?.versionNumber, 1);
+ const accepted = await adapter.document.acceptVersion(doc.id, review.id);
+ assert.equal(accepted.status, 'READY');
+ assert.equal(accepted.isServing, true);
+ const after = await adapter.workspace.load('t.libraryDocument', { documentId: doc.id });
+ assert.equal(after.kind === 'ready' && after.sourceDocumentDetail?.versions.find(version => version.versionNumber === 1)?.isSuperseded, true);
+ await assert.rejects(() => adapter.document.acceptVersion(doc.id, review.id!), { code: 'CONFLICT' });
 });

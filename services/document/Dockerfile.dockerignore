@@ -1,0 +1,15 @@
+*
+!services/document/pyproject.toml
+!services/document/alembic.ini
+!services/document/app
+!services/document/app/**
+!services/document/migrations
+!services/document/migrations/**
+!services/rag/idp
+!services/rag/idp/**
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.pytest_cache
+**/.venv
+**/tests

@@ -7,7 +7,8 @@ import type { ClassDocumentGrant, DocumentItem, DocumentVersion, WorkspaceData }
 import { adapter } from '@/lib/data';
 import { StatePanel, Icon, Dialog, ErrorNotice } from '@/components/ui';
 import { useDocumentGrantAction } from '../use-document-grant-action';
-import { documentFileError, documentFileSelection } from '@/lib/document-upload';
+import { documentFileError, documentFileSelection, documentUploadLimits } from '@/lib/document-upload';
+import { errorMessage } from '@/lib/api/errors';
 import { documentVersionState } from '@/lib/document-versions';
 import { newShareTargets } from '@/lib/document-sharing';
 import { GrantMutationNotice } from '../components/grant-mutation-notice';
@@ -76,7 +77,7 @@ export function TeacherLibraryDocumentView({ data, reload }: Props) {
   };
 
   const handleConfirmRevoke = () => {
-    if (mutationBlocked || !revokeClass || revokeClass.classStatus !== 'ACTIVE') return;
+    if (mutationBlocked || !revokeClass || revokeClass.classStatus !== 'ACTIVE' || revokeClass.canRevoke === false) return;
     const classId = revokeClass.classId;
     void grantAction.run({documentId: doc.id, classIds: [classId], shared: false},
       () => adapter.document.revokeShare(doc.id, classId), () => { setRevokeClass(null); reload(); });
@@ -86,7 +87,7 @@ export function TeacherLibraryDocumentView({ data, reload }: Props) {
     startTransition(async () => {
       const generation = mutationScope.current;
       try {
-        await adapter.document.deleteDocument(doc.id);
+        await adapter.document.deleteDocument(doc.id, { confirmMultiClass: grants.some(grant => grant.isShared) });
         if (mutationScope.current !== generation) return;
         setDeleteOpen(false);
         router.push('/teacher/library');
@@ -105,6 +106,7 @@ export function TeacherLibraryDocumentView({ data, reload }: Props) {
       const generation = mutationScope.current;
       try {
         await adapter.document.uploadVersion(doc.id, {
+          file: selectedFile,
           name: selectedFile.name,
           size: selectedFile.size,
           type: selectedFile.type,
@@ -121,15 +123,31 @@ export function TeacherLibraryDocumentView({ data, reload }: Props) {
   };
 
   const handleRetryProcessing = (vNum: number) => {
+    if (mutationBlocked) return;
+    setActionError(null);
     startTransition(async () => {
       const generation = mutationScope.current;
       try {
-        await adapter.document.retryProcessing(doc.id, vNum);
+        await adapter.document.retryProcessing(doc.id, vNum, versions.find(version => version.versionNumber === vNum)?.id);
         if (mutationScope.current !== generation) return;
         reload();
       } catch (err) {
         if (mutationScope.current !== generation) return;
         setActionError(err instanceof Error ? err.message : 'Có lỗi khi thử lại xử lý.');
+      }
+    });
+  };
+
+  const handleAcceptVersion = (versionId: string) => {
+    if (mutationBlocked || doc.canManageSource === false) return;
+    setActionError(null);
+    startTransition(async () => {
+      const generation = mutationScope.current;
+      try {
+        await adapter.document.acceptVersion(doc.id, versionId);
+        if (mutationScope.current === generation) reload();
+      } catch (error) {
+        if (mutationScope.current === generation) setActionError(errorMessage(error));
       }
     });
   };
@@ -179,7 +197,13 @@ export function TeacherLibraryDocumentView({ data, reload }: Props) {
         busy={mutationBlocked}
         onRevoke={grant => { setRevokeClass(grant); setActionError(null); }}
       />
-      <SourceVersionHistory versions={versionState.ordered.map(v => ({...v, isServing: v.versionNumber === servingVersion?.versionNumber}))} busy={mutationBlocked} onRetry={handleRetryProcessing}/>
+      <SourceVersionHistory
+        versions={versionState.ordered.map(v => ({ ...v, isServing: v.versionNumber === servingVersion?.versionNumber }))}
+        busy={mutationBlocked}
+        canManageSource={doc.canManageSource}
+        onRetry={handleRetryProcessing}
+        onAccept={handleAcceptVersion}
+      />
 
       {/* D04: Class Share Dialog */}
       <Dialog
@@ -363,7 +387,7 @@ export function TeacherLibraryDocumentView({ data, reload }: Props) {
             Bạn có chắc chắn muốn xóa tài liệu nguồn <strong>{doc.title}</strong>?
           </p>
           <div className="lumi-source-danger-notice" role="alert">
-            ⚠️ Toàn bộ các phiên bản và liên kết chia sẻ tới các lớp sẽ bị xóa hoàn toàn. Thao tác này không thể hoàn tác.
+          Các lớp đang được chia sẻ sẽ mất quyền truy cập tài liệu và mọi phiên bản ngay sau khi xác nhận.
           </div>
 
           <div className="lumi-source-dialog-actions">
@@ -412,6 +436,7 @@ export function TeacherLibraryDocumentView({ data, reload }: Props) {
               disabled={isPending}
               className="lumi-source-file-input"
               accept={data.capabilityPolicy?.allowedExtensions.join(',')}
+              aria-describedby={data.capabilityPolicy ? 'ux-doc-version-file-help' : undefined}
               onChange={e => {
                 const selection = documentFileSelection(e.target.files?.[0], data.capabilityPolicy);
                 setSelectedFile(selection.file); setActionError(selection.error);
@@ -419,6 +444,9 @@ export function TeacherLibraryDocumentView({ data, reload }: Props) {
               }}
               required
             />
+            {data.capabilityPolicy && (
+              <p id="ux-doc-version-file-help" className="lumi-source-dialog-desc">{documentUploadLimits(data.capabilityPolicy)}</p>
+            )}
           </div>
 
           <p className="lumi-source-dialog-desc">

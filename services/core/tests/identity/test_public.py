@@ -8,7 +8,7 @@ from pydantic import SecretStr, ValidationError
 from sqlalchemy.orm import Session
 
 from app.modules.identity import public
-from app.modules.identity.models import TokenPurpose
+from app.modules.identity.models import Role, TokenPurpose, UserStatus
 
 
 @pytest.fixture
@@ -101,6 +101,34 @@ def test_snapshot_lecturer_and_dependency_lookup(boundary, status, role, expecte
     db.execute.return_value.all.return_value = []
     assert public.get_current_user_snapshot(db, uuid4()) is None
     assert not public.check_user_is_lecturer(uuid4())
+
+
+@pytest.mark.parametrize("roles", [[Role.LECTURER, Role.ADMIN], [], None])
+def test_introspection_subject_reads_current_identity_in_one_query(boundary, roles):
+    db, _, _ = boundary
+    user_fields = {
+        "id": uuid4(),
+        "status": UserStatus.ACTIVE,
+        "session_version": 7,
+        "school_id": uuid4(),
+        "display_name": "Test Lecturer",
+    }
+    rows = []
+    if roles is not None:
+        rows = [SimpleNamespace(**user_fields, role=role) for role in roles or [None]]
+    db.execute.return_value.all.return_value = rows
+
+    subject = public.get_introspection_subject(db, user_fields["id"])
+
+    if roles is None:
+        assert subject is None
+    else:
+        assert subject == public.IntrospectionSubject(**user_fields, roles=roles)
+    db.execute.assert_called_once()
+    statement = db.execute.call_args.args[0]
+    assert list(statement.selected_columns.keys()) == [*user_fields, "role"]
+    assert statement.get_final_froms()[0].isouter
+    assert list(statement.compile().params.values()) == [user_fields["id"]]
 
 
 @pytest.mark.parametrize("owned", [True, False])

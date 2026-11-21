@@ -8,6 +8,7 @@ const PROCESSING_STATUS_LABELS: Record<string, { label: string; className: strin
   READY: { label: 'Sẵn sàng', className: 'lumi-source-badge-ready' },
   PROCESSING: { label: 'Đang xử lý', className: 'lumi-source-badge-processing' },
   PENDING: { label: 'Chờ xử lý', className: 'lumi-source-badge-pending' },
+  NEEDS_REVIEW: { label: 'Cần rà soát', className: 'lumi-source-badge-review' },
   FAILED: { label: 'Thất bại', className: 'lumi-source-badge-failed' },
 };
 
@@ -202,14 +203,14 @@ export function SourceGrantsPanel({ grants, busy, onRevoke }: SourceGrantsPanelP
           {grants.map(grant => {
             const isArchived = grant.classStatus === 'ARCHIVED';
             const isUnverified = !grant.classStatus;
-            const canRevoke = grant.classStatus === 'ACTIVE';
+            const canRevoke = grant.isShared && grant.classStatus === 'ACTIVE' && grant.canRevoke !== false;
 
             return (
               <article key={grant.classId} className="lumi-source-grant-item" role="listitem">
                 <div className="lumi-source-grant-info">
                   <div className="lumi-source-grant-title-line">
                     <span className="lumi-source-grant-name">{grant.className}</span>
-                    <span className="lumi-source-grant-code">({grant.classCode})</span>
+                    {grant.classCode && <span className="lumi-source-grant-code">({grant.classCode})</span>}
                     {isArchived && (
                       <span className="lumi-source-badge lumi-source-badge-archived">
                         Lớp đã lưu trữ
@@ -262,13 +263,17 @@ export function SourceGrantsPanel({ grants, busy, onRevoke }: SourceGrantsPanelP
 export interface SourceVersionHistoryProps {
   versions: DocumentVersion[];
   busy: boolean;
+  canManageSource?: boolean;
   onRetry(versionNumber: number): void;
+  onAccept?(versionId: string): void;
 }
 
 export function SourceVersionHistory({
   versions,
   busy,
+  canManageSource = true,
   onRetry,
+  onAccept,
 }: SourceVersionHistoryProps) {
   return (
     <section className="lumi-source-history-card" aria-labelledby="lumi-source-history-heading">
@@ -308,6 +313,7 @@ export function SourceVersionHistory({
               </tr>
             ) : (
               versions.map(v => {
+                const versionId = v.id;
                 const statusMeta = PROCESSING_STATUS_LABELS[v.status] ?? {
                   label: v.status,
                   className: 'lumi-source-badge-pending',
@@ -336,12 +342,12 @@ export function SourceVersionHistory({
                         </span>
                       ) : (
                         <span className="lumi-source-badge lumi-source-badge-unserved">
-                          <span>{v.status === 'READY' ? 'Bản lưu' : 'Chưa áp dụng'}</span>
+                          <span>{v.isSuperseded || v.status === 'READY' ? 'Bản lưu' : 'Chưa áp dụng'}</span>
                         </span>
                       )}
                     </td>
                     <td className="lumi-source-table-actions">
-                      {v.status === 'FAILED' ? (
+                      {canManageSource && v.status === 'FAILED' ? (
                         <button
                           id={`ux-doc-table-retry-v${v.versionNumber}`}
                           type="button"
@@ -350,6 +356,19 @@ export function SourceVersionHistory({
                           disabled={busy}
                         >
                           Thử lại
+                        </button>
+                      ) : canManageSource && v.status === 'NEEDS_REVIEW' && versionId && onAccept ? (
+                        <button
+                          id={`ux-doc-table-accept-v${v.versionNumber}`}
+                          type="button"
+                          className="button small lumi-source-btn-accept"
+                          title={v.reviewSummary?.flaggedPages.length
+                            ? `Trang cần rà soát: ${v.reviewSummary.flaggedPages.join(', ')}`
+                            : 'Chấp nhận phiên bản này để phục vụ lớp'}
+                          onClick={() => onAccept(versionId)}
+                          disabled={busy}
+                        >
+                          Chấp nhận
                         </button>
                       ) : (
                         <span className="muted text-xs">—</span>

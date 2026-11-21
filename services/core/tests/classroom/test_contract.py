@@ -2,8 +2,11 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from pydantic import ValidationError
+from fastapi.testclient import TestClient
+from pydantic import SecretStr, ValidationError
 
+from app.common.config import settings
+from app.common.db import get_db
 from app.common.errors import AppError
 from app.main import app
 from app.modules.classroom import public
@@ -17,7 +20,8 @@ from app.modules.identity.schemas import UserSummaryDTO
 
 
 def test_openapi_exposes_admin_classroom_without_legacy_join_flows():
-    paths = app.openapi()["paths"]
+    spec = app.openapi()
+    paths = spec["paths"]
     assert "/api/v1/admin/classes" in paths
     assert "/api/v1/admin/homeroom-classes" in paths
     assert "/api/v1/admin/classes/{class_id}/enrollment/preview" in paths
@@ -26,6 +30,7 @@ def test_openapi_exposes_admin_classroom_without_legacy_join_flows():
     assert "/api/v1/admin/classes/{class_id}/management" in paths
     assert "/api/v1/admin/classes/{class_id}/members" in paths
     assert "/internal/v1/classes/{class_id}/access" in paths
+    assert "manage_class_documents" in spec["components"]["schemas"]["ClassAccessAction"]["enum"]
     assert not any(
         "join-request" in path
         or "ownership-transfer" in path
@@ -221,6 +226,86 @@ def test_class_access_denial_carries_status_and_lock(monkeypatch):
     assert not denied.allowed
     assert denied.class_status is None
     assert locks["share"] == 2
+
+
+@pytest.mark.parametrize(
+    "role, assignment, user_status, class_scope, allowed, class_status",
+    [
+        ("LECTURER", "PRIMARY", "ACTIVE", "ACTIVE", True, "ACTIVE"),
+        ("LECTURER", "ASSISTING", "ACTIVE", "ACTIVE", True, "ACTIVE"),
+        ("STUDENT", None, "ACTIVE", "ACTIVE", False, "ACTIVE"),
+        ("ADMIN", "PRIMARY", "ACTIVE", "ACTIVE", False, "ACTIVE"),
+        ("LECTURER", None, "ACTIVE", "ACTIVE", False, "ACTIVE"),
+        ("LECTURER", "PRIMARY", "ACTIVE", "ARCHIVED", False, "ARCHIVED"),
+        ("LECTURER", "PRIMARY", "ACTIVE", "cross-school", False, None),
+        ("LECTURER", "PRIMARY", "ACTIVE", "unknown", False, None),
+        ("LECTURER", "PRIMARY", "LOCKED", "ACTIVE", False, None),
+    ],
+    ids=[
+        "primary",
+        "assisting",
+        "student",
+        "admin-with-stale-assignment",
+        "no-current-assignment",
+        "archived",
+        "cross-school",
+        "unknown-class",
+        "locked",
+    ],
+)
+def test_manage_class_documents_requires_current_teacher_in_active_class(
+    monkeypatch, role, assignment, user_status, class_scope, allowed, class_status
+):
+    school_id, class_id, user_id = uuid4(), uuid4(), uuid4()
+    klass = None
+    if class_scope != "unknown":
+        klass = SimpleNamespace(
+            school_id=uuid4() if class_scope == "cross-school" else school_id,
+            status=ClassStatus.ARCHIVED if class_scope == "ARCHIVED" else ClassStatus.ACTIVE,
+        )
+    repository = SimpleNamespace(
+        get_class=lambda *args, **kwargs: klass,
+        active_membership=lambda *args: object() if role == "STUDENT" else None,
+        active_teacher=lambda *args: SimpleNamespace(role=assignment) if assignment else None,
+    )
+    monkeypatch.setattr(public, "ClassroomRepository", lambda _: repository)
+    monkeypatch.setattr(
+        public,
+        "get_user_summary",
+        lambda *args, **kwargs: UserSummaryDTO(
+            id=user_id, email=None, school_id=school_id, status=user_status
+        ),
+    )
+    monkeypatch.setattr(public, "get_user_roles", lambda *args, **kwargs: [role])
+
+    decision = public.check_class_action(
+        class_id, user_id, ClassAccessAction.MANAGE_CLASS_DOCUMENTS, session=object()
+    )
+
+    assert decision.allowed is allowed
+    assert decision.class_status == class_status
+    assert decision.teaching_role == (assignment if allowed else None)
+
+
+@pytest.mark.parametrize("action", list(ClassAccessAction))
+def test_internal_class_access_omits_status_for_pending_users(monkeypatch, action):
+    class_id, user_id = uuid4(), uuid4()
+    user = UserSummaryDTO(id=user_id, email=None, school_id=uuid4(), status="PENDING_VERIFICATION")
+    service_key = "test-only classroom service credential"
+    monkeypatch.setattr(settings, "internal_service_secret", SecretStr(service_key))
+    monkeypatch.setitem(app.dependency_overrides, get_db, object)
+    monkeypatch.setattr(public, "get_user_summary", lambda *args, **kwargs: user)
+
+    with TestClient(app, headers={"X-Service-Key": service_key}) as client:
+        response = client.get(
+            f"/internal/v1/classes/{class_id}/access",
+            params={"user_id": str(user_id), "action": action.value},
+        )
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["allowed"] is False
+    assert "class_status" not in result
 
 
 def test_repository_share_lock_compiles_to_for_share():

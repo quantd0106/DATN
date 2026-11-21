@@ -567,7 +567,8 @@ export const historyData9A1: HistoryClassData = {
 
 // Stage 2: Capability Policy (Returned by adapter, not a hardcoded 10MB limit)
 export const documentCapabilityPolicy: DocumentCapabilityPolicy = {
-  maxSizeBytes: 52428800, // 50MB
+  maxSizeBytes: 20971520,
+  maxPages: 300,
   allowedExtensions: ['.pdf', '.pptx', '.docx', '.txt', '.md', '.markdown'],
   allowedMimeTypes: [
     'application/pdf',

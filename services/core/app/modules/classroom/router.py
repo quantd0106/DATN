@@ -479,7 +479,11 @@ def restore_class(
     )
 
 
-@internal_router.get("/classes/{class_id}/access", response_model=InternalAccessResponse)
+@internal_router.get(
+    "/classes/{class_id}/access",
+    response_model=InternalAccessResponse,
+    response_model_exclude_unset=True,
+)
 def check_class_access(
     class_id: UUID,
     user_id: UUID,
@@ -490,4 +494,7 @@ def check_class_access(
     if "core:check_access" not in scopes:
         raise AppError(403)
     decision = check_class_action(class_id, user_id, action, session=service.session)
-    return InternalAccessResponse(**decision.model_dump(), user_id=user_id, action=action)
+    fields = decision.model_dump()
+    if decision.class_status is None:
+        del fields["class_status"]
+    return InternalAccessResponse(**fields, user_id=user_id, action=action)

@@ -54,7 +54,7 @@ function decodeClass(value: unknown): ClassSummary {
   if (teachingRole !== undefined && teachingRole !== null && !['PRIMARY', 'ASSISTING'].includes(String(teachingRole))) return invalid();
   return {
     id: string(source.id),
-    code: '',
+    code: optionalString(source.code) ?? '',
     name: string(source.name),
     status: source.status as ClassSummary['status'],
     metadata: `Khối ${grade} · ${source.enrollment_mode === 'AUTO' ? 'Tự động' : 'Quản lý'}`,
@@ -282,7 +282,7 @@ export function createLiveCore(session: LiveIdentitySession) {
 
   async function loadWorkspace(routeId: string, params: Record<string, string>, signal?: AbortSignal): Promise<WorkspaceData> {
     const current = await actor();
-    const pendingCapabilities = ['Class history', 'Document', 'Learning', 'AI Tutor', 'Learner Intelligence'];
+    const pendingCapabilities = ['Class history', 'Learning', 'AI Tutor', 'Learner Intelligence'];
     if (['s.home', 's.classes'].includes(routeId)) {
       const classes = await readClasses(signal);
       if (routeId === 's.home') return { kind: 'ready', classes, pendingCapabilities, studentHome: { activeClasses: classes.filter(row => row.status === 'ACTIVE'), upcomingTasks: [], recentStudies: [], tutorSuggestions: [] } };
@@ -348,6 +348,7 @@ export function createLiveCore(session: LiveIdentitySession) {
 
   return {
     identity: session.identity,
+    classroomReads: { list: readClasses, detail: readClass },
     social: {
       listPosts: readPosts,
       listComments: readComments,

@@ -36,7 +36,9 @@ flowchart LR
 | `notification-worker` | Core image, `python -m app.background_worker` | Không public | `db` healthy, `migrate` success | DB + SMTP | Worker chung notification và staff-credential delivery |
 | `web` | Next.js build `apps/web` | Host `127.0.0.1:3000` | `core` healthy | Không phải DB nghiệp vụ | Live adapter, `CORE_API_URL=http://core:8000` |
 
-**Quan trọng:** bảng chỉ phản ánh file Compose, không chứng minh Docker đang chạy trên máy của người đọc. Cổng `127.0.0.1` chỉ giới hạn truy cập từ host; khi triển khai qua reverse proxy public cần thiết kế TLS, ingress, network rules và domain riêng. `db` và `migrate` không phải microservices nghiệp vụ.
+**Quan trọng:** bảng chỉ phản ánh file Compose hiện tại (khối lượng Core), không chứng minh Docker đang chạy trên máy của người đọc. Cổng `127.0.0.1` chỉ giới hạn truy cập từ host; khi triển khai qua reverse proxy public cần thiết kế TLS, ingress, network rules và domain riêng. `db` và `migrate` không phải microservices nghiệp vụ.
+
+**Định hướng mở rộng G3 cho demo bảo vệ (theo [ADR-002](../microservices-v1/ADR-002-document-service.md), chưa triển khai code trong `compose.yaml`):** khi tích hợp Document Service (`TASK-017E`), môi trường demo bảo vệ tiếp tục chạy tập trung trên **Docker Compose** với `document-migrate`, `document`, `document-worker`, volume lưu tệp cục bộ `document_data`, và `web` định tuyến `/api/v1/*` sang `CORE_API_URL` hoặc `DOCUMENT_API_URL`. Mô hình này tránh giới hạn kích thước body của Vercel Functions khi upload tệp mẫu `10 MB` (`TP-01`) hoặc tệp tới `20 MB`.
 
 ### B2.2. Chuỗi khởi động và điều kiện thành công
 
@@ -133,6 +135,8 @@ flowchart LR
 4. Core xác thực access JWT/cookie session, tìm role và trường hiện hành; sau đó truy vấn Neon PostgreSQL 16.
 5. Core trả lỗi ổn định có correlation ID; Web trình bày lỗi đúng nghĩa, không chuyển sang mock.
 6. Worker cập nhật inbox/SMTP theo nghiệp vụ; browser kiểm tra kết quả sau khi sự kiện thực sự được xử lý.
+
+> **Giới hạn Cloud Proxy cho Document Service (ADR-002):** Giới hạn kích thước request body của Vercel Functions (khoảng `4,5 MB`; cần kiểm chứng lại tài liệu Vercel hiện hành khi cấu hình cloud) sẽ chặn tệp mẫu `10 MB` của `TP-01` và hạn mức `20 MB` nếu upload đi qua Next.js proxy trên Vercel. Vì vậy, **P1 demo bảo vệ chạy hoàn toàn bằng Docker Compose** (mục B2); upload trực tiếp từ trình duyệt lên **GCS qua signed URL** được hoãn sang **P2** (`TASK-017E`).
 
 **Không mặc định** có private VPC, WAF, API gateway chuyên dụng, autoscaling nhiều replica, CDN cache nghiệp vụ, đọc DB replica hay DR region. Nếu các thành phần đó được chọn sau, phải có ADR, bản vẽ mới, test và quyết định chi phí/vận hành.
 

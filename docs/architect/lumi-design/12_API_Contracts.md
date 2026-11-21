@@ -17,6 +17,7 @@ Không sao chép danh sách endpoint sang bộ hồ sơ tổng thể để trán
 
 ## 3. Các dịch vụ chưa triển khai
 
-Quản lý tài liệu, Học tập và Phân tích học tập **chưa có hợp đồng API được phê duyệt**. Các yêu cầu nghiệp vụ tương ứng nằm trong các tài liệu FRS; việc xác định đường dẫn, cấu trúc dữ liệu và giao tiếp sẽ được thực hiện ở giai đoạn thiết kế riêng.
+- **Quản lý tài liệu (Document Service):** Đã có thiết kế và hợp đồng API P1 (`DESIGN BASELINE — READY FOR IMPLEMENTATION`, chưa triển khai code) tại [ADR-002](../microservices-v1/ADR-002-document-service.md), [Document DESIGN](../microservices-v1/document/DESIGN.md) và [Document API Contract](../microservices-v1/document/API_CONTRACT.md); kèm phần mở rộng nội bộ Core (`POST /internal/v1/auth/introspect`, `manage_class_documents`) ghi chú tại [Core API Contract](../microservices-v1/core/API_CONTRACT.md).
+- **Học tập (Learning) và Phân tích học tập (Learner Intelligence):** **chưa có hợp đồng API được phê duyệt**. Các yêu cầu nghiệp vụ tương ứng nằm trong các tài liệu FRS; việc xác định đường dẫn, cấu trúc dữ liệu và giao tiếp sẽ được thực hiện ở giai đoạn thiết kế riêng.
 
 **Không đặc tả API cho dịch vụ trí tuệ nhân tạo trong giai đoạn này.**

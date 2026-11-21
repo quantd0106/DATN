@@ -19,15 +19,15 @@
 | OD-03 | DELETE executor | Service owner, bước xóa/ẩn danh, audit/result/rollback | COMPLETED giả hoặc mất dữ liệu cần giữ | PENDING OPERATOR | Data requests |
 | OD-04 | Backups/DR | RPO/RTO/restore drill và trách nhiệm | Không có khả năng phục hồi được chứng minh | PENDING OPS | Production |
 | OD-05 | Multi-worker Core | Có cần >1 worker/replica; shared limiter/idempotency store | Retry không bền và giới hạn không đồng bộ | PENDING OPERATING TARGET | Scale |
-| OD-06 | Document storage | Blob storage, encryption, malware/zip controls, TTL download | Rò rỉ tài liệu/cost/timeouts | PROPOSED ADR-002 | G3 |
-| OD-07 | Document grants | Mô hình grant/revoke/invalidation/signed link | Revoked data vẫn truy cập được | PROPOSED DESIGN | G3 |
-| OD-08 | Document processing | Parser, job lifecycle/retry/quarantine, extract locator | Lost version, broken notes | PROPOSED DESIGN | G3 |
+| OD-06 | Document storage | P1 đã chốt: local Docker volume + ghi nguyên tử, hạn mức 20 MB / 300 trang (`GET /documents/policy`), chống ZIP-bomb/magic-byte; **P2 PENDING:** GCS signed URL upload, malware scan, encryption key mgmt | Rò rỉ tài liệu/cost/timeouts khi lên cloud | P1 DECIDED (ADR-002) / P2 PENDING | G3 |
+| OD-07 | Document grants | P1 đã chốt: Core action `manage_class_documents`, xác thực `POST /internal/v1/auth/introspect` fail closed, `read_document_source` + active grant + che `source_quote` H6/L6 | Revoked data vẫn truy cập được | P1 DECIDED (ADR-002) | G3 |
+| OD-08 | Document processing | P1 đã chốt: 5 trạng thái (`PENDING/PROCESSING/SUCCESS/NEEDS_REVIEW/FAILED`), `SUPERSEDED` dẫn xuất theo H3, chủ sở hữu `/accept` cho `NEEDS_REVIEW`, IDP xuất Canonical tách khỏi lập chỉ mục | Lost version, broken notes, tắc luồng OCR/DOCX | P1 DECIDED (ADR-002) | G3 |
 | OD-09 | Learning schema | Practice/Assessment/Assignment tách bảng hay shared model | Logic chấm/duyệt đan xen | PROPOSED ADR-003 | G4 |
 | OD-10 | Transfer pending attempt | Cutoff, quyền tiếp tục bài, giáo viên chấm historical work | Mất bài hoặc cấp quyền trái rule | PENDING PRODUCT | G4/Core contract |
 | OD-11 | Grade policy | Điểm scale, weighting, late penalty, best/latest/average, sửa điểm công bằng | Đánh giá sai, khó khiếu nại | PENDING PRODUCT | G4 |
 | OD-12 | Appeal | Hạn/phạm vi xét lại điểm, ai phê duyệt, evidence | Từ chối quyền lịch sử hoặc để vô hạn | PENDING PRODUCT | G4 |
 | OD-13 | Learning timer | Server deadline, lazy/server job, offline semantics | Mất bài hoặc nộp muộn không minh bạch | PROPOSED DESIGN | G4 |
-| OD-14 | Event contracts | Producer/consumer, IDs, version, signature, retries/out-of-order | Không nhất quán Calendar/Analytics | PROPOSED ADR-004 | G3–G5 |
+| OD-14 | Event contracts | Document G3 đã chốt outbox `document.version.published`, `document.grant.changed`, `document.deleted` (`ADR-002`); Learning/LI G4–G5 còn đề xuất | Không nhất quán Calendar/Analytics/Index | G3 DECIDED (ADR-002) / G4–G5 PROPOSED | G3–G5 |
 | OD-15 | Learner evidence | Topic taxonomy, provenance và independent coverage | Mastery không có cơ sở | PENDING PRODUCT/QA | G5 |
 | OD-16 | Mastery algorithm | Threshold, weights, calibration dataset và fairness | Kết luận năng lực sai | PENDING DOMAIN EVALUATION | G5 |
 | OD-17 | Report privacy | Các chiều lọc/suppression/differencing/export | Tái định danh học sinh | PROPOSED ADR-005 | G5 |

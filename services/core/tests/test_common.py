@@ -351,7 +351,7 @@ def test_internal_service_auth(test_app, monkeypatch):
     assert client.get("/internal", headers={"X-Service-Key": "incorrect"}).status_code == 401
     response = client.get("/internal", headers={"X-Service-Key": key})
     assert response.status_code == 200
-    assert response.json() == ["core:check_access"]
+    assert response.json() == ["core:check_access", "core:introspect_auth"]
 
 
 def test_transaction_commit_and_rollback():

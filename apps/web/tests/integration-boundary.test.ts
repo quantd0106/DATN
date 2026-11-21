@@ -11,7 +11,7 @@ import { createHttpClient } from '../src/lib/api/http';
 import { createCoreProxy } from '../src/lib/api/proxy';
 import { ApiError } from '../src/lib/api/errors';
 import { decodeMutation, decodeUser } from '../src/lib/api/decoders';
-import { isImplementedOperation } from '../src/lib/api/operations';
+import { findOperation, isImplementedOperation, operationPath } from '../src/lib/api/operations';
 import { safeReturnTo } from '../src/lib/navigation';
 
 test('production rejects mock, including actual Next config', () => {
@@ -128,6 +128,108 @@ test('proxy forwards only documented query parameters and Admin mutation headers
   assert.equal(forwarded?.get('Idempotency-Key'), '00000000-0000-4000-8000-000000000103');
   assert.equal(forwarded?.get('X-Admin-Reason'), 'ADMIN_INTERVENTION');
   assert.equal(forwarded?.has('X-Service-Key'), false);
+});
+
+const documentId = '00000000-0000-4000-8000-000000000201';
+const documentClassId = '00000000-0000-4000-8000-000000000202';
+const noteId = '00000000-0000-4000-8000-000000000203';
+const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x80, 0xff, 0x00, 0xfe]);
+const origins = { core: () => 'http://core:8000', document: () => 'http://document:8001' };
+
+test('proxy preserves every multipart byte and the original boundary', async () => {
+  const form = new FormData();
+  form.set('title', 'PDF');
+  form.set('file', new Blob([pdfBytes], { type: 'application/pdf' }), 'sample.pdf');
+  const request = new Request('http://web/api/v1/documents', { method: 'POST', headers: { Origin: 'http://web' }, body: form });
+  const type = request.headers.get('content-type');
+  assert.match(type ?? '', /^multipart\/form-data; boundary=.+/);
+  const originalBody = await request.clone().arrayBuffer();
+  const proxy = createCoreProxy(origins, async (target, init) => {
+    assert.equal(String(target), 'http://document:8001/api/v1/documents');
+    assert.equal(new Headers(init?.headers).get('content-type'), type);
+    assert.deepEqual(new Uint8Array(init?.body as ArrayBuffer), new Uint8Array(originalBody));
+    const posted = await new Response(init?.body, { headers: init?.headers }).formData();
+    assert.deepEqual(new Uint8Array(await (posted.get('file') as File).arrayBuffer()), pdfBytes);
+    return Response.json({}, { status: 201 });
+  });
+  assert.equal((await proxy(request, ['documents'])).status, 201);
+});
+
+test('proxy routes Document resources by operation and isolates invalid or missing Document configuration', async () => {
+  const hits: string[] = [];
+  const upstream: typeof fetch = async target => {
+    hits.push(String(target));
+    return Response.json({});
+  };
+  const proxy = createCoreProxy(origins, upstream);
+  const send = (handler: typeof proxy, method: string, path: string) =>
+    handler(new Request(`http://web/api/v1/${path}`, { method, headers: { Origin: 'http://web' } }), path.split('/'));
+  const cases = [
+    ['GET', 'documents/policy'], ['GET', 'documents'], ['GET', `classes/${documentClassId}/documents`],
+    ['POST', `classes/${documentClassId}/documents/grants`], ['POST', `classes/${documentClassId}/notes`],
+    ['PATCH', `notes/${noteId}`], ['GET', 'users/me/notes'],
+    ['POST', `classes/${documentClassId}/bookmarks/toggle`], ['GET', 'users/me/bookmarks'],
+  ];
+  for (const [method, path] of cases) {
+    assert.equal((await send(proxy, method, path)).status, 200);
+    assert.equal(hits.at(-1), `http://document:8001/api/v1/${path}`);
+  }
+  const posts = `classes/${documentClassId}/posts`;
+  assert.equal((await send(proxy, 'GET', posts)).status, 200);
+  assert.equal(hits.at(-1), `http://core:8000/api/v1/${posts}`);
+  for (const config of [origins.core, { core: origins.core }, { core: origins.core, document: () => 'http://document/base' }]) {
+    const isolated = createCoreProxy(config, upstream);
+    const count = hits.length;
+    const failed = await send(isolated, 'GET', 'documents/policy');
+    assert.equal(failed.status, 503);
+    assert.deepEqual((await failed.json()).error, { code: 'CONFIGURATION_ERROR', message: 'Dịch vụ tài liệu chưa sẵn sàng.' });
+    assert.equal(hits.length, count);
+    assert.equal((await send(isolated, 'GET', posts)).status, 200);
+  }
+});
+
+test('Document path templates validate every UUID and downloads preserve file headers and bytes', async () => {
+  assert.throws(() => operationPath('acceptDocumentVersion', { documentId, versionId: 'bad' }), /UUID/);
+  assert.equal(findOperation('GET', `/classes/${documentClassId}/documents/bad/reader`), undefined);
+  assert.equal(findOperation('GET', `/classes/bad/documents/${documentId}/reader`), undefined);
+  const path = `classes/${documentClassId}/documents/${documentId}/download`;
+  const headers = {
+    'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="sample.pdf"',
+    'Content-Length': String(pdfBytes.length), 'X-Correlation-ID': 'correlation', 'Retry-After': '3',
+    'X-Token-Delivery-Status': 'delivered',
+  };
+  const proxy = createCoreProxy(origins, async (target, init) => {
+    assert.equal(String(target), `http://document:8001/api/v1/${path}?version=2`);
+    assert.equal(new Headers(init?.headers).get('accept'), '*/*');
+    assert.equal(new Headers(init?.headers).has('x-service-key'), false);
+    assert.equal(new Headers(init?.headers).has('cookie'), false);
+    assert.equal(init?.body, undefined);
+    return new Response(pdfBytes, { headers: { ...headers, 'Cache-Control': 'public', 'Set-Cookie': 'untrusted=1' } });
+  });
+  const response = await proxy(new Request(`http://web/api/v1/${path}?version=2&extra=ignored`, {
+    headers: { 'X-Service-Key': 'blocked', Cookie: 'refresh=opaque' },
+  }), path.split('/'));
+  assert.equal(response.status, 200);
+  for (const [name, value] of Object.entries(headers)) assert.equal(response.headers.get(name), value);
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.equal(response.headers.has('set-cookie'), false);
+  assert.deepEqual(new Uint8Array(await response.arrayBuffer()), pdfBytes);
+});
+
+test('HTTP transport passes FormData through untouched and accepts both grant confirmations', async () => {
+  const form = new FormData();
+  form.set('file', new Blob([pdfBytes]), 'sample.pdf');
+  const client = createHttpClient(() => 'opaque', async (target, init) => {
+    assert.equal(target, '/api/v1/documents');
+    assert.equal(new Headers(init?.headers).has('content-type'), false);
+    assert.equal(init?.body, form);
+    return Response.json({}, { status: 201 });
+  });
+  await client('createDocument', { body: form });
+  for (const status of [200, 201]) {
+    const grantClient = createHttpClient(() => 'opaque', async () => Response.json({}, { status }));
+    await grantClient('grantClassDocument', { pathParams: { classId: documentClassId } });
+  }
 });
 test('return target rejects external URLs, unknown paths and wrong roles', () => {
   assert.equal(safeReturnTo('//evil/path', ['STUDENT'], '/student'), '/student');

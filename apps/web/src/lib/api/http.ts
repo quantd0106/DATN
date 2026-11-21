@@ -1,20 +1,24 @@
 import { ApiError } from './errors';
-import { operationPath, operationQueryParameters, operations, successStatus, type OperationId } from './operations';
+import { isExpectedSuccessStatus, operationPath, operationQueryParameters, operations, operationTimeoutMs, type OperationId } from './operations';
 
-export type HttpOptions = { body?: unknown; userId?: string; pathParams?: Record<string, string>; cursor?: string; query?: Record<string, string | number | undefined>; headers?: Record<string, string>; onResponse?: (response: Response) => void; signal?: AbortSignal };
+export type HttpOptions = { body?: unknown; userId?: string; pathParams?: Record<string, string>; cursor?: string; query?: Record<string, string | number | undefined>; headers?: Record<string, string>; onResponse?: (response: Response) => void; signal?: AbortSignal; timeoutMs?: number };
 export type HttpRequest = (id: OperationId, options?: HttpOptions) => Promise<unknown>;
 export function createHttpClient(getToken: () => string | null, fetcher: typeof fetch = fetch) {
-  return async function request(id: OperationId, options: HttpOptions = {}): Promise<unknown> {
+  function request(id: 'classDocumentDownload', options?: HttpOptions): Promise<Blob>;
+  function request(id: OperationId, options?: HttpOptions): Promise<unknown>;
+  async function request(id: OperationId, options: HttpOptions = {}): Promise<unknown> {
     const [method] = operations[id];
+    const download = id === 'classDocumentDownload';
+    const form = options.body instanceof FormData ? options.body : undefined;
     const controller = new AbortController();
     const abort = () => controller.abort();
     options.signal?.addEventListener('abort', abort, { once: true });
     if (options.signal?.aborted) controller.abort();
-    const timer = setTimeout(abort, 15000);
-    const headers = new Headers({ Accept: 'application/json' });
+    const timer = setTimeout(abort, options.timeoutMs ?? operationTimeoutMs(id));
+    const headers = new Headers({ Accept: download ? '*/*' : 'application/json' });
     const token = getToken();
     if (token) headers.set('Authorization', `Bearer ${token}`);
-    if (options.body !== undefined) headers.set('Content-Type', 'application/json');
+    if (options.body !== undefined && !form) headers.set('Content-Type', 'application/json');
     for (const [name, value] of Object.entries(options.headers ?? {})) {
       if (['x-admin-reason', 'idempotency-key'].includes(name.toLowerCase())) headers.set(name, value);
     }
@@ -33,11 +37,12 @@ export function createHttpClient(getToken: () => string | null, fetcher: typeof 
       const suffix = queryString ? `?${queryString}` : '';
       const response = await fetcher(`/api/v1${path}${suffix}`, {
         method, headers, credentials: 'include', cache: 'no-store', signal: controller.signal,
-        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        body: form ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
       });
       options.onResponse?.(response);
-      if (response.ok && response.status !== successStatus[id]) throw new ApiError('CONTRACT_MISMATCH', 'Phản hồi chưa đúng trạng thái xác nhận.', response.status, method === 'GET' ? 'rejected' : 'unknown');
+      if (response.ok && !isExpectedSuccessStatus(id, response.status)) throw new ApiError('CONTRACT_MISMATCH', 'Phản hồi chưa đúng trạng thái xác nhận.', response.status, method === 'GET' ? 'rejected' : 'unknown');
       if (response.status === 204) return undefined;
+      if (download && response.ok) return await response.blob();
       let json: unknown;
       try { json = await response.json(); } catch {
         throw new ApiError('INVALID_RESPONSE', 'Phản hồi chưa hợp lệ. Vui lòng thử lại sau.', response.status, method === 'GET' ? 'rejected' : 'unknown');
@@ -54,5 +59,6 @@ export function createHttpClient(getToken: () => string | null, fetcher: typeof 
     } finally {
       clearTimeout(timer); options.signal?.removeEventListener('abort', abort);
     }
-  };
+  }
+  return request;
 }

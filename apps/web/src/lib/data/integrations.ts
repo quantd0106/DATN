@@ -8,7 +8,7 @@ export const integrations = {
   notification: { status: 'contracted', owner: 'Core.Notification' },
   administration: { status: 'partial', owner: 'Core.Administration', operations: { staffAccounts: 'contracted', userManagement: 'contracted', studentImport: 'contracted', auditAndDataRequests: 'pending-adapter', dataRequestFulfillment: 'deferred-policy' } },
   bulkImport: { status: 'contracted', owner: 'Core.Administration' },
-  document: { status: 'pending-contract', owner: 'Document' },
+  document: { status: 'contracted', owner: 'Document' },
   tutor: { status: 'pending-contract', owner: 'AI' },
   learning: { status: 'pending-contract', owner: 'Learning' },
   intelligence: { status: 'partial', owner: 'Core.Administration / Learner Intelligence', operations: { adminAudit: 'contracted', dataRequestReview: 'pending-adapter', dataRequestFulfillment: 'deferred-policy', reports: 'pending-service', learningAnalytics: 'pending-service' } },

@@ -121,6 +121,26 @@ class TokenResponse(BaseModel):
     expires_in: int = 900
 
 
+class IntrospectTokenRequest(RequestModel):
+    token: SecretStr = Field(min_length=1, max_length=4096)
+
+
+class IntrospectedUserDTO(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    id: UUID
+    status: UserStatus
+    roles: list[Role]
+    school_id: UUID | None = None
+    display_name: str | None = None
+
+
+class IntrospectTokenResponse(BaseModel):
+    active: bool
+    user: IntrospectedUserDTO | None = None
+    exp: int | None = None
+
+
 class ForgotPasswordRequest(EmailRequest):
     pass
 

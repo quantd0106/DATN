@@ -93,4 +93,4 @@ def verify_internal_service_key(
         service_key.encode("utf-8"), expected.get_secret_value().encode("utf-8")
     ):
         raise AppError(401)
-    return frozenset({"core:check_access"})
+    return frozenset({"core:check_access", "core:introspect_auth"})

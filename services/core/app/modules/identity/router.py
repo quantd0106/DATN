@@ -5,17 +5,24 @@ from http.cookies import SimpleCookie
 from typing import Annotated
 from uuid import UUID
 
+import jwt
 from fastapi import APIRouter, Cookie, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, SecretStr
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.common.auth_dependencies import CurrentUser, get_current_user, require_roles
+from app.common.auth_dependencies import (
+    CurrentUser,
+    get_current_user,
+    require_roles,
+    verify_internal_service_key,
+)
 from app.common.config import settings
 from app.common.db import get_db, transaction
 from app.common.errors import AppError, ErrorEnvelope
 from app.common.pagination import Page, Pagination, get_pagination
-from app.common.security import hash_refresh_token
+from app.common.security import decode_access_token, hash_refresh_token
 from app.modules.identity.email_delivery import SMTPTokenSender, get_token_sender
 from app.modules.identity.http_security import (
     COOKIE_PATH,
@@ -24,6 +31,7 @@ from app.modules.identity.http_security import (
     verify_cookie_origin,
 )
 from app.modules.identity.idempotency import Mutation, get_mutation
+from app.modules.identity.public import get_introspection_subject
 from app.modules.identity.rate_limit import RateLimiter, get_rate_limiter
 from app.modules.identity.schemas import (
     ActivateStudentRequest,
@@ -32,6 +40,9 @@ from app.modules.identity.schemas import (
     DataRequestResponse,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
+    IntrospectedUserDTO,
+    IntrospectTokenRequest,
+    IntrospectTokenResponse,
     IssueStudentCodeRequest,
     LoginRequest,
     RegisterRequest,
@@ -53,6 +64,7 @@ def get_identity_service(session: Annotated[Session, Depends(get_db)]) -> Identi
 
 
 Service = Annotated[IdentityService, Depends(get_identity_service)]
+ServiceScopes = Annotated[frozenset[str], Depends(verify_internal_service_key)]
 User = Annotated[CurrentUser, Depends(get_current_user)]
 Admin = Annotated[CurrentUser, Depends(require_roles("ADMIN"))]
 Sender = Annotated[SMTPTokenSender, Depends(get_token_sender)]
@@ -69,11 +81,18 @@ router = APIRouter(
     tags=["Identity"],
     responses={status: ERROR_RESPONSE for status in (400, 401, 403, 409, 422, 429, 500, 503)},
 )
+internal_router = APIRouter(
+    prefix="/internal/v1",
+    tags=["Internal"],
+    responses={status: ERROR_RESPONSE for status in (400, 401, 403, 422, 500, 503)},
+)
 
 
-def _json(model: BaseModel, status: int = 200) -> Response:
+def _json(model: BaseModel, status: int = 200, *, exclude_unset: bool = False) -> Response:
     return JSONResponse(
-        model.model_dump(mode="json"), status_code=status, headers={"Cache-Control": "no-store"}
+        model.model_dump(mode="json", exclude_unset=exclude_unset),
+        status_code=status,
+        headers={"Cache-Control": "no-store"},
     )
 
 
@@ -119,6 +138,45 @@ def _validate_cached_tokens(response: Response, service: IdentityService) -> Non
     expiry = service.validate_cached_refresh(refresh, model.access_token)
     # Recalculate Max-Age so replay cannot extend the browser cookie beyond the DB expiry.
     response.raw_headers = _tokens(AuthTokens(model, SecretStr(refresh), expiry)).raw_headers
+
+
+@internal_router.post("/auth/introspect", response_model=IntrospectTokenResponse)
+def introspect_token(
+    body: IntrospectTokenRequest, scopes: ServiceScopes, service: Service
+) -> Response:
+    if "core:introspect_auth" not in scopes:
+        raise AppError(403)
+    try:
+        claims = decode_access_token(body.token.get_secret_value())
+    except RuntimeError as exc:
+        raise AppError(503, "Authentication unavailable") from exc
+    except jwt.InvalidTokenError:
+        return _json(IntrospectTokenResponse(active=False), exclude_unset=True)
+
+    try:
+        subject = get_introspection_subject(service.session, claims.sub)
+    except SQLAlchemyError as exc:
+        raise AppError(503) from exc
+    if (
+        subject is None
+        or subject.status != "ACTIVE"
+        or subject.session_version != claims.session_version
+        or not subject.roles
+    ):
+        return _json(IntrospectTokenResponse(active=False), exclude_unset=True)
+    return _json(
+        IntrospectTokenResponse(
+            active=True,
+            user=IntrospectedUserDTO(
+                id=subject.id,
+                status=subject.status,
+                roles=subject.roles,
+                school_id=subject.school_id,
+                display_name=subject.display_name,
+            ),
+            exp=claims.exp,
+        )
+    )
 
 
 @router.post("/auth/register", deprecated=True, status_code=403, response_model=ErrorEnvelope)
