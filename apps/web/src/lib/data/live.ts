@@ -4,9 +4,12 @@ import { createLiveCore } from './live-core';
 import { createLiveAccounts } from './live-accounts';
 import { createLiveDocument } from './live-document';
 import { createLiveClassroomAdminPort } from './live-classroom-admin';
-import { createUnavailablePracticeAuthoringPort } from './practice-authoring-unavailable';
-import { createUnavailableAssignmentPort } from './assignment-unavailable';
-import { createUnavailableAssessmentPort } from './assessment-unavailable';
+import { createLivePracticeAuthoring } from './live-practice-authoring';
+import { createLiveAssignment } from './live-assignment';
+import { createLiveAssessment } from './live-assessment';
+import { createLiveLearning } from './live-learning';
+import { createLiveAi } from './live-ai';
+import { createLiveDashboardEnricher } from './live-dashboard';
 import type { DataAdapter } from './port';
 import { ApiError } from '../api/errors';
 
@@ -14,62 +17,41 @@ const session = createLiveIdentitySession();
 const core = createLiveCore(session);
 const accounts = createLiveAccounts(session);
 const document = createLiveDocument(session, core.classroomReads);
+const liveAi = createLiveAi(session, core, {
+  documentContext: {
+    listClassDocuments: document.listClassDocuments,
+    listClassNotes: document.listClassNotes,
+  },
+});
+const practiceAuthoring = createLivePracticeAuthoring(session, core, liveAi);
+const learning = createLiveLearning(session, core, practiceAuthoring);
+const dashboard = createLiveDashboardEnricher(session, {
+  listClassDocuments: document.listClassDocuments,
+});
 
 export const adapter: DataAdapter = {
   source: 'live',
   personalData: { async download() { throw new ApiError('UNAVAILABLE', 'Vui lòng xem hướng dẫn bàn giao trong ghi chú xử lý hoặc liên hệ nhà trường để nhận bản sao.', 503); } },
   intelligence: createLiveIntelligencePort(session),
   classroom: createLiveClassroomAdminPort(session),
-  practiceAuthoring: createUnavailablePracticeAuthoringPort(),
+  practiceAuthoring,
   accounts,
-  assignment: createUnavailableAssignmentPort(),
-  assessment: createUnavailableAssessmentPort(),
+  assignment: createLiveAssignment(session, core),
+  assessment: createLiveAssessment(session, core, liveAi),
   identity: core.identity,
   social: core.social,
   calendar: core.calendar,
   notifications: core.notifications,
   document: document.document,
-  tutor: {
-    async updateConfig() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ cấu hình trợ lý Lumi chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async createConversation() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ trợ lý Lumi chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async sendMessage() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ hỏi đáp Lumi chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async stopStreaming() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ dừng câu trả lời chưa sẵn sàng trên máy chủ.', 503);
-    },
-  },
-  learning: {
-    async startPracticeAttempt() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ bắt đầu lượt luyện tập chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async checkPracticeAnswer() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ kiểm tra đáp án luyện tập chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async savePracticeDraft() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ lưu bài làm luyện tập chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async finishPracticeAttempt() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ hoàn tất luyện tập chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async createPracticeDraft() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ khởi tạo bài luyện tập chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async savePracticeEditorDraft() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ lưu bản nháp bài luyện tập chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async publishPractice() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ công bố bài luyện tập chưa sẵn sàng trên máy chủ.', 503);
-    },
-    async reviewEditorQuestion() {
-      throw new ApiError('UNAVAILABLE', 'Dịch vụ rà soát câu hỏi luyện tập chưa sẵn sàng trên máy chủ.', 503);
-    },
-  },
+  tutor: liveAi.tutor,
+  learning: learning.learning,
   workspace: {
-    load: (routeId, params, signal) => document.loadWorkspace(routeId, params, signal) ?? core.workspace.load(routeId, params, signal),
+    async load(routeId, params, signal) {
+      if (liveAi.workspace.handles(routeId)) return liveAi.workspace.load(routeId, params, signal);
+      if (learning.workspace.handles(routeId)) return learning.workspace.load(routeId, params, signal);
+      const docData = document.loadWorkspace(routeId, params, signal);
+      if (docData) return docData;
+      return dashboard.enrich(routeId, params, await core.workspace.load(routeId, params, signal), signal);
+    },
   },
 };

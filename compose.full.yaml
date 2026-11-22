@@ -1,0 +1,118 @@
+x-learning: &learning
+  image: rag-course-learning:local
+  build: ./services/learning
+  environment:
+    LEARNING_DATABASE_URL: ${LEARNING_DATABASE_URL:-${DATABASE_URL:-postgresql+psycopg://rag_course:change-me-local-only@db:5432/rag_course}}
+    CORE_API_URL: http://core:8000
+    CORE_JWT_SECRET: ${SECRET_KEY:-}
+    CORE_SERVICE_KEY: ${INTERNAL_SERVICE_SECRET:-}
+    LEARNING_INTERNAL_SERVICE_SECRET: ${LEARNING_INTERNAL_SERVICE_SECRET:-local-learning-internal-secret}
+    AI_MODE: http
+    AI_API_URL: http://ai:8001
+    AI_SERVICE_KEY: ${AI_INTERNAL_SERVICE_SECRET:-local-ai-internal-secret}
+    DOCUMENT_MODE: ${LEARNING_DOCUMENT_MODE:-http}
+    DOCUMENT_API_URL: ${DOCUMENT_API_URL:-http://document:8001}
+    DOCUMENT_SERVICE_KEY: ${INTERNAL_SERVICE_SECRET:-}
+    BLOB_STORAGE_DIR: /var/lib/learning-blobs
+  read_only: true
+  tmpfs:
+    - /tmp
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+x-ai: &ai
+  image: rag-course-ai:local
+  build:
+    context: ./services
+    dockerfile: ai/Dockerfile
+  environment:
+    AI_DATABASE_URL: ${AI_DATABASE_URL:-${DATABASE_URL:-postgresql+psycopg://rag_course:change-me-local-only@db:5432/rag_course}}
+    CORE_API_URL: http://core:8000
+    CORE_JWT_SECRET: ${SECRET_KEY:-}
+    CORE_SERVICE_KEY: ${INTERNAL_SERVICE_SECRET:-}
+    AI_INTERNAL_SERVICE_SECRET: ${AI_INTERNAL_SERVICE_SECRET:-local-ai-internal-secret}
+    AI_ANALYTICS_SERVICE_SECRET: ${AI_ANALYTICS_SERVICE_SECRET:-local-ai-analytics-secret}
+    LEARNING_MODE: http
+    LEARNING_API_URL: http://learning:8003
+    LEARNING_SERVICE_KEY: ${LEARNING_INTERNAL_SERVICE_SECRET:-local-learning-internal-secret}
+    LEARNING_ACTIVE_ASSESSMENT_PATH: /internal/v1/assessment-lock
+    LEARNING_QUIZ_EXPORT_PATH: /internal/v1/quiz-items/import
+    LLAMA_MODE: ${LLAMA_MODE:-disabled}
+    LLM_API_BASE: ${LLM_API_BASE:-}
+    LLM_API_KEY: ${LLM_API_KEY:-}
+    LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
+    DOCUMENT_MODE: ${DOCUMENT_MODE:-disabled}
+    DOCUMENT_API_URL: ${DOCUMENT_API_URL:-http://document:8001}
+    DOCUMENT_SERVICE_KEY: ${INTERNAL_SERVICE_SECRET:-}
+  read_only: true
+  tmpfs:
+    - /tmp
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+x-learning-runtime: &learning-runtime
+  <<: *learning
+  volumes:
+    - learning_blobs:/var/lib/learning-blobs
+  depends_on:
+    learning-migrate:
+      condition: service_completed_successfully
+
+services:
+  learning-migrate:
+    <<: *learning
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+  learning:
+    <<: *learning-runtime
+    ports:
+      - "127.0.0.1:${LEARNING_PORT:-8003}:8003"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/health/ready', timeout=5)"]
+      interval: 10s
+      timeout: 6s
+      retries: 5
+  learning-worker:
+    <<: *learning-runtime
+    command: ["python", "-m", "app.background_worker"]
+    restart: unless-stopped
+  ai-migrate:
+    <<: *ai
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+  ai:
+    <<: *ai
+    ports:
+      - "127.0.0.1:${AI_PORT:-8002}:8001"
+    depends_on:
+      ai-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health/ready', timeout=5)"]
+      interval: 10s
+      timeout: 6s
+      retries: 5
+  ai-worker:
+    <<: *ai
+    command: ["python", "-m", "app.background_worker"]
+    depends_on:
+      ai-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+  web:
+    environment:
+      LEARNING_API_URL: ${LEARNING_API_URL:-http://learning:8003}
+      AI_API_URL: ${AI_API_URL:-http://ai:8001}
+
+volumes:
+  learning_blobs:

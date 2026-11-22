@@ -1,6 +1,6 @@
 import type { DataAdapter } from './port';
 import type { User } from '../domain';
-import { createHttpClient } from '../api/http';
+import { createAiHttpClient, createHttpClient, createLearningHttpClient, type AiHttpRequest, type LearningHttpRequest } from '../api/http';
 import { ApiError } from '../api/errors';
 import { decodeCode, decodeMutation, decodeRequest, decodeRequests, decodeToken, decodeUser } from '../api/decoders';
 import { notifyAuthenticationLost } from '../auth-events';
@@ -8,6 +8,8 @@ import { notifyAuthenticationLost } from '../auth-events';
 export type LiveIdentitySession = {
   identity: DataAdapter['identity'];
   authenticated<T>(run: (request: ReturnType<typeof createHttpClient>) => Promise<T>, mutation?: boolean): Promise<T>;
+  authenticatedLearning<T>(run: (request: LearningHttpRequest) => Promise<T>, mutation?: boolean): Promise<T>;
+  authenticatedAi<T>(run: (request: AiHttpRequest) => Promise<T>, mutation?: boolean): Promise<T>;
   currentUser(): User | null;
   sessionGeneration(): number;
 };
@@ -48,14 +50,23 @@ export function createLiveIdentitySession(options: { fetcher?: typeof fetch; now
     void promise.finally(() => { if (refreshing === flight) refreshing = null; }).catch(() => undefined);
     return promise;
   }
-  async function authenticated<T>(run: (request: ReturnType<typeof createHttpClient>) => Promise<T>, mutation = false): Promise<T> {
+  async function withCredential<T>(run: (credential: string | null) => Promise<T>, mutation: boolean): Promise<T> {
     const expected = generation;
     check(expected);
     if (!token || now() >= expiresAt) await refresh(expected);
     check(expected);
     const captured = token;
-    try { const value = await run(http(captured)); check(expected, mutation); return value; }
+    try { const value = await run(captured); check(expected, mutation); return value; }
     catch (error) { if (error instanceof ApiError && error.status === 401 && error.code !== 'SESSION_CHANGED') clear(expected); throw error; }
+  }
+  function authenticated<T>(run: (request: ReturnType<typeof createHttpClient>) => Promise<T>, mutation = false) {
+    return withCredential(credential => run(http(credential)), mutation);
+  }
+  function authenticatedLearning<T>(run: (request: LearningHttpRequest) => Promise<T>, mutation = false) {
+    return withCredential(credential => run(createLearningHttpClient(() => credential, options.fetcher)), mutation);
+  }
+  function authenticatedAi<T>(run: (request: AiHttpRequest) => Promise<T>, mutation = false) {
+    return withCredential(credential => run(createAiHttpClient(() => credential, options.fetcher)), mutation);
   }
   async function logout(all: boolean): Promise<void> {
     const captured = token, expected = ++generation;
@@ -126,7 +137,7 @@ export function createLiveIdentitySession(options: { fetcher?: typeof fetch; now
     createStudent: (username, displayName) => authenticated(async request => decodeMutation(decodeCode, await request('createStudent', { body: { username, ...(displayName ? { display_name: displayName } : {}) } })), true),
     issueCode: (userId, identityVerified) => authenticated(async request => decodeMutation(decodeCode, await request('issueStudentCode', { userId, body: identityVerified ? { identity_verified: true } : {} })), true),
   };
-  return { identity, authenticated, currentUser: () => user, sessionGeneration: () => generation };
+  return { identity, authenticated, authenticatedLearning, authenticatedAi, currentUser: () => user, sessionGeneration: () => generation };
 }
 
 export function createLiveIdentity(options: { fetcher?: typeof fetch; now?: () => number; onLost?: () => void } = {}): DataAdapter['identity'] {

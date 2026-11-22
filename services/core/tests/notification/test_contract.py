@@ -7,9 +7,10 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
 from app.common.auth_dependencies import CurrentUser, get_current_user
+from app.common.config import settings
 from app.common.errors import AppError
 from app.common.outbox import OutboxEvent, record_outbox_event
 from app.common.pagination import Pagination
@@ -27,6 +28,7 @@ def test_notification_openapi_and_authentication():
         "/api/v1/notifications": {"get"},
         "/api/v1/notifications/{id}/read": {"patch"},
         "/api/v1/notifications/read-all": {"post"},
+        "/internal/v1/notifications/learning-events": {"post"},
     }
     assert "content" not in paths["/api/v1/notifications/read-all"]["post"]["responses"]["204"]
     with TestClient(app) as client:
@@ -38,6 +40,36 @@ def test_notification_openapi_and_authentication():
             response = getattr(client, method)(path)
             assert response.status_code == 401
             assert response.json()["error"]["code"] == "UNAUTHENTICATED"
+
+
+def test_learning_notification_requires_service_key_and_structured_payload(monkeypatch):
+    key = "test-notification-internal-key"
+    monkeypatch.setattr(settings, "internal_service_secret", SecretStr(key))
+    path = "/internal/v1/notifications/learning-events"
+    payload = {
+        **{
+            field: str(uuid4())
+            for field in ("source_event_id", "school_id", "class_id", "resource_id", "student_id")
+        },
+        "event_type": "ASSESSMENT_RESULT_RELEASED",
+        "resource_type": "assessment_attempt",
+    }
+    with TestClient(app) as client:
+        assert client.post(path, json=payload).status_code == 401
+        assert (
+            client.post(path, json=payload, headers={"X-Service-Key": "wrong"}).status_code == 401
+        )
+        for invalid in (
+            {"student_id": None},
+            {"chat": "synthetic private content"},
+            {"resource_type": "appeal"},
+            {"event_type": "GRADE_PROPOSAL_PENDING", "resource_type": "grade_revision"},
+        ):
+            response = client.post(
+                path, json={**payload, **invalid}, headers={"X-Service-Key": key}
+            )
+            assert response.status_code == 422
+            assert "synthetic private content" not in response.text
 
 
 def test_routes_use_authenticated_user_and_no_store():

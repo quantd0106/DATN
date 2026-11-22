@@ -243,6 +243,7 @@ export function StudentPracticeAttemptView({ data, reload, params, user }: Props
             practiceId,
             attemptId: currentAttemptId,
             answers: queuedAnswers,
+            currentQuestionIndex: currentIndexRef.current,
           });
           return res;
         },

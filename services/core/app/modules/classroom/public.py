@@ -28,6 +28,14 @@ __all__ += ["NotificationAudienceDTO", "get_notification_audience"]
 __all__ += ["RosterImportSnapshot", "admin_append_roster", "admin_preview_roster"]
 __all__ += ["maintenance_provision_schools", "maintenance_schools", "seed_dev_classroom"]
 __all__ += ["maintenance_user_schools"]
+__all__ += ["require_class_school"]
+
+
+def require_class_school(class_id: UUID, school_id: UUID, *, session: Session) -> None:
+    """Verify the class's school and hold a shared lock for the caller's transaction."""
+    klass = ClassroomRepository(session).get_class(class_id, for_share=True)
+    if klass is None or klass.school_id != school_id:
+        raise AppError(404)
 
 
 def admin_preview_roster(

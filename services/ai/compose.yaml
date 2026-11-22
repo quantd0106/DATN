@@ -1,0 +1,38 @@
+x-ai: &ai
+  image: rag-course-ai:local
+  build:
+    context: ..
+    dockerfile: ai/Dockerfile
+  env_file: ${AI_ENV_FILE:-.env}
+  read_only: true
+  tmpfs:
+    - /tmp
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+services:
+  ai-migrate:
+    <<: *ai
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    restart: "no"
+  ai:
+    <<: *ai
+    depends_on:
+      ai-migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health/ready', timeout=5)"]
+      interval: 10s
+      timeout: 6s
+      retries: 5
+  ai-worker:
+    <<: *ai
+    command: ["python", "-m", "app.background_worker"]
+    depends_on:
+      ai-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped

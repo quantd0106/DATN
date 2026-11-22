@@ -7,7 +7,7 @@ const actorId = '00000000-0000-4000-8000-000000000001';
 const classId = '00000000-0000-4000-8000-000000000002';
 const postId = '00000000-0000-4000-8000-000000000003';
 
-function harness(role: 'STUDENT' | 'LECTURER' = 'STUDENT') {
+function harness(role: 'STUDENT' | 'LECTURER' = 'STUDENT', notifications: unknown[] = []) {
   const calls: { path: string; method: string; authorization: string | null }[] = [];
   const fetcher = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'https://web.example');
@@ -22,7 +22,7 @@ function harness(role: 'STUDENT' | 'LECTURER' = 'STUDENT') {
     if (url.pathname.endsWith('/calendar')) return Response.json({items: [], next_cursor: null});
     if (url.pathname === `/api/v1/classes/${classId}/posts`) return Response.json({ items: [{ id: postId, class_id: classId, author: { id: actorId, display_name: 'Học sinh' }, body: 'Bài viết thật từ Core', created_at: '2026-10-28T10:00:00Z', updated_at: '2026-10-28T10:00:00Z' }], next_cursor: null });
     if (url.pathname === `/api/v1/classes/${classId}/posts/${postId}/comments`) return Response.json({ items: [{ id: '00000000-0000-4000-8000-000000000008', post_id: postId, author: { id: actorId, display_name: 'Học sinh' }, body: 'Bình luận Core', created_at: '2026-10-28T10:01:00Z', updated_at: '2026-10-28T10:01:00Z' }], next_cursor: null });
-    if (url.pathname === '/api/v1/notifications') return Response.json({ items: [], unread_count: 7, next_cursor: null });
+    if (url.pathname === '/api/v1/notifications') return Response.json({ items: notifications, unread_count: 7, next_cursor: null });
     if (url.pathname === '/api/v1/notifications/read-all' && method === 'POST') return new Response(null, { status: 204 });
     return Response.json({ error: { code: 'NOT_FOUND', message: 'not found' } }, { status: 404 });
   }) as typeof fetch;
@@ -142,4 +142,25 @@ test('live notification workspace consumes all Core pages and retains the total 
   assert.equal(result.notifications?.length, 2);
   assert.equal(result.notificationUnreadCount, 3);
   assert.deepEqual(pages, ['', 'cursor-2']);
+});
+
+test('live notification workspace decodes Learning events with role-specific links', async () => {
+  const cases = [
+    ['STUDENT', 'ASSESSMENT_RESULT_RELEASED', 'assessment_attempt', 'Đã công bố kết quả kiểm tra', `/student/classes/${classId}/assessments`],
+    ['LECTURER', 'GRADE_PROPOSAL_PENDING', 'grade_revision', 'Đề xuất điều chỉnh điểm đang chờ duyệt', `/teacher/classes/${classId}/grading`],
+    ['STUDENT', 'APPEAL_RESOLVED', 'appeal', 'Yêu cầu phúc khảo đã được giải quyết', `/student/classes/${classId}/assessments`],
+  ] as const;
+  for (const [role, type, resourceType, title, targetHref] of cases) {
+    const item = {
+      id: '00000000-0000-4000-8000-000000000013', type, read: false,
+      payload_json: { class_id: classId, resource_type: resourceType, resource_id: postId, event_id: postId, schema_version: 2 },
+      created_at: '2026-10-29T10:00:00Z',
+    };
+    const { session, core } = harness(role, [item]);
+    await session.identity.login({ email: 'actor@example.com', password: 'test-password' });
+    const result = await core.workspace.load('account.notifications', {});
+    assert.equal(result.kind, 'ready');
+    if (result.kind !== 'ready') return;
+    assert.deepEqual(result.notifications?.map(row => [row.title, row.category, row.targetHref]), [[title, 'EXAM', targetHref]]);
+  }
 });

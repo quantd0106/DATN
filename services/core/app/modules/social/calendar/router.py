@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.common.auth_dependencies import CurrentUser, get_current_user
+from app.common.auth_dependencies import CurrentUser, get_current_user, verify_internal_service_key
 from app.common.db import get_db
 from app.common.errors import ErrorEnvelope
 from app.common.pagination import Pagination, get_pagination
@@ -16,8 +16,10 @@ from app.modules.social.calendar.schemas import (
     CalendarEventListResponse,
     CalendarEventResponse,
     CalendarEventUpdateRequest,
+    LearningDeadlineReceipt,
+    LearningDeadlineRequest,
 )
-from app.modules.social.calendar.service import CalendarService
+from app.modules.social.calendar.service import CalendarService, upsert_learning_deadline
 
 ERROR_RESPONSE = {
     "description": "Error envelope with code, message and correlation_id",
@@ -27,6 +29,12 @@ router = APIRouter(
     prefix="/api/v1",
     tags=["Social Calendar"],
     responses={status: ERROR_RESPONSE for status in (400, 401, 403, 404, 409, 422, 500, 503)},
+)
+internal_router = APIRouter(
+    prefix="/internal/v1",
+    tags=["Internal"],
+    dependencies=[Depends(verify_internal_service_key)],
+    responses={status: ERROR_RESPONSE for status in (401, 404, 422, 503)},
 )
 
 
@@ -99,3 +107,12 @@ def delete_event(
 ) -> Response:
     service.delete_event(class_id, event_id, user)
     return Response(status_code=204, headers={"Cache-Control": "no-store"})
+
+
+@internal_router.put("/calendar/learning-deadlines", response_model=LearningDeadlineReceipt)
+def project_learning_deadline(
+    body: LearningDeadlineRequest,
+    session: Annotated[Session, Depends(get_db)],
+) -> Response:
+    event = upsert_learning_deadline(session, **body.model_dump())
+    return _json(LearningDeadlineReceipt(event_id=event.id, version=event.version))

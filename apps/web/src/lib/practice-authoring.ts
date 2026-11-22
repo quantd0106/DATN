@@ -1,6 +1,6 @@
 import type { ClassSummary, PracticeQuestion, QuestionType, TeacherPracticeEditorModel } from './domain';
 
-// Frontend authoring contract; does not describe an unapproved HTTP API.
+// Frontend authoring contract for practice drafts.
 export type PracticeDraftContent = Pick<TeacherPracticeEditorModel, 'title' | 'topic' | 'questions'>;
 export type PracticeEditorSnapshot = {
   editor: TeacherPracticeEditorModel;

@@ -1,0 +1,43 @@
+x-learning: &learning
+  image: rag-course-learning:local
+  build:
+    context: .
+    dockerfile: Dockerfile
+  env_file: ${LEARNING_ENV_FILE:-.env}
+  read_only: true
+  tmpfs:
+    - /tmp
+  volumes:
+    - learning_blobs:/var/lib/learning-blobs
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+services:
+  learning-migrate:
+    <<: *learning
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    restart: "no"
+  learning:
+    <<: *learning
+    depends_on:
+      learning-migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${LEARNING_PORT:-8003}:8003"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/health/ready', timeout=5)"]
+      interval: 10s
+      timeout: 6s
+      retries: 5
+  learning-worker:
+    <<: *learning
+    command: ["python", "-m", "app.background_worker"]
+    depends_on:
+      learning-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  learning_blobs:

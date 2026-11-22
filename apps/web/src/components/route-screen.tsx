@@ -30,7 +30,8 @@ function RouteScreenInner({routeId,params}:{routeId:RouteId;params:RouteParams})
   const [revision,setRevision]=useState(0);
   const actorKey=JSON.stringify([session.user?.id,session.user?.roles,session.user?.school_id]);
   const snapshotKey=JSON.stringify([routeId,resourceKey,actorKey,revision]);
-  const featureKey=JSON.stringify([routeId,resourceKey,actorKey]);
+  // Selecting a Tutor conversation reloads its history while keeping the in-flight composer mounted.
+  const featureKey=JSON.stringify([routeId,routeId==='s.tutor'?params.classId:resourceKey,actorKey]);
   const summaryKey=JSON.stringify([routeId,resourceKey,actorKey]);
   const selfLoading=featureOwnsRead(routeId);
   const [snapshot,setSnapshot]=useState<{key:string;data:WorkspaceData}|null>(null);

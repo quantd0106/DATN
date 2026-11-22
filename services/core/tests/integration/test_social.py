@@ -6,15 +6,19 @@ from uuid import uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
+from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from app.common.audit import AuditEvent
 from app.common.auth_dependencies import CurrentUser
 from app.common.config import settings
+from app.common.db import get_db
 from app.common.errors import AppError
 from app.common.outbox import OutboxEvent
 from app.common.pagination import Pagination
+from app.main import app
 from app.modules.classroom.models import ClassMembership, EnrollmentMode, MembershipStatus, School
 from app.modules.classroom.schemas import ClassCreateRequest, CourseCreateRequest
 from app.modules.classroom.service import ClassroomService
@@ -29,6 +33,86 @@ from app.modules.social.comments.schemas import CommentCreateRequest
 from app.modules.social.comments.service import CommentsService
 from app.modules.social.feed.schemas import PostCreateRequest, PostUpdateRequest
 from app.modules.social.feed.service import FeedService
+
+
+def test_learning_deadline_http_projection(social, monkeypatch):
+    session, classroom, class_id, users = social
+    school_id = users["admin"].school_id
+    monkeypatch.setattr(settings, "internal_service_secret", SecretStr("calendar-test-key"))
+    monkeypatch.setitem(app.dependency_overrides, get_db, lambda: session)
+
+    start = datetime(2026, 12, 1, tzinfo=UTC)
+    path = "/internal/v1/calendar/learning-deadlines"
+    headers = {"X-Service-Key": "calendar-test-key"}
+    body = {
+        "school_id": str(school_id),
+        "class_id": str(class_id),
+        "external_ref": f"learning:activity:{uuid4()}",
+        "title": "Version 3",
+        "starts_at": start.isoformat(),
+        "ends_at": (start + timedelta(hours=1)).isoformat(),
+        "version": 3,
+    }
+    other_course = classroom.create_course(
+        users["admin"],
+        CourseCreateRequest(code="SOC" + uuid4().hex[:8], name="Other projection class"),
+    )
+    other_class = classroom.create_class(
+        users["admin"],
+        ClassCreateRequest(
+            course_id=other_course.id,
+            name="Other projection class",
+            academic_year="2026-2027",
+            semester="1",
+            grade_level=9,
+            enrollment_mode=EnrollmentMode.MANUAL,
+            primary_lecturer_id=users["teacher"].id,
+        ),
+    )
+    with TestClient(app) as client:
+        for invalid_scope in (
+            {"school_id": str(users["other_admin"].school_id)},
+            {"class_id": str(uuid4())},
+        ):
+            response = client.put(path, json=body | invalid_scope, headers=headers)
+            assert response.status_code == 404
+
+        first = client.put(path, json=body, headers=headers)
+        assert first.status_code == 200, first.text
+        receipt = first.json()
+        assert set(receipt) == {"event_id", "version"}
+        assert receipt["version"] == 3
+        for version in (3, 2):
+            response = client.put(
+                path, json=body | {"title": "Ignored", "version": version}, headers=headers
+            )
+            assert response.status_code == 200
+            assert response.json() == receipt
+
+        response = client.put(
+            path,
+            json=body | {"class_id": str(other_class.id), "version": 4},
+            headers=headers,
+        )
+        assert response.status_code == 404
+
+    event = session.scalars(
+        select(CalendarEvent).where(CalendarEvent.external_ref == body["external_ref"])
+    ).one()
+    assert str(event.id) == receipt["event_id"]
+    assert (event.class_id, event.version, event.title) == (class_id, 3, "Version 3")
+    assert event.ends_at == start + timedelta(hours=1)
+    outbox = session.scalars(
+        select(OutboxEvent).where(OutboxEvent.aggregate_id == str(event.id))
+    ).one()
+    assert outbox.event_type == "CALENDAR_DEADLINE_CHANGED"
+    assert outbox.payload_json["version"] == 3
+    assert outbox.payload_json["school_id"] == str(school_id)
+    assert outbox.payload_json["class_id"] == str(class_id)
+    assert outbox.payload_json["external_ref"] == body["external_ref"]
+    assert set(outbox.payload_json["recipient_ids"]) == {
+        str(users[role].id) for role in ("teacher", "student", "student2")
+    }
 
 
 @pytest.fixture(scope="module")

@@ -27,6 +27,7 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
   });
   const [inputContent, setInputContent] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [stoppingGeneration, setStoppingGeneration] = useState<number | null>(null);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isDrawerHistoryOpen, setIsDrawerHistoryOpen] = useState(false);
@@ -38,7 +39,9 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
     convId: string;
     generation: number;
     controller: AbortController;
+    stopRequested?: boolean;
   } | null>(null);
+  const isStopping = stoppingGeneration !== null && activeStreamRef.current?.generation === stoppingGeneration;
   useUnsavedChanges(Boolean(inputContent.trim()) || isStreaming, {queryKeys:['conversationId','compose','mode']});
   const generationRef = useRef(0);
   const synchronizedUrlRef = useRef<string | null>(null);
@@ -52,6 +55,7 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
   const explicitUnknownId = Boolean(
     params.conversationId &&
     tutorData?.conversations &&
+    activeStreamRef.current?.convId !== params.conversationId &&
     !tutorData.conversations.some(c => c.id === params.conversationId)
   );
 
@@ -174,6 +178,13 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
   // Derive citations from current assistant message or default
   const lastAssistantMsg = activeConv?.messages.filter(m => m.role === 'assistant').slice(-1)[0];
   const activeCitations: CitationItem[] = lastAssistantMsg?.citations ?? [];
+  const activeStepSession = Boolean(
+    lastAssistantMsg &&
+      !lastAssistantMsg.isFailed &&
+      !lastAssistantMsg.isStreaming &&
+      lastAssistantMsg.stepState &&
+      ['PLANNED', 'HINT', 'IN_PROGRESS'].includes(lastAssistantMsg.stepState),
+  );
 
   const handleOpenNewCompose = () => {
     if (isAssessmentLocked || !activeClassId) return;
@@ -195,11 +206,25 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
     setInputContent(saved ?? '');
   };
 
-  const handleSendMessage = async (e?: React.FormEvent, retryText?: string, isRetryMode?: boolean, retryUserMessageId?: string) => {
+  const handleSendMessage = async (
+    e?: React.FormEvent,
+    retryText?: string,
+    isRetryMode?: boolean,
+    retryUserMessageId?: string,
+    operationOverride?: 'ASK' | 'CHECK' | 'HINT' | 'REVEAL',
+  ) => {
     if (e) e.preventDefault();
+    const operation = operationOverride ?? 'ASK';
+    const effectiveMode = operation === 'ASK' ? mode : ('STEP_BY_STEP' as const);
+    const requiresText = operation === 'ASK' || operation === 'CHECK';
     const contentToSend = (retryText ?? inputContent).trim();
-    if (!contentToSend || isAssessmentLocked || !activeClassId) return;
+    if ((requiresText && !contentToSend) || isAssessmentLocked || !activeClassId) return;
     if (isStreaming || activeStreamRef.current) return;
+    const maxLength = effectiveMode === 'STEP_BY_STEP' ? (operation === 'CHECK' ? 500 : 600) : 2000;
+    if (requiresText && adapter.source === 'live' && [...contentToSend].length > maxLength) {
+      setActionError(`Câu hỏi ở chế độ này có tối đa ${maxLength} ký tự.`);
+      return;
+    }
     if (explicitUnknownId) {
       setActionError('Không thể gửi câu hỏi vào cuộc trò chuyện không tồn tại hoặc không có quyền truy cập.');
       return;
@@ -215,9 +240,11 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
 
     try {
       let targetConvId = selectedConvId;
-      // Tutor start with no conversation must create one then send
       if (!targetConvId || !activeConv) {
-        const created = await adapter.tutor.createConversation(activeClassId, contentToSend.slice(0, 30));
+        const created = await adapter.tutor.createConversation(
+          activeClassId,
+          (contentToSend || 'Hướng dẫn từng bước').slice(0, 30),
+        );
         if (controller.signal.aborted || generationRef.current !== generation) return;
         targetConvId = created.id;
         setSelectedConvId(created.id);
@@ -240,7 +267,8 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
         conversationId: targetConvId,
         classId: activeClassId,
         content: contentToSend,
-        mode,
+        mode: effectiveMode,
+        operation,
         isRetry: isRetryMode,
         retryUserMessageId,
         onChunk: (chunk: string) => {
@@ -253,9 +281,11 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
 
       // Clear draft after successful transmission
       if (activeStreamRef.current?.generation === generation) {
-        setInputContent('');
-        draftStore.remove(`tutor:${userId}:${activeClassId}:${targetConvId}`);
-        draftStore.remove(`tutor:${userId}:${activeClassId}:new`);
+        if (requiresText) {
+          setInputContent('');
+          draftStore.remove(`tutor:${userId}:${activeClassId}:${targetConvId}`);
+          draftStore.remove(`tutor:${userId}:${activeClassId}:new`);
+        }
         reload();
       }
     } catch (err) {
@@ -273,6 +303,32 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
 
   const handleStopStreaming = async () => {
     const stream = activeStreamRef.current;
+    if (adapter.source === 'live' && stream?.convId) {
+      if (stream.stopRequested) return;
+      stream.stopRequested = true;
+      setStoppingGeneration(stream.generation);
+      try {
+        await adapter.tutor.stopStreaming(stream.convId);
+        if (activeStreamRef.current === stream) {
+          activeStreamRef.current = null;
+          stream.controller.abort();
+          setIsStreaming(false);
+          setStreamingContent(null);
+          setInputContent('');
+          draftStore.remove(`tutor:${userId}:${activeClassId}:${stream.convId}`);
+          draftStore.remove(`tutor:${userId}:${activeClassId}:new`);
+          reload();
+        }
+      } catch (error) {
+        if (activeStreamRef.current === stream) {
+          stream.stopRequested = false;
+          setActionError(errorMessage(error));
+        }
+      } finally {
+        setStoppingGeneration(current => current === stream.generation ? null : current);
+      }
+      return;
+    }
     const identity = identityRef.current;
     const generation = ++generationRef.current;
     const result = await stopTutorStream({
@@ -549,12 +605,42 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
                   type="button"
                   className="button small danger tutor-stop-stream"
                   onClick={handleStopStreaming}
+                  disabled={isStopping}
                 >
                   <Icon name="stop" />
-                  <span>Dừng tạo câu trả lời</span>
+                  <span>{isStopping ? 'Đang dừng…' : 'Dừng tạo câu trả lời'}</span>
                 </button>
               )}
             </div>
+
+            {activeStepSession && activeConv && !explicitUnknownId && !isAssessmentLocked && (
+              <div className="composer-mode-bar" role="group" aria-label="Thao tác hướng dẫn từng bước">
+                <button
+                  type="button"
+                  className="button small primary"
+                  onClick={() => void handleSendMessage(undefined, inputContent, false, undefined, 'CHECK')}
+                  disabled={isStreaming || !inputContent.trim()}
+                >
+                  Kiểm tra bước làm
+                </button>
+                <button
+                  type="button"
+                  className="button small secondary"
+                  onClick={() => void handleSendMessage(undefined, '', false, undefined, 'HINT')}
+                  disabled={isStreaming}
+                >
+                  Gợi ý thêm
+                </button>
+                <button
+                  type="button"
+                  className="button small secondary"
+                  onClick={() => void handleSendMessage(undefined, '', false, undefined, 'REVEAL')}
+                  disabled={isStreaming}
+                >
+                  Xem lời giải
+                </button>
+              </div>
+            )}
 
             <form onSubmit={handleSendMessage} className="composer-form">
               <label htmlFor="tutorMessageTextarea" className="sr-only">Nội dung câu hỏi học tập</label>

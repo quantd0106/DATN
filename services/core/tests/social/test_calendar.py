@@ -6,10 +6,13 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
-from pydantic import ValidationError
+from fastapi.testclient import TestClient
+from pydantic import SecretStr, ValidationError
 from sqlalchemy.orm import Session
 
 from app.common.auth_dependencies import CurrentUser
+from app.common.config import settings
+from app.common.db import get_db
 from app.common.errors import AppError
 from app.modules.classroom import public as classroom_public
 from app.modules.social.calendar.models import CalendarEvent, CalendarOrigin
@@ -160,6 +163,37 @@ def test_cross_class_calendar_event_is_hidden(monkeypatch):
             user,
         )
     assert hidden.value.status_code == 404
+
+
+def test_learning_deadline_checks_service_key_body_and_school_scope(monkeypatch):
+    from app.main import app
+
+    monkeypatch.setattr(settings, "internal_service_secret", SecretStr("calendar-test-key"))
+    session = MagicMock(spec=Session)
+    monkeypatch.setitem(app.dependency_overrides, get_db, lambda: session)
+    path = "/internal/v1/calendar/learning-deadlines"
+    body = {
+        "school_id": str(uuid4()),
+        "class_id": str(uuid4()),
+        "external_ref": "learning:activity:test",
+        "title": "Deadline",
+        "starts_at": "2026-12-01T12:00:00Z",
+        "ends_at": "2026-12-01T13:00:00Z",
+        "version": 3,
+    }
+    with TestClient(app) as client:
+        assert client.put(path, json=body).status_code == 401
+        assert client.put(path, json=body, headers={"X-Service-Key": "wrong"}).status_code == 401
+        headers = {"X-Service-Key": "calendar-test-key"}
+        for invalid in ({"version": 0}, {"starts_at": "2026-12-01T12:00:00"}):
+            assert client.put(path, json=body | invalid, headers=headers).status_code == 422
+        session.scalar.assert_not_called()
+        session.scalar.side_effect = [None, SimpleNamespace(school_id=uuid4())]
+        for _ in range(2):
+            assert client.put(path, json=body, headers=headers).status_code == 404
+    assert session.scalar.call_count == 2
+    assert session.rollback.call_count == 2
+    session.commit.assert_not_called()
 
 
 def test_social_openapi_snapshot():

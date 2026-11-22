@@ -8,6 +8,7 @@ from app.modules.health.router import router as health_router
 from app.modules.identity.public import get_identity_user_lookup
 from app.modules.identity.router import internal_router as identity_internal_router
 from app.modules.identity.router import router as identity_router
+from app.modules.notification.router import internal_router as notification_internal_router
 from app.modules.notification.router import router as notification_router
 from app.modules.social.router import router as social_router
 
@@ -22,4 +23,5 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(classroom_internal_router)
     app.include_router(social_router)
     app.include_router(notification_router)
+    app.include_router(notification_internal_router)
     app.include_router(administration_router)

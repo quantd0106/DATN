@@ -20,6 +20,6 @@ export function canonicalParams(params: RouteParams): string {
 export function resourceParamsKey(routeId: string, params: RouteParams): string {
   const keys = [...getRoute(routeId).path.matchAll(/:(\w+)/g)].map(match=>match[1]);
   if (routeId === 's.reader' || routeId === 't.libraryDocument') keys.push('version');
-  if (routeId === 's.tutor') keys.push('conversationId');
+  if (routeId === 's.tutor') keys.push('conversationId', 'compose');
   return canonicalParams(Object.fromEntries(keys.filter(key=>params[key]!==undefined).map(key=>[key,params[key]])));
 }

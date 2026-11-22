@@ -1,28 +1,29 @@
 import type { AssessmentGrading, AssessmentResult } from './assessment';
 import type { CalendarEvent, ClassSummary, RouteParams, TeacherActivityItem } from './domain';
 
-// Frontend-only read models. Learning service contracts remain unapproved.
-export type AssignmentSource = { id: string; title: string; version: number };
-export type AssignmentPolicy = { maxVersions: number; allowLate: boolean; lateUntil: string | null; resubmitUntil: string | null; gradedVersion: 'LATEST' | 'FIRST'; maxBytes: number; acceptedTypes: string[]; newEnrollment: 'REVIEW' | 'AUTO' };
-export type AssignmentDefinition = { activityType?: 'ASSIGNMENT' | 'ASSESSMENT'; publishedRevision?: number; id: string; classId: string; title: string; topic: string; instructions: string; dueAt: string; status: 'DRAFT' | 'PUBLISHED'; revision: number; policy: AssignmentPolicy; source?: AssignmentSource; sourceHref?: string };
+// Frontend read models for assignments.
+export type AssignmentSource = { id: string; title: string; version: number; accessible?: boolean };
+export type AssignmentPolicy = { maxVersions: number; allowLate: boolean; lateUntil: string | null; resubmitUntil: string | null; gradedVersion: 'LATEST' | 'FIRST'; maxBytes: number | null; acceptedTypes: string[]; newEnrollment: 'REVIEW' | 'AUTO'; maxScore?: number; appealWindowDays?: number };
+export type AssignmentDefinition = { activityType?: 'ASSIGNMENT' | 'ASSESSMENT'; publishedRevision?: number; id: string; classId: string; title: string; topic: string; instructions: string; dueAt: string; status: 'DRAFT' | 'PUBLISHED'; revision: number; policy: AssignmentPolicy; source?: AssignmentSource; sourceHref?: string; appealWindowDays?: number };
 export type SubmissionFile = { id: string; name: string; size: number; type: string };
-export type AssignmentGrade = { version: number; score: number; feedback: string; teacherId: string; teacherName: string; confirmedAt: string; reason: string };
+export type AssignmentGrade = { version: number; score: number; maxScore?: number; feedback: string; teacherId: string | null; teacherName: string; confirmedAt: string; reason: string };
 export type AssignmentSubmission = { id: string; assignmentId: string; assignmentRevision: number; classId: string; studentId: string; studentName: string; number: number; file: SubmissionFile; note: string; submittedAt: string; late: boolean; grade: AssignmentGrade | null; gradeHistory: AssignmentGrade[]; isGradedVersion: boolean; resultId: string };
 export type AssignmentUpload = { id: string; assignmentId: string; file: SubmissionFile; acknowledgedAt: string; previewOnly: true };
 export type GradeAppeal = { officialTarget?: { classId: string; assessmentId: string; attemptId: string }; id: string; classId: string; submissionId: string; studentId: string; reason: string; createdAt: string; status: 'OPEN' | 'PROPOSED' | 'RESOLVED'; resolution?: string };
-export type GradeProposal = { officialTarget?: { classId: string; assessmentId: string; attemptId: string }; id: string; appealId: string; classId: string; submissionId: string; score: number; reason: string; expectedGradeVersion: number; proposerId: string; proposerName: string; proposedAt: string; status: 'PENDING' | 'APPROVED' | 'REJECTED'; decisionReason?: string; decidedAt?: string; decidedBy?: string };
-export type GradingQueueItem = { id: string; title: string; studentName: string; number: number; submittedAt: string; late: boolean; graded: boolean; membershipEnded: boolean; href: string; kind: 'ASSIGNMENT' | 'ASSESSMENT' };
+export type GradeProposal = { officialTarget?: { classId: string; assessmentId: string; attemptId: string }; id: string; appealId: string | null; classId: string; submissionId: string; score: number; maxScore?: number; reason: string; expectedGradeVersion: number; proposerId: string; proposerName: string; proposedAt: string; status: 'PENDING' | 'APPROVED' | 'REJECTED'; decisionReason?: string; decidedAt?: string; decidedBy?: string };
+export type GradingQueueItem = { id: string; title: string; studentName: string; number: number; submittedAt: string; late: boolean; graded: boolean; membershipEnded: boolean; href: string; kind: 'ASSIGNMENT' | 'ASSESSMENT'; assessmentId?: string };
 export type AssignmentPage =
- | { kind: 'official-history'; classSummary: ClassSummary; result: AssessmentResult; limitedHistory: boolean }
+ | { kind: 'official-history'; classSummary?: ClassSummary; result: AssessmentResult; limitedHistory: boolean }
  | { kind: 'list'; classSummary: ClassSummary; assignments: { assignment: AssignmentDefinition; submissions: AssignmentSubmission[] }[] }
  | { kind: 'detail'; classSummary: ClassSummary; assignment: AssignmentDefinition; submissions: AssignmentSubmission[]; canSubmit: boolean; submitBlockedReason?: string; canAppeal: boolean; appeals: GradeAppeal[]; proposals: GradeProposal[] }
- | { kind: 'history'; classSummary: ClassSummary; assignment: AssignmentDefinition; submission: AssignmentSubmission; canAppeal: boolean; appeals: GradeAppeal[]; proposals: GradeProposal[]; limitedHistory: boolean }
- | { kind: 'editor'; classSummary: ClassSummary; assignment: AssignmentDefinition; sources: AssignmentSource[]; audience: {userId: string; assigned: boolean}[] }
+ | { kind: 'history'; classSummary?: ClassSummary; assignment?: AssignmentDefinition; submission: AssignmentSubmission; canAppeal: boolean; appeals: GradeAppeal[]; proposals: GradeProposal[]; limitedHistory: boolean }
+ | { kind: 'editor'; classSummary: ClassSummary; assignment: AssignmentDefinition; sources: AssignmentSource[]; audience: {userId: string; assigned: boolean; displayName?: string}[]; audienceRosterAvailable?: boolean }
  | { kind: 'queue'; classSummary: ClassSummary; items: GradingQueueItem[]; appeals: GradeAppeal[]; proposals: GradeProposal[] }
  | { kind: 'grading'; classSummary: ClassSummary; assignment: AssignmentDefinition; submission: AssignmentSubmission; submissions: AssignmentSubmission[]; teachingRole: 'PRIMARY' | 'ASSISTING'; appeals: GradeAppeal[] }
  | { kind: 'correction'; officialEvidence?: AssessmentGrading; classSummary: ClassSummary; assignment: AssignmentDefinition; submission: AssignmentSubmission; appeal: GradeAppeal; proposals: GradeProposal[]; teachingRole: 'PRIMARY' | 'ASSISTING' }
+ | { kind: 'appeal-review'; classSummary: ClassSummary; item: GradingQueueItem; appeal?: GradeAppeal; gradeVersion: number; proposal?: GradeProposal; canDecide: boolean; canPropose: boolean; canResolve: boolean; evidence: {kind: 'assessment'; grading: AssessmentGrading} | {kind: 'assignment'; assignment: AssignmentDefinition; submission: AssignmentSubmission; submissions: AssignmentSubmission[]} }
  | { kind: 'approval'; officialEvidence?: AssessmentGrading; classSummary: ClassSummary; assignment: AssignmentDefinition; submission: AssignmentSubmission; appeal: GradeAppeal; proposal: GradeProposal; canDecide: boolean };
-export type AssignmentDraftInput = { classId: string; assignmentId: string; title: string; topic: string; instructions: string; dueAt: string; policy: AssignmentPolicy; source?: AssignmentSource; expectedRevision: number; publish: boolean };
+export type AssignmentDraftInput = { classId: string; assignmentId: string; title: string; topic: string; instructions: string; dueAt: string; policy: AssignmentPolicy; source?: AssignmentSource; appealWindowDays?: number; expectedRevision: number; publish: boolean };
 export interface AssignmentPort {
  listCalendarEvents(classId:string):Promise<CalendarEvent[]>;
  listTeacherActivities(classId: string): Promise<TeacherActivityItem[]>;
@@ -36,9 +37,10 @@ export interface AssignmentPort {
  saveDraft(input: AssignmentDraftInput): Promise<AssignmentDefinition>;
  grade(input: { submissionId: string; score: number; feedback: string; expectedGradeVersion: number }): Promise<AssignmentGrade>;
  gradeHint(input: { submissionId: string }): Promise<{ feedback: string; limitations: string }>;
- appeal(input: { submissionId: string; reason: string }): Promise<GradeAppeal>;
+ appeal(input: { submissionId: string; classId?: string; reason: string }): Promise<GradeAppeal>;
  propose(input: { classId: string; appealId: string; score: number; reason: string; expectedGradeVersion: number }): Promise<GradeProposal>;
  decide(input: { proposalId: string; approve: boolean; reason: string; expectedGradeVersion: number }): Promise<GradeProposal>;
+ resolveAppeal?(input: { classId: string; appealId: string; resolutionNote: string; linkedRevisionId?: string }): Promise<GradeAppeal>;
 }
 
 // The page audience is explicit: a staff review must not enter a learner-only route.

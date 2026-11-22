@@ -126,7 +126,7 @@ function decodeCalendarEvent(value: unknown, className?: string): CalendarEvent 
   };
 }
 
-const notificationCopy: Record<string, { title: string; content: string; category: NotificationItem['category']; target: 'feed' | 'calendar' | 'classes' | null }> = {
+const notificationCopy: Record<string, { title: string; content: string; category: NotificationItem['category']; target: 'feed' | 'calendar' | 'classes' | 'assessments' | 'gradingQueue' | null }> = {
   CLASS_ENROLLMENT_CHANGED: { title: 'Danh sách lớp đã thay đổi', content: 'Thông tin ghi danh của lớp đã được cập nhật.', category: 'CLASS', target: 'classes' },
   CLASS_ENROLLMENT_MODE_CHANGED: { title: 'Chế độ ghi danh đã thay đổi', content: 'Chế độ ghi danh của lớp đã được cập nhật.', category: 'CLASS', target: 'classes' },
   CLASS_TEACHERS_CHANGED: { title: 'Phân công giáo viên đã thay đổi', content: 'Phân công giảng dạy của lớp đã được cập nhật.', category: 'CLASS', target: 'classes' },
@@ -136,6 +136,17 @@ const notificationCopy: Record<string, { title: string; content: string; categor
   SOCIAL_POST_CREATED: { title: 'Bài viết mới', content: 'Có bài viết mới trong bảng tin lớp.', category: 'CLASS', target: 'feed' },
   SOCIAL_COMMENT_CREATED: { title: 'Bình luận mới', content: 'Có bình luận mới trong bảng tin lớp.', category: 'CLASS', target: 'feed' },
   CALENDAR_DEADLINE_CHANGED: { title: 'Lịch lớp học đã cập nhật', content: 'Thời hạn hoặc sự kiện học tập của lớp đã thay đổi.', category: 'ASSIGNMENT', target: 'calendar' },
+  ASSESSMENT_RESULT_RELEASED: { title: 'Đã công bố kết quả kiểm tra', content: 'Bạn có thể xem kết quả trong danh sách bài kiểm tra.', category: 'EXAM', target: 'assessments' },
+  GRADE_PROPOSAL_PENDING: { title: 'Đề xuất điều chỉnh điểm đang chờ duyệt', content: 'Mở hàng chờ chấm để xem đề xuất.', category: 'EXAM', target: 'gradingQueue' },
+  APPEAL_RESOLVED: { title: 'Yêu cầu phúc khảo đã được giải quyết', content: 'Bạn có thể xem kết quả phúc khảo trong danh sách bài kiểm tra.', category: 'EXAM', target: 'assessments' },
+};
+
+const notificationTargetLabels = {
+  feed: 'Mở bảng tin',
+  calendar: 'Mở lịch',
+  classes: 'Mở danh sách lớp',
+  assessments: 'Mở danh sách bài kiểm tra',
+  gradingQueue: 'Mở hàng chờ chấm',
 };
 
 function decodeNotification(value: unknown, actor: User, classNames: Map<string, string>): NotificationItem {
@@ -149,6 +160,8 @@ function decodeNotification(value: unknown, actor: User, classNames: Map<string,
   if (rolePrefix && classId && spec.target === 'feed') targetHref = routeHref(rolePrefix === '/teacher' ? 't.feed' : 's.feed', { classId }) ?? `${rolePrefix}/classes/${classId}/feed`;
   else if (rolePrefix && classId && spec.target === 'calendar') targetHref = routeHref(rolePrefix === '/teacher' ? 't.calendar' : 's.calendar', { classId }) ?? `${rolePrefix}/classes/${classId}/calendar`;
   else if (rolePrefix && spec.target === 'classes') targetHref = routeHref(rolePrefix === '/teacher' ? 't.classes' : 's.classes') ?? `${rolePrefix}/classes`;
+  else if (classId && spec.target === 'assessments' && actor.roles.includes('STUDENT')) targetHref = routeHref('s.assessments', { classId }) ?? undefined;
+  else if (classId && spec.target === 'gradingQueue' && actor.roles.includes('LECTURER')) targetHref = routeHref('t.gradingQueue', { classId }) ?? undefined;
   return {
     id: string(source.id),
     userId: actor.id,
@@ -159,7 +172,7 @@ function decodeNotification(value: unknown, actor: User, classNames: Map<string,
     isRead: source.read,
     ...(classId ? { classId } : {}),
     ...(className ? { className } : {}),
-    ...(targetHref ? { targetHref, targetLabel: spec.target === 'feed' ? 'Mở bảng tin' : spec.target === 'calendar' ? 'Mở lịch' : 'Mở danh sách lớp' } : {}),
+    ...(targetHref && spec.target ? { targetHref, targetLabel: notificationTargetLabels[spec.target] } : {}),
   };
 }
 
@@ -282,7 +295,7 @@ export function createLiveCore(session: LiveIdentitySession) {
 
   async function loadWorkspace(routeId: string, params: Record<string, string>, signal?: AbortSignal): Promise<WorkspaceData> {
     const current = await actor();
-    const pendingCapabilities = ['Class history', 'Learning', 'AI Tutor', 'Learner Intelligence'];
+    const pendingCapabilities = ['Learner Intelligence'];
     if (['s.home', 's.classes'].includes(routeId)) {
       const classes = await readClasses(signal);
       if (routeId === 's.home') return { kind: 'ready', classes, pendingCapabilities, studentHome: { activeClasses: classes.filter(row => row.status === 'ACTIVE'), upcomingTasks: [], recentStudies: [], tutorSuggestions: [] } };
@@ -349,6 +362,7 @@ export function createLiveCore(session: LiveIdentitySession) {
   return {
     identity: session.identity,
     classroomReads: { list: readClasses, detail: readClass },
+    readClass, readClasses, readClassMembers, readEvents,
     social: {
       listPosts: readPosts,
       listComments: readComments,

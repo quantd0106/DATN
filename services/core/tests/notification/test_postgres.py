@@ -450,6 +450,87 @@ def test_transfer_notification_only_targets_transferred_student(system):
     assert rows[0].payload_json["destination_class_id"] == str(destination.id)
 
 
+def test_learning_notification_ingest_and_delivery(system, monkeypatch):
+    key = "test-learning-ingest-key"
+    monkeypatch.setattr(settings, "internal_service_secret", SecretStr(key))
+    app = FastAPI()
+    register_error_handlers(app)
+    register_routers(app)
+
+    def db():
+        with system.factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = db
+    path = "/internal/v1/notifications/learning-events"
+    student = system.users["student"]
+    common = {"school_id": str(student.school_id), "class_id": str(system.class_id)}
+    specs = (
+        ("ASSESSMENT_RESULT_RELEASED", "assessment_attempt", student.id),
+        ("APPEAL_RESOLVED", "appeal", student.id),
+        ("GRADE_PROPOSAL_PENDING", "grade_revision", None),
+    )
+    payloads = [
+        {
+            **common,
+            "source_event_id": str(uuid4()),
+            "event_type": event_type,
+            "resource_type": resource_type,
+            "resource_id": str(uuid4()),
+            "student_id": str(student_id) if student_id is not None else None,
+        }
+        for event_type, resource_type, student_id in specs
+    ]
+    with TestClient(app, headers={"X-Service-Key": key}) as client:
+        for field in ("school_id", "class_id"):
+            response = client.post(path, json={**payloads[0], field: str(uuid4())})
+            assert response.status_code == 404
+        for payload in payloads:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                requests = [pool.submit(client.post, path, json=payload) for _ in range(2)]
+                responses = [request.result() for request in requests]
+            assert sorted(response.status_code for response in responses) == [200, 202]
+            for response in responses:
+                assert response.json() == {
+                    "outbox_event_id": payload["source_event_id"],
+                    "deduped": response.status_code == 200,
+                }
+        assert (
+            client.post(path, json={**payloads[0], "resource_id": str(uuid4())}).status_code == 409
+        )
+
+    destination = system.classroom.create_class(
+        system.users["admin"],
+        ClassCreateRequest(
+            course_id=system.course_id,
+            name="Learning notification destination",
+            academic_year="2026-2027",
+            semester="1",
+            grade_level=9,
+            enrollment_mode=EnrollmentMode.MANUAL,
+            primary_lecturer_id=system.users["teacher"].id,
+        ),
+    )
+    system.classroom.transfer(system.class_id, destination.id, student.id, system.users["admin"])
+    teacher = system.users["teacher2"]
+    system.classroom.set_teachers(
+        system.class_id,
+        system.users["admin"],
+        TeachingAssignmentsRequest(primary_lecturer_id=teacher.id),
+    )
+    drain_outbox(session_factory=system.factory)
+    for payload, recipient in zip(payloads, (student, student, teacher), strict=True):
+        rows = _rows(system, event_type=payload["event_type"])
+        assert [row.recipient_id for row in rows] == [recipient.id]
+        assert rows[0].payload_json == {
+            "class_id": payload["class_id"],
+            "resource_type": payload["resource_type"],
+            "resource_id": payload["resource_id"],
+            "event_id": payload["source_event_id"],
+            "schema_version": 2,
+        }
+
+
 def test_homeroom_transfer_uses_own_school_scope(system):
     rooms = [
         system.classroom.create_homeroom(

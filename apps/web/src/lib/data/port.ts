@@ -26,6 +26,7 @@ import type {
   TutorConversation,
   TutorMessage,
   TutorMode,
+  TutorPolicyConfig,
   User,
   WorkspaceData,
 } from '../domain';
@@ -86,6 +87,7 @@ export interface DataAdapter {
     toggleBookmark(documentId: string, classId: string, locator?: string, version?: number, pageNumber?: number): Promise<{ bookmarked: boolean }>;
   };
   tutor: {
+    updatePolicyConfig?(classId: string, policy: Omit<TutorPolicyConfig, 'version'> & { expectedVersion: number | null }): Promise<TeacherTutorInstructionConfig>;
     updateConfig(classId: string, instructions: string): Promise<TeacherTutorInstructionConfig>;
     createConversation(classId: string, title?: string): Promise<TutorConversation>;
     sendMessage(input: {
@@ -93,6 +95,7 @@ export interface DataAdapter {
       conversationId: string;
       content: string;
       mode: TutorMode;
+      operation?: 'ASK' | 'CHECK' | 'HINT' | 'REVEAL';
       onChunk?: (chunk: string) => void;
       signal?: AbortSignal;
       isRetry?: boolean;
@@ -118,6 +121,7 @@ export interface DataAdapter {
       practiceId: string;
       attemptId: string;
       answers: Record<string, PracticeAnswer>;
+      currentQuestionIndex?: number;
     }): Promise<{ savedAt: string }>;
     finishPracticeAttempt(input: {
       classId: string;
@@ -135,16 +139,19 @@ export interface DataAdapter {
       title?: string;
       topic?: string;
       questions: PracticeQuestion[];
+      expectedRevision?: string;
     }): Promise<{ savedAt: string; reviewedCount: number; canPublish: boolean }>;
     publishPractice(input: {
       classId: string;
       practiceId: string;
+      expectedRevision?: string;
     }): Promise<{ success: boolean; practiceId: string; publishedVersionId: string }>;
     reviewEditorQuestion(input: {
       classId: string;
       practiceId: string;
       questionId: string;
       approved: boolean;
+      expectedRevision?: string;
     }): Promise<{ reviewedCount: number; canPublish: boolean }>;
   };
   // Future domain extension ports:

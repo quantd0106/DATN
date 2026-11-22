@@ -2,9 +2,9 @@ import type { CalendarEvent, ClassSummary, RouteParams, TeacherActivityItem } fr
 
 import { routeHref } from '@/config/routes';
 
-// Frontend-only read models. Learning has no approved public wire contract yet.
+// Frontend read models for assessments.
 export type AssessmentType = 'single_choice' | 'multiple_choice' | 'true_false' | 'short_answer';
-export type AssessmentSource = { documentId: string; title: string; version: number; locator: string; accessible: boolean };
+export type AssessmentSource = { documentId: string; title: string; version: number; locator: string; accessible: boolean; documentVersionId?: string; sourceId?: string; wire?: Record<string, unknown> };
 export function assessmentSourceHref(classId: string, source: AssessmentSource): string | null {
   const path = routeHref('s.reader', { classId, documentId: source.documentId });
   if (!path) return null;
@@ -16,18 +16,18 @@ export type PublicAssessmentQuestion =
  | (QuestionBase & { type:'single_choice'|'multiple_choice'; options:{id:string;text:string}[] })
  | (QuestionBase & { type:'true_false'; statements:{id:string;text:string}[] })
  | (QuestionBase & { type:'short_answer' });
-export type AssessmentQuestion = PublicAssessmentQuestion & { key: string[] | Record<string,boolean> | string; explanation:string; rubric:string; reviewed:boolean; aiProposed:boolean };
+export type AssessmentQuestion = PublicAssessmentQuestion & { key: string[] | Record<string,boolean> | string; explanation:string; rubric:string; reviewed:boolean; aiProposed:boolean; manualGradingRequired?:boolean; acceptedAnswers?:string[]; tolerance?:number; topic?:string };
 export type AssessmentAnswer = { questionId:string; value:string|string[]|Record<string,boolean> };
 export type AssessmentAnswers = Record<string,AssessmentAnswer>;
-export type AssessmentSettings = { title:string; code:string; opensAt:string; closesAt:string; durationMinutes:number; maxAttempts:number; gradingPolicy:'BEST'|'LATEST'|'AVERAGE'; resultsAt:string };
+export type AssessmentSettings = { title:string; code:string; opensAt:string; closesAt:string; durationMinutes:number; maxAttempts:number; gradingPolicy:'BEST'|'LATEST'|'AVERAGE'; resultsAt:string; topic?:string; appealWindowDays?: number };
 export type AssessmentDraft = { classId:string; assessmentId:string; revision:number; versionNumber:number; settings:AssessmentSettings; questions:AssessmentQuestion[]; status:'DRAFT'|'PENDING_APPROVAL'|'PUBLISHED'; authorName:string; rejectionReason:string|null; availableSources:AssessmentSource[]; canApprove:boolean };
 export type AssessmentSummary = { id:string; title:string; code:string; versionNumber:number; questionCount:number; totalPoints:number; opensAt:string; closesAt:string; durationMinutes:number; resultsAt:string; maxAttempts:number; gradingPolicy:AssessmentSettings['gradingPolicy']; status:'UPCOMING'|'OPEN'|'CLOSED'; usedAttempts:number; activeAttemptId:string|null; completedAttemptId:string|null; canStart:boolean; unavailableReason:string|null };
 export type AssessmentReceipt = { id:string; classId:string; assessmentId:string; attemptId:string; versionId:string; versionNumber:number; reason:'MANUAL'|'TIMEOUT'; submittedAt:string; savedAnswerCount:number; totalQuestionCount:number; savedRevision:number; resultReleased:boolean };
 export type AssessmentAttempt = { classId:string; assessmentId:string; attemptId:string; ownerId:string; title:string; code:string; className:string; versionId:string; versionNumber:number; attemptNumber:number; questions:PublicAssessmentQuestion[]; savedAnswers:AssessmentAnswers; savedRevision:number; savedAt:string; serverNow:string; startedAt:string; endsAt:string; status:'IN_PROGRESS'|'SUBMITTED'; receipt:AssessmentReceipt|null };
-export type AssessmentGradeHistory = { version:number; score:number; feedback:string; reason:string; at:string; approvedBy:string };
-export type AssessmentReleasedQuestion = { question:PublicAssessmentQuestion; answer:AssessmentAnswer|null; score:number; maximum:number; feedback:string; releasedSolution:string; source:AssessmentSource|null };
+export type AssessmentGradeHistory = { version:number; score:number; maxScore?:number; feedback:string; reason:string; at:string; approvedBy:string };
+export type AssessmentReleasedQuestion = { question:PublicAssessmentQuestion; answer:AssessmentAnswer|null; score:number|null; maximum:number; feedback:string; releasedSolution:string; source:AssessmentSource|null };
 export type AssessmentResult = { classId:string; assessmentId:string; attemptId:string; title:string; versionNumber:number; released:boolean; receipt:AssessmentReceipt; effectiveGrade:AssessmentGradeHistory|null; questions:AssessmentReleasedQuestion[]; gradeHistory:AssessmentGradeHistory[]; appeal:{allowed:boolean; reason:string|null; status:'NONE'|'PENDING'|'RESOLVED'; submittedReason:string|null}; pendingGradeProposal:boolean };
-export type AssessmentGrading = { classId:string; assessmentId:string; attemptId:string; studentName:string; title:string; versionNumber:number; questions:{ question:AssessmentQuestion; answer:AssessmentAnswer|null; score:number|null; feedback:string }[]; gradeVersion:number; effectiveGrade:AssessmentGradeHistory|null; pendingProposal:{id:string; baseVersion:number; scores:Record<string,number>; feedback:string; reason:string; proposedBy:string}|null; canApprove:boolean };
+export type AssessmentGrading = { classId:string; assessmentId:string; attemptId:string; studentName:string; title:string; versionNumber:number|null; questions:{ question:AssessmentQuestion; answer:AssessmentAnswer|null; score:number|null; feedback:string; maximum?:number; canGrade?:boolean }[]; gradeVersion:number; effectiveGrade:AssessmentGradeHistory|null; pendingProposal:{id:string; baseVersion:number; scores:Record<string,number>; feedback:string; reason:string; proposedBy:string}|null; canApprove:boolean; released?:boolean; gradeHistory?:AssessmentGradeHistory[] };
 export type AssessmentPage =
  | {type:'list';classSummary:ClassSummary;items:AssessmentSummary[];serverNow:string}
  | {type:'detail';classSummary:ClassSummary;assessment:AssessmentSummary;serverNow:string}
@@ -60,7 +60,9 @@ export interface AssessmentPort {
  appeal(input:AssessmentAttemptTarget & {reason:string;questionId?:string}):Promise<AssessmentResult>;
  proposeGrade(input:AssessmentAttemptTarget & {expectedGradeVersion:number;scores:Record<string,number>;feedback:string;reason:string}):Promise<AssessmentGrading>;
  approveGrade(input:AssessmentAttemptTarget & {proposalId:string;reason:string}):Promise<AssessmentGrading>;
- listSubmittedAttempts(classId:string):Promise<{classId:string;assessmentId:string;attemptId:string;title:string;studentName:string;submittedAt:string;released:boolean;effectiveScore:number|null;href:string}[]>;
+ listSubmittedAttempts(classId:string):Promise<{classId:string;assessmentId:string;attemptId:string;title:string;studentName:string;submittedAt:string;released:boolean|null;effectiveScore:number|null;href:string}[]>;
+ gradeAttempt?(input: AssessmentAttemptTarget & {expectedGradeVersion:number;scores:Record<string,number>;feedback:string}):Promise<AssessmentGrading>;
+ releaseResults?(input: AssessmentTarget & {reason?:string}):Promise<{releasedCount:number}>;
  listGrading(classId:string):Promise<OfficialCorrectionTarget[]>;
  getCorrectionTarget(input:AssessmentAttemptTarget):Promise<OfficialCorrectionTarget>;
  applyGradeCorrection(input:AssessmentAttemptTarget & {expectedVersion:number;score:number;feedback:string;reason:string}):Promise<OfficialCorrectionTarget>;

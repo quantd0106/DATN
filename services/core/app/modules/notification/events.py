@@ -1,4 +1,4 @@
-"""Version-one allowlist for the existing Classroom and Social producers."""
+"""Payload allowlist and recipient policy for in-app notification producers."""
 
 import hashlib
 from datetime import datetime
@@ -12,9 +12,11 @@ from app.common.outbox import OUTBOX_SCHEMA_VERSION, OutboxEvent
 from app.modules.classroom.public import (
     ClassAccessAction,
     check_class_action,
+    get_class_lecturer_ids,
     get_notification_audience,
 )
-from app.modules.identity.public import get_users_summaries
+from app.modules.identity.public import check_user_is_lecturer, get_users_summaries
+from app.modules.notification.schemas import LEARNING_RESOURCE_BY_EVENT, LearningResourceType
 from app.modules.social.feed.public import get_visible_post_ref
 
 
@@ -59,6 +61,14 @@ class DeadlineChanged(EventPayload):
     version: int = Field(ge=1)
 
 
+class LearningEvent(EventPayload):
+    school_id: UUID
+    recipient_ids: None = None
+    resource_type: LearningResourceType
+    resource_id: UUID
+    student_id: UUID | None = None
+
+
 EVENT_SCHEMAS = {
     "CLASS_ENROLLMENT_CHANGED": ClassChanged,
     "CLASS_ENROLLMENT_MODE_CHANGED": ClassChanged,
@@ -69,6 +79,7 @@ EVENT_SCHEMAS = {
     "SOCIAL_POST_CREATED": PostCreated,
     "SOCIAL_COMMENT_CREATED": CommentCreated,
     "CALENDAR_DEADLINE_CHANGED": DeadlineChanged,
+    **dict.fromkeys(LEARNING_RESOURCE_BY_EVENT, LearningEvent),
 }
 
 
@@ -87,6 +98,8 @@ def prepare_delivery(session: Session, event: OutboxEvent) -> tuple[list[UUID], 
         if isinstance(payload, PostCreated)
         else payload.event_id
         if isinstance(payload, DeadlineChanged)
+        else payload.resource_id
+        if isinstance(payload, LearningEvent)
         else payload.class_id
     )
     if str(aggregate_id) != event.aggregate_id:
@@ -101,6 +114,8 @@ def prepare_delivery(session: Session, event: OutboxEvent) -> tuple[list[UUID], 
         raise InvalidEvent("Missing source scope")
     if payload.school_id is not None and payload.school_id != audience.school_id:
         raise InvalidEvent("Mismatched school")
+    if isinstance(payload, LearningEvent):
+        return prepare_learning_delivery(session, event, payload)
     candidates = set(
         payload.recipient_ids if payload.recipient_ids is not None else audience.recipient_ids
     )
@@ -134,6 +149,40 @@ def prepare_delivery(session: Session, event: OutboxEvent) -> tuple[list[UUID], 
     }
     if homeroom:
         safe["homeroom_id"] = safe.pop("class_id")
+    safe.update(event_id=str(event.id), schema_version=event.schema_version)
+    return recipients, safe
+
+
+def prepare_learning_delivery(
+    session: Session, event: OutboxEvent, payload: LearningEvent
+) -> tuple[list[UUID], dict]:
+    teacher_event = event.event_type == "GRADE_PROPOSAL_PENDING"
+    if (
+        payload.resource_type != LEARNING_RESOURCE_BY_EVENT[event.event_type]
+        or payload.resource_type != event.aggregate_type
+        or (payload.student_id is None) != teacher_event
+    ):
+        raise InvalidEvent("Mismatched Learning resource or recipient")
+    candidates = (
+        set(get_class_lecturer_ids(payload.class_id, session=session))
+        if payload.student_id is None
+        else {payload.student_id}
+    )
+    users = get_users_summaries(sorted(candidates), session=session)
+    recipients = []
+    for user_id, user in sorted(users.items()):
+        if user.school_id != payload.school_id:
+            continue
+        allowed = (
+            check_user_is_lecturer(user_id, session=session)
+            if teacher_event
+            else check_class_action(
+                payload.class_id, user_id, ClassAccessAction.READ_OWN_HISTORY, session=session
+            ).allowed
+        )
+        if allowed:
+            recipients.append(user_id)
+    safe = payload.model_dump(mode="json", include={"class_id", "resource_type", "resource_id"})
     safe.update(event_id=str(event.id), schema_version=event.schema_version)
     return recipients, safe
 

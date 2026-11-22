@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.common.pagination import Page
 from app.modules.social.calendar.models import CalendarOrigin
@@ -84,3 +84,20 @@ class CalendarEventResponse(BaseModel):
 
 class CalendarEventListResponse(Page[CalendarEventResponse]):
     pass
+
+
+class LearningDeadlineRequest(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    school_id: UUID
+    class_id: UUID
+    external_ref: str = Field(min_length=1, max_length=255)
+    title: str = Field(min_length=1, max_length=200)
+    starts_at: AwareDatetime
+    ends_at: AwareDatetime
+    version: int = Field(strict=True, ge=1, le=2_147_483_647)
+
+
+class LearningDeadlineReceipt(BaseModel):
+    event_id: UUID
+    version: int

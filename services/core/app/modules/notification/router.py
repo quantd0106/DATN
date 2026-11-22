@@ -1,15 +1,21 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.common.auth_dependencies import CurrentUser, get_current_user
+from app.common.auth_dependencies import CurrentUser, get_current_user, verify_internal_service_key
+from app.common.config import settings
 from app.common.db import get_db
 from app.common.errors import ErrorEnvelope
 from app.common.pagination import Pagination, get_pagination
-from app.modules.notification.schemas import MarkReadResponse, NotificationListResponse
+from app.modules.notification.schemas import (
+    LearningNotificationReceipt,
+    LearningNotificationRequest,
+    MarkReadResponse,
+    NotificationListResponse,
+)
 from app.modules.notification.service import NotificationService
 
 router = APIRouter(
@@ -17,19 +23,50 @@ router = APIRouter(
     tags=["Notifications"],
     responses={status: {"model": ErrorEnvelope} for status in (400, 401, 404, 422, 500, 503)},
 )
+internal_router = APIRouter(
+    prefix="/internal/v1",
+    tags=["Notifications (internal)"],
+    dependencies=[Depends(verify_internal_service_key)],
+    responses={status: {"model": ErrorEnvelope} for status in (401, 404, 409, 422, 503)},
+)
 
 
 def get_notification_service(session: Annotated[Session, Depends(get_db)]) -> NotificationService:
     return NotificationService(session)
 
 
+def get_notification_pagination(
+    limit: Annotated[int | None, Query(ge=1, le=100)] = None,
+    cursor: Annotated[str | None, Query(max_length=22)] = None,
+) -> Pagination:
+    return get_pagination(
+        limit=settings.notification_page_size_default if limit is None else limit, cursor=cursor
+    )
+
+
 User = Annotated[CurrentUser, Depends(get_current_user)]
 Service = Annotated[NotificationService, Depends(get_notification_service)]
 
 
+@internal_router.post(
+    "/notifications/learning-events",
+    status_code=202,
+    responses={200: {"model": LearningNotificationReceipt}},
+)
+def ingest_learning_event(
+    body: LearningNotificationRequest, service: Service, response: Response
+) -> LearningNotificationReceipt:
+    result = service.ingest_learning_event(body)
+    if result.deduped:
+        response.status_code = 200
+    return result
+
+
 @router.get("", response_model=NotificationListResponse)
 def list_notifications(
-    user: User, pagination: Annotated[Pagination, Depends(get_pagination)], service: Service
+    user: User,
+    pagination: Annotated[Pagination, Depends(get_notification_pagination)],
+    service: Service,
 ) -> Response:
     result = service.list_notifications(user.id, pagination)
     return JSONResponse(result.model_dump(mode="json"), headers={"Cache-Control": "no-store"})

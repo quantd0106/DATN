@@ -1,8 +1,7 @@
 // Availability is presentation only. Route and server authorization still apply.
 const liveUnavailable = new Set([
-  'a.reports', 'a.dataRequests', 's.tutor', 't.tutor',
-  's.practice', 's.assessments', 's.assignments', 's.progress',
-  't.activities', 't.analytics',
+  'a.reports', 'a.dataRequests',
+  's.progress', 't.analytics',
 ]);
 
 export function isRouteAvailable(id: string, source: 'live' | 'mock') {

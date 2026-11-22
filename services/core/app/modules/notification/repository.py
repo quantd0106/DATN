@@ -6,12 +6,47 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.common.errors import AppError
+from app.common.outbox import OUTBOX_SCHEMA_VERSION, OutboxEvent
 from app.modules.notification.models import Notification
 
 
 class NotificationRepository:
     def __init__(self, session: Session):
         self.session = session
+
+    def enqueue_learning_event(
+        self,
+        event_id: UUID,
+        *,
+        event_type: str,
+        aggregate_type: str,
+        aggregate_id: str,
+        payload: dict,
+    ) -> bool:
+        inserted = self.session.scalar(
+            insert(OutboxEvent)
+            .values(
+                id=event_id,
+                event_type=event_type,
+                aggregate_type=aggregate_type,
+                aggregate_id=aggregate_id,
+                schema_version=OUTBOX_SCHEMA_VERSION,
+                payload_json=payload,
+            )
+            .on_conflict_do_nothing(index_elements=[OutboxEvent.id])
+            .returning(OutboxEvent.id)
+        )
+        if inserted is not None:
+            return False
+        existing = self.session.get(OutboxEvent, event_id)
+        if existing is None or (
+            existing.event_type,
+            existing.aggregate_type,
+            existing.aggregate_id,
+            existing.payload_json,
+        ) != (event_type, aggregate_type, aggregate_id, payload):
+            raise AppError(409)
+        return True
 
     def lock_recipient(self, recipient_id: UUID) -> None:
         # All inbox writes take this transaction lock. Hash collisions only serialize

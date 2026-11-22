@@ -64,8 +64,11 @@ export function StudentPracticeListView({ data, reload, params, user }: Props) {
   }
 
   const activities: PracticeActivity[] = practiceList?.activities ?? [];
+  const canPractice = adapter.source === 'mock' ||
+    (classSummary?.status === 'ACTIVE' && classSummary.membershipStatus === 'ACTIVE');
 
   const handleStartOrRetry = (practiceId: string, intent: 'start' | 'resume' | 'retry') => {
+    if (!canPractice) return;
     setActionError(null);
     startTransition(async () => {
       try {
@@ -260,7 +263,7 @@ export function StudentPracticeListView({ data, reload, params, user }: Props) {
                         data-practice-id={act.id}
                         data-action="retry"
                         onClick={() => handleStartOrRetry(act.id, 'retry')}
-                        disabled={isPending}
+                        disabled={isPending || !canPractice}
                       >
                         <span>Luyện lại</span>
                       </button>
@@ -285,7 +288,7 @@ export function StudentPracticeListView({ data, reload, params, user }: Props) {
                         data-practice-id={act.id}
                         data-action="resume"
                         onClick={() => handleStartOrRetry(act.id, 'resume')}
-                        disabled={isPending}
+                        disabled={isPending || !canPractice}
                       >
                         Tiếp tục làm bài
                       </button>
@@ -297,7 +300,7 @@ export function StudentPracticeListView({ data, reload, params, user }: Props) {
                       data-practice-id={act.id}
                       data-action="start"
                       onClick={() => handleStartOrRetry(act.id, 'start')}
-                      disabled={isPending}
+                      disabled={isPending || !canPractice}
                     >
                       <span>Bắt đầu luyện tập</span>
                     </button>

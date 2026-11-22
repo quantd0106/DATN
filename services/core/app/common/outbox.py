@@ -33,6 +33,7 @@ class OutboxEvent(Base):
 
     id: Mapped[UUID]
     event_type: Mapped[str] = mapped_column(String(100))
+    aggregate_type: Mapped[str | None] = mapped_column(String(64))
     aggregate_id: Mapped[str] = mapped_column(String(64))
     payload_json: Mapped[dict] = mapped_column(JSONB)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

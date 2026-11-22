@@ -36,9 +36,17 @@ All sample business identities, file rows and counts belong to the development f
 
 ## Backend boundary
 
-The browser uses same-origin `/api/v1`. The Next route handler forwards only allowlisted operations documented in [Core API Contract](../../docs/architect/microservices-v1/core/API_CONTRACT.md): Identity, Student provisioning, Classroom, Social, Calendar, Notification, staff administration and Student import. It reads `CORE_API_URL` on the server, preserves cookies, Origin and correlation/retry metadata, refuses external redirects and never forwards service keys. Admin mutations forward only the enumerated reason/idempotency headers. Configure `WEB_ORIGIN` to the exact browser-facing scheme/host/port; state-changing requests must match it. Missing/invalid origin configuration fails closed. Configure Core CORS for that browser origin, not `http://core:8000`. Use HTTPS/secure cookies in a real deployment.
+The browser uses same-origin Next.js BFF proxies:
+- `/api/v1/*`: routes explicitly allowlisted Core operations (`CORE_API_URL`) and Document operations (`DOCUMENT_API_URL`, preserving multipart uploads and streaming file downloads without buffering sensitive credentials to the browser).
+- `/api/ai/v1/*`: routes 15 allowlisted AI operations (`AI_API_URL`), piping SSE streams and rejecting redirects/CSRF origins.
+- `/api/learning/v1/*`: routes allowlisted Learning operations (`LEARNING_API_URL`), preserving `Idempotency-Key`, `X-Admin-Reason`, multipart uploads, and binary submission downloads.
 
-Live adapters validate Core response DTOs and do not fall back to preview fixtures. Classroom administration uses versioned roster replacement, one-student homeroom transfer, versioned AUTO sync and MANUAL roster replacement. AUTO overrides and legacy account School mapping remain unavailable. Student import reads the Core status endpoint after an unknown confirm outcome; that GET never retries the import and completed status never returns activation codes. Admin global audit is read from Core; the UI hides Classroom-specific history panels when the API does not provide resource-scoped history. Data-request review/fulfillment remains deferred. `src/lib/data/integrations.ts` records these operation-level boundaries.
+Proxy handlers never forward service keys, fail closed when upstream origins are misconfigured or cross-origin mutations lack matching `WEB_ORIGIN`, and preserve upstream `401`/`403`/`404`/`409`/`503` semantics. `src/lib/data/integrations.ts` records operation-level contracts across Core, Document, AI (`tutor`), Learning, and Learner Intelligence.
+
+Live adapters validate response DTOs strictly and never fall back to preview fixtures (`dev/mocks`). In `src/lib/data/live.ts`, workspace loaders compose cross-service live data with strict fault isolation (`optionalServiceRead`):
+- `s.tutor` (`live-ai.ts`) deep-links valid `document_id` citations to `s.reader` (`?page=...`, falling back to `s.documents` when only `source_id` is available) and enriches `classHasSources` + `quickNotes` from Document (`live-document.ts`) while propagating `401` and tolerating Document `503`.
+- `s.history` loads read-only AI conversations together with personal notes for that class.
+- `s.home`, `t.home`, `s.overview`, and `t.overview` (`live-dashboard.ts`) enrich Core classroom workspaces with live Document `recentMaterials` and Learning `upcomingActivities`, `upcomingTasks`, `recentStudies`, `tutorSuggestions`, and `teacherMetrics` (`pendingGrading` / `openActivities`), leaving unavailable widgets/metrics empty or unknown (`undefined`) rather than fabricating counts when Document or Learning returns `503` (while always propagating `401`).
 
 For each future capability:
 
@@ -52,7 +60,9 @@ For each future capability:
 
 From `apps/web`, run `node scripts/dev-mock.mjs --hostname 127.0.0.1 --port 4179` for explicit development preview. Use `npm run dev` for live mode with the documented server environment. Do not deploy the preview server or build with mock mode.
 
-Current acceptance (29 October 2026): `npm run check` passes boundaries, TypeScript and **251 behavioral tests**. The live `npm run build` and release fixture-canary scan are the release gate. Chrome mock preview smoke checked **71 route IDs** (68 seeded routes plus 3 UI-created resources); focused journeys passed **214 assertions** with selected screens at 1440/768/390/320px. See [FRONTEND_COMPLETION.md](../FRONTEND_COMPLETION.md) for preview evidence and limitations. These checks do not replace real Core/database/browser journey evidence.
+Current verification (`2026-11-22`): `npm run check` passes boundary checks, TypeScript (`tsc --noEmit`), and **314/314 unit/contract tests** (including `tests/live-cross-service.test.ts` for Tutor deep-links/notes/sources and fault-isolated dashboard enrichment). `NEXT_PUBLIC_DATA_MODE=live npm run build` compiles cleanly (**32/32** static + dynamic routes) and passes `npm run check:release` (no preview fixture markers).
+
+Historical mock acceptance (29 October 2026): Chrome mock preview smoke checked **71 route IDs** (68 seeded routes plus 3 UI-created resources); focused journeys passed **214 assertions** with selected screens at 1440/768/390/320px. These mock/unit checks do not replace full mixed-service browser E2E or real PostgreSQL/GGUF benchmarks.
 
 Historical evidence from 20 October 2026: production browser smoke checked 71 mapped URLs and 18 transport/access/failure/UI assertions against an isolated Core contract stub; this is not a real Core deployment.
 
@@ -64,7 +74,9 @@ Read repository `AGENTS.md`, `apps/web/AGENTS.md` and `.agents/skills/lumi-front
 
 ## Remaining integration work
 
-Document, AI Tutor, Learning and Learner Intelligence remain unavailable in live mode until their contracts and services are implemented. Admin data-request fulfillment/report exports remain unavailable or policy-deferred; student history and detailed resource-scoped Classroom audit still need read APIs. Staff invite/recovery delivery requires an operator-configured SMTP provider. A successful web build is not evidence that the deployed Core, database, email delivery or first-Admin onboarding is operational.
+Core, Document, AI (`tutor` + Quiz generator) and Learning (Practice, Assessment, Assignment, Grading/Correction, Appeals, Calendar deadline projection) are wired in `live` mode.
+
+Only **Learner Intelligence** (`s.progress`, `t.analytics`, `a.reports`, `a.exports`) remains hidden in `src/lib/route-availability.ts` and unavailable in `live` mode. Admin personal-data copy download/review/fulfillment (`DELETE`/retention) remains deferred pending policy decisions (`OD-02`, `OD-03`). Staff invite/recovery delivery requires an operator-configured SMTP provider, and full 4-service mixed browser E2E acceptance remains an operational gate after running all Compose backends together.
 
 
 ## Local development compiler

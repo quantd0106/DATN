@@ -8,7 +8,7 @@ from app.common.db import transaction
 from app.common.errors import AppError
 from app.common.outbox import record_outbox_event
 from app.common.pagination import Pagination, encode_cursor
-from app.modules.classroom.public import ClassAccessAction
+from app.modules.classroom.public import ClassAccessAction, require_class_school
 from app.modules.notification.public import snapshot_audience
 from app.modules.social.access import require_read_access, require_write_access
 from app.modules.social.calendar.models import CalendarEvent, CalendarOrigin
@@ -159,8 +159,9 @@ def upsert_learning_deadline(
     starts_at: datetime,
     ends_at: datetime,
     version: int,
+    school_id: UUID | None = None,
 ) -> CalendarEvent:
-    """Maintain the read-only deadline projection; awaiting the TASK-019 contract."""
+    """Maintain the read-only Learning deadline projection."""
     if not external_ref or not title.strip() or len(title) > 200 or version < 1:
         raise AppError(422, "Invalid Learning deadline")
     _validate_interval(starts_at, ends_at)
@@ -173,6 +174,8 @@ def upsert_learning_deadline(
         "version": version,
     }
     with transaction(session):
+        if school_id is not None:
+            require_class_school(class_id, school_id, session=session)
         # INSERT ... ON CONFLICT: SELECT FOR UPDATE không khóa được dòng chưa tồn tại.
         inserted_id = repository.insert_learning_if_absent(
             {**values, "external_ref": external_ref, "description": None}
@@ -181,6 +184,8 @@ def upsert_learning_deadline(
         if event is None:
             raise AppError(503)
         if inserted_id is None:
+            if school_id is not None and event.class_id != class_id:
+                raise AppError(404)
             if version <= event.version:
                 return event
             for field, value in values.items():

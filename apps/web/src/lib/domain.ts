@@ -327,6 +327,7 @@ export type TutorMessage = {
   timestamp: string;
   stepNumber?: number;
   totalSteps?: number;
+  stepState?: 'PLANNED' | 'HINT' | 'IN_PROGRESS' | 'SOLVED' | 'REVEALED';
   pedagogicalHint?: string;
   knowledgeType?: 'CLASS_SOURCE' | 'GENERAL_KNOWLEDGE';
   citations?: CitationItem[];
@@ -357,12 +358,22 @@ export type StudentTutorWorkspaceData = {
   quickNotes: PersonalNoteItem[];
 };
 
+export type TutorPolicyConfig = {
+  allowGeneralKnowledge: boolean;
+  hintRevealAfter: number;
+  allowSolutionReveal: boolean;
+  guidanceLevel: 'light' | 'balanced' | 'strong';
+  maxAnswerWords: number;
+  version: number | null;
+};
+
 export type TeacherTutorInstructionConfig = {
   classId: string;
   instructions: string;
   updatedAt: string;
   maxChars: number;
   disclaimer: string;
+  policy?: TutorPolicyConfig;
 };
 
 // Stage 3 Learning Domain Types
@@ -391,6 +402,7 @@ export type SingleChoiceQuestion = {
   points?: number;
   topic?: string;
   isReviewed?: boolean;
+  isAiProposed?: boolean;
 };
 
 export type MultipleChoiceOption = { id: string; label: string; text: string };
@@ -406,6 +418,7 @@ export type MultipleChoiceQuestion = {
   points?: number;
   topic?: string;
   isReviewed?: boolean;
+  isAiProposed?: boolean;
 };
 
 export type TrueFalseStatement = { id: string; label: string; text: string; isCorrect?: boolean };
@@ -420,6 +433,7 @@ export type TrueFalseQuestion = {
   points?: number;
   topic?: string;
   isReviewed?: boolean;
+  isAiProposed?: boolean;
 };
 
 export type ShortAnswerQuestion = {
@@ -435,6 +449,8 @@ export type ShortAnswerQuestion = {
   topic?: string;
   isReviewed?: boolean;
   isAiProposed?: boolean;
+  acceptedAnswers?: string[];
+  tolerance?: number;
 };
 
 export type PracticeQuestion =
@@ -606,7 +622,7 @@ export type TeacherPracticeEditorModel = {
   reviewedCount: number;
   totalQuestions: number;
   canPublish: boolean;
-  availableClassSources: { id: string; title: string; version: number; isReady: boolean }[];
+  availableClassSources: { id: string; title: string; version: number; isReady: boolean; documentVersionId?: string; sourceId?: string }[];
 };
 
 export type WorkspaceData =

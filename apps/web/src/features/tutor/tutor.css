@@ -917,6 +917,32 @@
   gap: 8px;
 }
 
+.tutor-policy-fields {
+  display: grid;
+  gap: 1rem;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.tutor-policy-toggle {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  min-height: 2rem;
+}
+
+.tutor-policy-toggle input {
+  inline-size: 1rem;
+  block-size: 1rem;
+  accent-color: var(--primary);
+}
+
+.tutor-policy-fields .input {
+  width: min(100%, 24rem);
+}
+
 .tutor-config-label {
   display: block;
   font-size: 14px;

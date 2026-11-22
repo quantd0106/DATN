@@ -41,6 +41,7 @@ services:
       DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-5}
       DATABASE_MAX_OVERFLOW: ${DATABASE_MAX_OVERFLOW:-10}
       DATABASE_POOL_TIMEOUT_SECONDS: ${DATABASE_POOL_TIMEOUT_SECONDS:-3}
+      NOTIFICATION_PAGE_SIZE_DEFAULT: ${NOTIFICATION_PAGE_SIZE_DEFAULT:-20}
       SECRET_KEY:
       INTERNAL_SERVICE_SECRET:
       COOKIE_SECURE:
@@ -133,7 +134,7 @@ services:
       dockerfile: services/document/Dockerfile
     command: ["python", "-m", "alembic", "upgrade", "head"]
     environment:
-      DOCUMENT_DATABASE_URL: ${DOCUMENT_DATABASE_URL:-postgresql+psycopg://document_svc:document-change-me-local-only@db:5432/rag_course}
+      DOCUMENT_DATABASE_URL: ${DOCUMENT_DATABASE_URL:-postgresql+psycopg://${DOCUMENT_DB_USER:-document_svc}:${DOCUMENT_DB_PASSWORD:-document-change-me-local-only}@db:5432/${POSTGRES_DB:-rag_course}}
     depends_on:
       db:
         condition: service_healthy
@@ -153,7 +154,7 @@ services:
       context: .
       dockerfile: services/document/Dockerfile
     environment:
-      DOCUMENT_DATABASE_URL: ${DOCUMENT_DATABASE_URL:-postgresql+psycopg://document_svc:document-change-me-local-only@db:5432/rag_course}
+      DOCUMENT_DATABASE_URL: ${DOCUMENT_DATABASE_URL:-postgresql+psycopg://${DOCUMENT_DB_USER:-document_svc}:${DOCUMENT_DB_PASSWORD:-document-change-me-local-only}@db:5432/${POSTGRES_DB:-rag_course}}
       CORE_API_URL: ${CORE_API_URL:-http://core:8000}
       INTERNAL_SERVICE_SECRET:
       DOCUMENT_STORAGE_PATH: /var/lib/lumi-document
@@ -192,7 +193,7 @@ services:
       dockerfile: services/document/Dockerfile
     command: ["python", "-m", "app.worker"]
     environment:
-      DOCUMENT_DATABASE_URL: ${DOCUMENT_DATABASE_URL:-postgresql+psycopg://document_svc:document-change-me-local-only@db:5432/rag_course}
+      DOCUMENT_DATABASE_URL: ${DOCUMENT_DATABASE_URL:-postgresql+psycopg://${DOCUMENT_DB_USER:-document_svc}:${DOCUMENT_DB_PASSWORD:-document-change-me-local-only}@db:5432/${POSTGRES_DB:-rag_course}}
       DOCUMENT_STORAGE_PATH: /var/lib/lumi-document
       DOCUMENT_MAX_SIZE_BYTES: ${DOCUMENT_MAX_SIZE_BYTES:-20971520}
       DOCUMENT_MAX_PAGES: ${DOCUMENT_MAX_PAGES:-300}
@@ -220,6 +221,8 @@ services:
       NEXT_PUBLIC_DATA_MODE: ${NEXT_PUBLIC_DATA_MODE:-live}
       CORE_API_URL: ${CORE_API_URL:-http://core:8000}
       DOCUMENT_API_URL: ${DOCUMENT_API_URL:-http://document:8001}
+      LEARNING_API_URL: ${LEARNING_API_URL:-}
+      AI_API_URL: ${AI_API_URL:-}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
     ports:
       - "127.0.0.1:${WEB_PORT:-3000}:3000"

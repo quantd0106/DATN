@@ -10,7 +10,7 @@ Chuẩn bị môi trường theo `.env.example` tại root repo (chỉ mẫu loc
 
 Health contract: `/health/live` trả `{status:"live"}` (thay `{status:"ok"}` từ skeleton theo TASK-016); `/health/ready` trả `{status:"ready",db:"connected"}` khi kết nối và quyền USAGE schema `core` hợp lệ, ngược lại trả 503 error envelope. Liveness không phụ thuộc DB. Timeout kết nối/pool cấu hình bằng `DATABASE_CONNECT_TIMEOUT_SECONDS` và `DATABASE_POOL_TIMEOUT_SECONDS` (mặc định 3 giây).
 
-Common, Identity, Classroom Admin/access, Social, Notification và Administration backend đã triển khai. ACCESS/EXPORT/CORRECTION có quy trình xác minh và attestation thủ công; DELETE giữ IN_REVIEW đến khi có retention/dọn dữ liệu liên service. Core không tự xóa hoặc xuất dữ liệu liên service. Migration 0001 khởi tạo baseline; 0002 tạo `core.audit_events`; 0003 tạo bốn bảng xác thực Identity; 0004 tạo `core.data_requests`; 0005 thêm CORRECTION; 0006 thêm username/school_id/activated_at và email nullable; 0007 thêm Student token purposes; 0008 tạo Classroom theo Lumi; 0009 tạo outbox; 0010 tạo feed, comments và calendar; 0011 tạo inbox và envelope/retry; 0012 thêm audit school scope/index và import drafts/results; 0013 thêm durable staff/reset email delivery; 0014 thêm nullable FK `users.school_id → schools.id` với quy trình validate sau mapping. Không dùng mật khẩu DB mặc định trong production.
+Common, Identity, Classroom Admin/access, Social, Notification và Administration backend đã triển khai. ACCESS/EXPORT/CORRECTION có quy trình xác minh và attestation thủ công; DELETE giữ IN_REVIEW đến khi có retention/dọn dữ liệu liên service. Core không tự xóa hoặc xuất dữ liệu liên service. Migration 0001 khởi tạo baseline; 0002 tạo `core.audit_events`; 0003 tạo bốn bảng xác thực Identity; 0004 tạo `core.data_requests`; 0005 thêm CORRECTION; 0006 thêm username/school_id/activated_at và email nullable; 0007 thêm Student token purposes; 0008 tạo Classroom theo Lumi; 0009 tạo outbox; 0010 tạo feed, comments và calendar; 0011 tạo inbox và envelope/retry; 0012 thêm audit school scope/index và import drafts/results; 0013 thêm durable staff/reset email delivery; 0014 thêm nullable FK `users.school_id → schools.id` với quy trình validate sau mapping; 0015 thêm cột `aggregate_type` trên `core.outbox_events` cho sự kiện Learning. Không dùng mật khẩu DB mặc định trong production.
 
 ## Classroom (TASK-005–008)
 
@@ -32,6 +32,10 @@ Common, Identity, Classroom Admin/access, Social, Notification và Administratio
 
 ## Notification (TASK-012)
 
+- Default inbox page size: `NOTIFICATION_PAGE_SIZE_DEFAULT` (integer 1–100, default 20).
+  Settings are validated when the process starts; restart after changing the environment.
+  An explicit valid `limit` overrides this default. Invalid configuration prevents startup.
+  This setting affects only Notification; other pagination defaults remain 20.
 - API đã đăng ký: `GET /api/v1/notifications?limit=&cursor=` → `{items,unread_count,next_cursor}`; `PATCH /api/v1/notifications/{id}/read` → `{id,read:true}`; `POST /api/v1/notifications/read-all` → 204. Bearer authentication lấy user hiện hành từ Identity; chỉ đọc/sửa inbox của chính mình. ID người khác/không tồn tại trả 404, cursor ngoài inbox trả 400. Response có `Cache-Control: no-store`.
 - Outbox thuộc Common: `record_outbox_event(session, *, event_type, aggregate_id, payload_json, schema_version=2, aggregate_version=None)` thêm event có UUID ổn định, không commit. `aggregate_version` mặc định lấy `payload.version`. V1 được dành cho event cũ không có snapshot người nhận và worker bỏ qua; V2 producer phải ghi snapshot cùng mutation trong một transaction. Lỗi enqueue phải rollback mutation. Không đưa token, activation/reset code hoặc nội dung riêng tư vào event.
 - `notification.public.snapshot_audience(session, class_id)` trả `{school_id,recipient_ids}` từ `classroom.public.get_notification_audience(class_id, *, session=None, homeroom=False) -> NotificationAudienceDTO | None`. Classroom bổ sung người vừa kết thúc membership/assignment vào snapshot thông báo thay đổi. Worker kiểm tra lại trường của từng người nhận qua Identity public; Social còn kiểm tra quyền lớp hiện hành và post chưa xóa. Thông báo chỉ chứa ID/phiên bản, không cấp quyền mở nguồn.
@@ -56,7 +60,7 @@ Common, Identity, Classroom Admin/access, Social, Notification và Administratio
 ## Migrations và seed (TASK-014)
 
 Quy trình nâng cấp/rollback, mapping School và seed chính thức tại [runbook](migrations/README.md).
-Metadata tập trung tại `app/model_registry.py`; head hiện tại `0014`, không tạo revision
+Metadata tập trung tại `app/model_registry.py`; head hiện tại `0015`, không tạo revision
 rỗng hoặc sửa revision đã áp dụng. Online downgrade có guard giữ dữ liệu và transaction
 chung. CLI `python -m app.maintenance --help` có report, outbox-report, plan/apply mapping
 theo manifest và seed-dev cho database riêng `dev_`/`test_`. `outbox-report` chỉ trả tổng số

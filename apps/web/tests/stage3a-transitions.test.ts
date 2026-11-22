@@ -4,7 +4,6 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { adapter as mockAdapter, resetStage3aMockStores } from '../dev/mocks/adapter';
-import { adapter as liveAdapter } from '../src/lib/data/live';
 import { ApiError } from '../src/lib/api/errors';
 import { inspectSource } from '../scripts/boundary-policy.mjs';
 import { SaveController, isAnswerComplete } from '../src/features/learning/lib/save-controller';
@@ -22,74 +21,6 @@ const CLASS_104_ID = '00000000-0000-4000-8000-000000000104';
 const PRACTICE_ID = 'prac-dinh-truc';
 const ATTEMPT_ID = 'attempt-dt-001';
 const RESULT_ATTEMPT_ID = 'attempt-hist-10q-2';
-
-test('1. live adapter rejects all learning calls honestly with 503 UNAVAILABLE', { timeout: 10000 }, async () => {
-  await assert.rejects(
-    () => liveAdapter.learning.startPracticeAttempt({ classId: CLASS_101_ID, practiceId: PRACTICE_ID, intent: 'start' }),
-    (err: unknown) => err instanceof ApiError && err.status === 503 && err.code === 'UNAVAILABLE'
-  );
-  await assert.rejects(
-    () => liveAdapter.learning.checkPracticeAnswer({
-      classId: CLASS_101_ID,
-      practiceId: PRACTICE_ID,
-      attemptId: ATTEMPT_ID,
-      questionId: 'q1',
-      answer: { questionId: 'q1', singleChoiceValue: 'A' },
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 503 && err.code === 'UNAVAILABLE'
-  );
-  await assert.rejects(
-    () => liveAdapter.learning.savePracticeDraft({
-      classId: CLASS_101_ID,
-      practiceId: PRACTICE_ID,
-      attemptId: ATTEMPT_ID,
-      answers: {},
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 503 && err.code === 'UNAVAILABLE'
-  );
-  await assert.rejects(
-    () => liveAdapter.learning.finishPracticeAttempt({
-      classId: CLASS_101_ID,
-      practiceId: PRACTICE_ID,
-      attemptId: ATTEMPT_ID,
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 503 && err.code === 'UNAVAILABLE'
-  );
-  await assert.rejects(
-    () => liveAdapter.learning.createPracticeDraft({
-      classId: CLASS_101_ID,
-      title: 'Draft',
-      topic: 'Topic',
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 503 && err.code === 'UNAVAILABLE'
-  );
-  await assert.rejects(
-    () => liveAdapter.learning.savePracticeEditorDraft({
-      classId: CLASS_101_ID,
-      practiceId: PRACTICE_ID,
-      title: 'Draft',
-      topic: 'Topic',
-      questions: [],
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 503 && err.code === 'UNAVAILABLE'
-  );
-  await assert.rejects(
-    () => liveAdapter.learning.reviewEditorQuestion({
-      classId: CLASS_101_ID,
-      practiceId: PRACTICE_ID,
-      questionId: 'q1',
-      approved: true,
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 503 && err.code === 'UNAVAILABLE'
-  );
-  await assert.rejects(
-    () => liveAdapter.learning.publishPractice({
-      classId: CLASS_101_ID,
-      practiceId: PRACTICE_ID,
-    }),
-    (err: unknown) => err instanceof ApiError && err.status === 503 && err.code === 'UNAVAILABLE'
-  );
-});
 
 test('2. preview adapter: student practice isolation, peer attempt/result read and mutation denial', { timeout: 10000 }, async () => {
   resetStage3aMockStores();

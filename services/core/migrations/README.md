@@ -13,7 +13,7 @@ python -m alembic heads --verbose
 python -m app.maintenance report
 ```
 
-Head hiện tại là `0014`. `app/model_registry.py` là composition root đăng ký
+Head hiện tại là `0015`. `app/model_registry.py` là composition root đăng ký
 model của các module đã triển khai; không thêm entity rỗng để đủ số bảng.
 Alembic chỉ so sánh schema `core`, version table là `core.alembic_version`.
 Không có FK đến service khác. FK membership/assignment giữ lịch sử khi kết
@@ -40,7 +40,7 @@ school-at-event-time giữ null; không backfill bằng school hiện tại củ
 
 Test có thể dùng School/User UUID tổng hợp để kiểm tra migration trong database
 `test_`/`dev_` riêng. Không dùng UUID tổng hợp để gán tài khoản staging/production.
-Mapping thật vẫn cần nguồn có thẩm quyền được xác minh trước khi
+Mapping thật vẫn cần nguồn có thẩm quyền được owner TV1/TV2 xác minh trước khi
 áp dụng vào database thật.
 
 `report` chỉ đọc, trả UUID, trạng thái/role, version, các School và issue codes:
@@ -232,7 +232,8 @@ pooled URL secret `lumi-neon-production-database-url`. URI không được có q
 helper chỉ chấp nhận đúng tên School mock, DB trống ở migration head và confirmation.
 SMTP sender/password chỉ tham chiếu Secret Manager. Core API và worker cần
 `PUBLIC_WEB_URL` đặt thành origin Vercel Production để liên kết mời/khôi phục mở đúng trang;
-biến này không phải secret. Sau khi cập nhật thư mời/đặt lại mật khẩu.
+biến này không phải secret. Sau khi cập nhật thư mời/đặt lại mật khẩu, biến đã được cấu hình
+trên API và worker thành `https://se-2026-t09-rag-course-assistant.vercel.app`.
 
 Lần đầu tạo School UUID và Admin `PENDING_VERIFICATION` cùng audit/durable invitation
 trong một transaction. Lần chạy lại cùng profile là idempotent; profile/marker khác

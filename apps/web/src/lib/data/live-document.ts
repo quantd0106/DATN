@@ -258,11 +258,12 @@ function decodeClassSourcePreview(value: unknown, classId: string, documentId: s
 async function readPages<T>(
   request: HttpRequest, id: 'documents' | 'classDocuments' | 'myNotes' | 'myBookmarks',
   decode: (value: unknown) => T, signal?: AbortSignal, pathParams?: Record<string, string>,
+  extraQuery: Record<string, string | number | undefined> = {},
 ): Promise<T[]> {
   const items: T[] = [];
   let cursor: string | undefined;
   for (let index = 0; index < 20; index++) {
-    const dto = record(await request(id, { cursor, query: { limit: 100 }, signal, pathParams }));
+    const dto = record(await request(id, { cursor, query: { ...extraQuery, limit: 100 }, signal, pathParams }));
     items.push(...list(dto.items, decode));
     if (dto.next_cursor === null) return items;
     const next = text(dto.next_cursor);
@@ -400,6 +401,20 @@ export function createLiveDocument(session: LiveIdentitySession, classes: ClassR
     },
   };
 
+  function listClassDocuments(classId: string, signal?: AbortSignal): Promise<DocumentItem[]> {
+    return session.authenticated(request => readPages(request, 'classDocuments', decodeClassDocument, signal, { classId }));
+  }
+
+  async function listClassNotes(classId: string, signal?: AbortSignal): Promise<PersonalNoteItem[]> {
+    const expectedClass = classId.toLowerCase();
+    return session.authenticated(async request => {
+      const notes = await readPages(request, 'myNotes', record, signal, undefined, { class_id: expectedClass });
+      return notes
+        .filter(note => identifier(note.class_id) === expectedClass)
+        .map(note => decodePersonalNote(note));
+    });
+  }
+
   function loadWorkspace(routeId: string, params: RouteParams, signal?: AbortSignal): Promise<WorkspaceData> | undefined {
     const { classId, documentId } = params;
     switch (routeId) {
@@ -469,5 +484,7 @@ export function createLiveDocument(session: LiveIdentitySession, classes: ClassR
     }
   }
 
-  return { document, loadWorkspace };
+  return { document, loadWorkspace, listClassDocuments, listClassNotes };
 }
+
+export type LiveDocumentContext = Pick<ReturnType<typeof createLiveDocument>, 'listClassDocuments' | 'listClassNotes'>;
