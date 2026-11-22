@@ -2,6 +2,7 @@
 
 - **Mã Task:** `TASK-018`
 - **Giai đoạn:** `G3 — Document + AI`
+- **Trạng thái (2026-11-22):** `IMPLEMENTED` (`services/ai/` + `services/rag/`, `ai` schema 7 bảng / 2 migrations, Web BFF `/api/ai/v1/*` 15 ops + 6 internal ops; open gates: `QAS-06` `>= 100` câu hỏi với GGUF thật và tự động hóa consumer `document.version.published`). Chi tiết xem [AI DESIGN](../docs/architect/microservices-v1/ai/DESIGN.md) và [AI API Contract](../docs/architect/microservices-v1/ai/API_CONTRACT.md).
 - **Business Rules liên quan:** `C1`, `C2`, `C3`, `C4`, `C5`, `C6`, `D6`, `E5`, `F3`, `H4`, `H5`, `QAS-06`
 - **Tài liệu căn cứ:** [BUSINESS_RULES.md](../docs/architect/BUSINESS_RULES.md#c-ai-tutor), [QUALITY_ATTRIBUTES.md](../docs/architect/microservices-v1/QUALITY_ATTRIBUTES.md#qas-06--chất-lượng-rag-rag-quality), [ARCHITECTURE.md](../docs/architect/microservices-v1/ARCHITECTURE.md)
 
@@ -14,14 +15,15 @@
 - **Canonical schema thực tế:** `services/rag/idp/canonical.py` hiện xuất `idp-canonical-1`, trong khi `services/rag/retrieval/canonical_harness.py` hỗ trợ cả `idp-canonical-1` và `idp-canonical-2`. AI Service đọc trường `canonical_schema_version` trong sự kiện/API của Document.
 - **Xác thực người dùng & quyền kép (`B7`, `QAS-04`):** AI Service xác thực Bearer JWT qua Core `POST /internal/v1/auth/introspect` (`TASK-017A`, không dùng chung `SECRET_KEY`), gọi Core `GET /internal/v1/classes/{class_id}/access?action=use_ai_tutor` (hoặc quyền đọc lịch sử riêng) và gọi Document `GET /internal/v1/classes/{class_id}/documents/active-grants` để lọc đúng `(document_id, serving_version_id)` đang có grant hiện hành.
 - **Thu hồi tức thì (`B6`, `B7`):** Lắng nghe `document.grant.changed` và `document.deleted`, đồng thời kiểm tra lại `active-grants` ở thời điểm truy hồi và trước khi trả trích dẫn; fail closed khi Core hoặc Document không khả dụng.
-- Tách quyền hỏi mới (lớp hiện hành + grant + assessment policy) và đọc lịch sử chat owner được phép sau transfer/archive. Không dùng membership ACTIVE làm điều kiện duy nhất cho mọi lần đọc.
+- Tách quyền hỏi mới (lớp hiện hành + grant + assessment policy) và đọc lịch sử chat mà học sinh sở hữu được phép sau transfer/archive. Không dùng membership ACTIVE làm điều kiện duy nhất cho mọi lần đọc.
 - Chat riêng tư mặc định; chia sẻ một hội thoại cụ thể chỉ khi người dùng chủ động và theo contract được duyệt. Không thêm Admin read-all hoặc gửi nguyên văn chat qua audit/notification/analytics.
 - Khi source bị thu hồi, giữ lịch sử hợp lệ nhưng che quote/nguồn không còn quyền; không truy hồi mới từ index stale. Phân biệt kiến thức chung, citation đáng tin và thiếu căn cứ.
 - Triển khai đủ hỏi đáp nhanh/hướng dẫn từng bước phù hợp khối 6–12; hướng dẫn giáo viên không vượt policy hệ thống.
 - TASK-019 sở hữu trạng thái Assessment; chốt hợp đồng chặn AI Tutor tích hợp khi làm bài chính thức trước tích hợp G4. Khi chưa có Learning, ghi pending cho E2E D6, không suy ra từ flag browser hoặc tuyên bố ngăn AI ngoài hệ thống.
 
 **Phụ thuộc và nghiệm thu bổ sung:**
-- [ ] Core G2 + Document contracts được review, quyền lịch sử/owner/source revoke/LOCKED/cross-school được kiểm thử.
+- [x] Core G2 + Document + AI contracts đã triển khai và kiểm thử quyền lịch sử/source revoke/LOCKED/cross-school.
+- [ ] Hoàn tất gate `QAS-06` (`>= 100` câu hỏi chạy GGUF thật) và tự động hóa consumer `document.version.published` đầu-cuối.
 - [ ] QAS-06 đo ít nhất 100 câu hỏi theo phương pháp đã duyệt; báo cấu hình/model và số liệu thật, không khẳng định KPI từ unit tests.
 - [ ] Test hai chế độ, archive/transfer, grant revoke giữa pipeline, private-chat/share, fail-closed và QAS-01/02 cô lập lỗi.
 

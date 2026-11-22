@@ -21,7 +21,7 @@
 | A10–A11 | Trình tự xử lý | Các giao dịch quan trọng đi qua những bước nào? | Identity, Classroom, Notification contracts | DESIGN/CODE |
 | A12 | Miền dữ liệu | Các đối tượng nghiệp vụ thuộc quyền quản lý của phân hệ nào? | Migration/core ERD | LOGICAL, NOT FULL PHYSICAL ERD |
 | A13–A14 | Phát hành và thực nghiệm | Từ thay đổi mã nguồn đến triển khai, bằng chứng được thu thập ra sao? | CI, Compose, QAS/Test Plan | MIXED: EXISTING/PROPOSED |
-| A15 | Ranh giới dịch vụ | Dữ liệu và trách nhiệm của dịch vụ trong tương lai được tách thế nào? | ADR-001/Business Rules | PROPOSED |
+| A15 | Ranh giới dịch vụ | Dữ liệu và trách nhiệm giữa 4 service đã triển khai và Learner Intelligence (`PROPOSED`) | ADR-001/002, Core/Doc/AI/Learning `DESIGN.md` | IMPLEMENTED + PROPOSED |
 | A16 | Xử lý sự cố | Khi xảy ra sự cố, hệ thống được cô lập và khôi phục như thế nào? | OPS/QAS | PROPOSED RUNBOOK |
 
 ## A2. Sơ đồ ngữ cảnh hệ thống
@@ -33,13 +33,16 @@ flowchart LR
   A["Quản trị viên"] --> W
   T["Giáo viên"] --> W
   S["Học sinh"] --> W
-  subgraph Lumi["Lumi — phần lõi đã triển khai"]
-    W["Giao diện web (Next.js)"] --> P["Bộ chuyển tiếp API cùng miền"]
-    P --> C["Dịch vụ lõi FastAPI"]
-    C --> DB[("PostgreSQL 16")]
-    BW["Tác vụ nền: thông báo, thư xác thực"] --> DB
+  subgraph Lumi["Lumi — hệ thống 4 dịch vụ backend đã triển khai"]
+    W["Giao diện web (Next.js 15)"] --> P["3 BFF Proxy (/api/v1, /api/ai/v1, /api/learning/v1)"]
+    P --> C["Core API :8000"]
+    P --> D["Document API :8001 (IDP)"]
+    P --> AI["AI + RAG API :8002->8001"]
+    P --> L["Learning API :8003"]
+    C & D & AI & L --> DB[("PostgreSQL 16 (4 schemas)")]
+    BW["Workers (Core / Doc / AI / Learning)"] --> DB
   end
-  BW --> SMTP["Nhà cung cấp thư điện tử"]
+  BW --> SMTP["Nhà cung cấp thư điện tử (SMTP)"]
 ```
 
 [Nguồn sơ đồ](diagrams_arch/A01_System_Context_Current.mmd)
@@ -65,24 +68,23 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-  subgraph Core["Đã triển khai — phiên bản thử nghiệm phần lõi"]
-    I["Danh tính và phiên truy cập"]
-    C["Lớp học, danh sách học sinh"]
-    A["Quản trị và nhật ký kiểm toán"]
-    S["Bảng tin, bình luận, lịch học"]
-    N["Thông báo trong ứng dụng"]
+  subgraph Implemented["Đã triển khai — Core, Document, AI & Learning"]
+    I["Danh tính, phiên truy cập & trường học"]
+    C["Lớp học, danh sách, bảng tin, lịch & thông báo"]
+    A["Quản trị trường & nhật ký kiểm toán"]
+    D["Tài liệu 5 định dạng (IDP), grant & ghi chú"]
+    AI["Trợ lý Lumi SSE, RAG & sinh câu hỏi AI"]
+    L["Luyện tập, kiểm tra, bài tập, chấm điểm & phúc khảo"]
   end
-  subgraph Future["Chưa triển khai — thiết kế đề xuất"]
-    D["Quản lý tài liệu và ghi chú"]
-    L["Luyện tập, đánh giá, bài tập"]
-    R["Phân tích học tập, báo cáo"]
+  subgraph Proposed["Đề xuất (PROPOSED) — chưa triển khai"]
+    R["Phân tích học tập & báo cáo (Learner Intelligence)"]
   end
-  AI["Trí tuệ nhân tạo — chưa thuộc phạm vi thiết kế"] -.-> Future
+  Implemented -. "sự kiện học tập & điểm đã chốt" .-> Proposed
 ```
 
 [Nguồn sơ đồ](diagrams_arch/A02_Capability_Map.mmd)
 
-**Tách hai khái niệm MVP.** `Core MVP 0.1` có Identity, Classroom, Administration, Social, Calendar và Notifications. Sản phẩm đầy đủ trong Business Rules còn có Document, Learning, Intelligence; những service đó chưa có phía máy chủ live được chứng thực ở baseline. Vì AI Service bị hoãn nghiên cứu, sơ đồ chỉ giữ một ô không thiết kế, không có cạnh kỹ thuật sang các service khác.
+**Phạm vi năng lực hiện tại (2026-11-22).** Bốn backend services đã triển khai và nối Web live gồm `Core` (Identity, Classroom, Administration, Social, Calendar, Notifications), `Document` (IDP 5 định dạng, grant, reader/notes P0/P1), `AI` + `RAG` (Tutor SSE, RAG & Quiz generator; còn mở `QAS-06`) và `Learning` (Practice, Assessment, Assignment, Grading, Appeals; còn mở `QAS-03` và `TP-01`/`QAS-05`). Phân hệ **Learner Intelligence (`TASK-020`)** hiện là thành phần duy nhất còn ở trạng thái `PROPOSED` (ẩn trên điều hướng live Web).
 
 **Kiểm tra đối chiếu:** `apps/web/src/lib/data/integrations.ts` có trạng thái `contracted`, `pending-adapter`, `pending-history-api`, `pending-service`, `pending-contract` cho từng năng lực. Việc UI đã có route không có nghĩa tất cả các adapter/live phía máy chủ đã được nghiệm thu.
 
@@ -93,11 +95,11 @@ flowchart TB
 ```mermaid
 flowchart TB
   U["Tầng 1 — Người sử dụng: Quản trị viên / Giáo viên / Học sinh"]
-  W["Tầng 2 — Trình bày: giao diện web Next.js"]
-  P["Tầng 3 — Tiếp nhận và chuyển tiếp API cùng miền"]
-  C["Tầng 4 — Nghiệp vụ: dịch vụ lõi FastAPI"]
-  D["Tầng 5 — Dữ liệu và xử lý nền: PostgreSQL, tác vụ nền, sự kiện"]
-  H["Tầng 6 — Hạ tầng và vận hành: Compose, Vercel, Cloud Run, Neon, CI"]
+  W["Tầng 2 — Trình bày: giao diện web Next.js 15 (71 routes)"]
+  P["Tầng 3 — Chuyển tiếp BFF: /api/v1, /api/ai/v1, /api/learning/v1"]
+  C["Tầng 4 — Nghiệp vụ: Core, Document (+IDP), AI (+RAG), Learning"]
+  D["Tầng 5 — Dữ liệu & xử lý nền: PostgreSQL (4 schemas), Blob stores, 4 Workers & Outbox"]
+  H["Tầng 6 — Hạ tầng & vận hành: Docker Compose (base/full), Cloud Run / Neon / Vercel, CI"]
   U --> W --> P --> C --> D
   H -. "cung cấp môi trường vận hành" .-> W
   H -. "cung cấp môi trường vận hành" .-> C
@@ -117,7 +119,7 @@ flowchart TB
 | 5. Lưu trữ và xử lý nền | PostgreSQL, kho sự kiện, hộp thông báo và tác vụ nền | Bảo toàn dữ liệu, ghi nhận sự kiện, xử lý thông báo và thay đổi cấu trúc dữ liệu | Không cung cấp giao diện truy vấn cơ sở dữ liệu trực tiếp cho người dùng | Tài liệu di trú dữ liệu và cấu hình triển khai |
 | 6. Hạ tầng và vận hành | Docker Compose, các môi trường thử nghiệm và hạ tầng đám mây đã được ghi nhận | Đóng gói, triển khai, kiểm tra sức khỏe, quan sát và lưu bằng chứng kiểm thử | Không đồng nhất kết quả kiểm thử tự động với năng lực vận hành thực tế | Cấu hình triển khai và quy trình tích hợp liên tục |
 
-**Cần phân biệt hai góc nhìn:** sơ đồ A03 mô tả sự phân chia trách nhiệm xử lý; các sơ đồ A06–A08 mô tả vị trí triển khai những tiến trình cụ thể. Hiện tại, các phân hệ ở tầng dịch vụ ứng dụng cùng vận hành trong **một dịch vụ lõi FastAPI**, không phải các dịch vụ độc lập. Tiến trình xử lý nền sử dụng chung cấu trúc dữ liệu của dịch vụ lõi.
+**Cần phân biệt hai góc nhìn:** sơ đồ A03 mô tả sự phân chia trách nhiệm xử lý theo tầng; các sơ đồ A06–A08 mô tả vị trí triển khai từng service và tiến trình cụ thể (`Core`, `Document`, `AI`, `Learning` và các worker riêng theo schema độc lập).
 
 ### A4.2. Quy tắc phụ thuộc và thông điệp lỗi
 
@@ -132,13 +134,15 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  B["Trình duyệt"] -->|HTTPS / HTTP trong môi trường phát triển| W["Máy chủ Next.js"]
-  W -->|/api/v1| C["Core FastAPI — một tiến trình xử lý"]
-  C -->|Giao dịch SQL| DB[("PostgreSQL 16")]
-  M["Tác vụ migration Alembic"] -->|Cập nhật cấu trúc| DB
-  K["Tiến trình thông báo và thư xác thực"] --> DB
-  K -->|SMTP/TLS| E["Dịch vụ gửi thư"]
-  M -. "phải hoàn tất trước khi khởi động" .-> C
+  B["Trình duyệt"] -->|HTTPS / HTTP local| W["Next.js Web (:3000)"]
+  W -->|/api/v1| C["Core :8000"]
+  W -->|/api/v1| D["Document :8001"]
+  W -->|/api/ai/v1| A["AI :8002->8001"]
+  W -->|/api/learning/v1| L["Learning :8003"]
+  C & D & A & L -->|SQL| DB[("PostgreSQL 16 (4 schemas)")]
+  M["Alembic Migrations (core/doc/ai/learning)"] -. "hoàn tất trước" .-> C
+  WK["4 Background Workers"] --> DB & BV[("Blob Storage & Llama Models")]
+  WK -->|SMTP/TLS| E["Dịch vụ gửi thư"]
 ```
 
 [Nguồn sơ đồ](diagrams_arch/A04_Container_Runtime.mmd)
@@ -184,7 +188,7 @@ Danh tính, chức năng dùng chung, quản lý lớp học, bảng tin, thông
 | Social | Classroom | Kiểm tra thành viên và quyền lớp | Classroom access/public interfaces | Không tin class ID từ client |
 | Notification worker | Core DB | Xử lý event và ghi inbox | Transaction + V2 snapshot + dedup/retry | Chỉ allowlist payload |
 | Student onboarding | Identity | Kích hoạt bằng mã đã cấp | One-time token hash/purpose/status | Single-use, expiry, không log mã |
-| Future Document/Learning | Core | Kiểm tra hành động của user theo lớp | Versioned internal access contract (phụ thuộc triển khai) | Fail closed; cần approved service credential |
+| `Document` (`IMPLEMENTED P0/P1`), `AI` (`IMPLEMENTED`), `Learning` (`IMPLEMENTED`) | `Core` | Kiểm tra token (`/internal/v1/auth/introspect`), quyền theo lớp (`classes/{id}/access`), assessment lock & đồng bộ calendar/notification | Internal endpoints `X-Service-Key` trong [Core/Doc/AI/Learning API Contracts](../microservices-v1/core/API_CONTRACT.md) | Fail closed (`404`/`503`), không chia sẻ DB |
 
 ## A6. Sơ đồ nghiệp vụ động: tương tác thực tế
 
@@ -284,39 +288,42 @@ erDiagram
 - Mọi danh sách Admin giới hạn school và role; không expose hash/token hoặc dữ liệu riêng tư không thuộc chức năng.
 - School mapping legacy phải dùng manifest có thẩm quyền; migration FK nullable không tự tạo nghĩa vụ backfill dữ liệu thật.
 
-## A8. Ranh giới tương lai — không tự thiết kế công nghệ
+## A8. Ranh giới dịch vụ — Thực trạng triển khai và phần Đề xuất (`PROPOSED`)
 
 **A15 - Ranh giới các dịch vụ**
 
 ```mermaid
 flowchart LR
-  W["Giao diện web"] --> C["Dịch vụ lõi — ĐÃ TRIỂN KHAI"]
-  C --> DB[("PostgreSQL Core")]
-  W -.-> D["Tài liệu — CHƯA TRIỂN KHAI"]
-  W -.-> L["Học tập — CHƯA TRIỂN KHAI"]
-  W -.-> I["Phân tích học tập — CHƯA TRIỂN KHAI"]
-  D -. "kiểm tra quyền hiện hành" .-> C
-  L -. "kiểm tra quyền hiện hành" .-> C
+  W["Giao diện web (Next.js 15)"] --> C["Core — ĐÃ TRIỂN KHAI"]
+  W --> D["Document P0/P1 — ĐÃ TRIỂN KHAI"]
+  W --> A["AI + RAG — ĐÃ TRIỂN KHAI"]
+  W --> L["Learning — ĐÃ TRIỂN KHAI"]
+  W -.-> I["Learner Intelligence — CHƯA TRIỂN KHAI (PROPOSED)"]
+  C --> CDB[("Schema core (0001–0015)")]
+  D --> DDB[("Schema document + Blob")]
+  A --> ADB[("Schema ai + RAG vector/BM25")]
+  L --> LDB[("Schema learning + Blob")]
+  D -- "introspect & access" --> C
+  A -- "grants & canonical" --> D
+  A -- "introspect, access & lock" --> C
+  L -- "introspect, access & calendar/notif" --> C
   I -. "bằng chứng đã xác nhận" .-> L
-  D -.-> DS[("Kho dữ liệu Document — CHƯA CHỐT")]
-  L -.-> LS[("Kho dữ liệu Learning — CHƯA CHỐT")]
-  I -.-> IS[("Kho dữ liệu phân tích — CHƯA CHỐT")]
-  A["Dịch vụ AI — ngoài phạm vi thiết kế hiện tại"]
+  I -.-> IS[("Kho phân tích — CHƯA CHỐT")]
 ```
 
 [Nguồn sơ đồ](diagrams_arch/A15_Logical_Service_Boundaries.mmd)
 
-Dựa trên kiến trúc đã duyệt, chỉ ghi nhận ownership: Document (file/version/grant/note), Learning (practice/assessment/assignment/grade) và Learner Intelligence (evidence/recommendation/report). `TASK-017`, `TASK-019`, `TASK-020` mới là bản **đề xuất** cho endpoint/schema/processing. Các thành phần chưa được triển khai phải được vẽ nét đứt và tránh đóng dấu `IMPLEMENTED`.
+Dựa trên kiến trúc đã triển khai (`2026-11-22`), ownership dữ liệu được tách rõ qua 4 schema PostgreSQL độc lập (`core`, `document`, `ai`, `learning`) cùng dịch vụ đề xuất thứ năm là `Learner Intelligence` (`TASK-020`, vẽ nét đứt). Mỗi service giao tiếp qua BFF và Internal HTTP (`X-Service-Key`), không truy cập bảng dữ liệu của service khác.
 
-Không có sơ đồ AI internals trong bộ hồ sơ này; không đặt vector database/embedding pipeline/model provider, không phát biểu giả định chất lượng RAG như bằng chứng triển khai.
+Chi tiết pipeline RAG/IDP và cấu hình model LLM của `AI Service` được đặc tả riêng trong [AI DESIGN](../microservices-v1/ai/DESIGN.md) và [AI API Contract](../microservices-v1/ai/API_CONTRACT.md); gate mở `QAS-06` (`>= 100` câu hỏi với GGUF thật) không được suy diễn là đã đạt khi chưa chạy benchmark thực tế.
 
 ## A9. Hướng dẫn sử dụng sơ đồ trong quá trình thẩm định
 
-- **Architect/PM:** xem A01–A03, A08, A15; xác nhận phạm vi, ranh giới và target vs current.
-- **Giao diện web engineer:** xem A03–A05, A09–A11; xác nhận route/mutation/lỗi/phiên.
-- **Phía máy chủ engineer:** xem A04–A05, A11–A12; đối chiếu transaction, event, access và migration.
-- **QA:** xem A07, A10–A14; xây scenario và xác định kết quả đo thực.
-- **Ops:** xem A06–A09, A13–A16; xác định secrets, deploy, drift, backup, khôi phục phiên bản trước.
+- **Kiến trúc & Thiết kế:** xem A01–A03, A08, A15; xác nhận phạm vi, ranh giới và trạng thái `IMPLEMENTED` vs `PROPOSED`.
+- **Frontend (Web):** xem A03–A05, A09–A11; xác nhận route/mutation/lỗi/phiên.
+- **Backend (Services):** xem A04–A05, A11–A12; đối chiếu transaction, event, access và migration.
+- **Kiểm thử (QA):** xem A07, A10–A14; xây scenario và xác định kết quả đo thực.
+- **Vận hành (Ops):** xem A06–A09, A13–A16; xác định secrets, deploy, drift, backup, khôi phục phiên bản trước.
 
 ### Chú giải chung
 

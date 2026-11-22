@@ -237,7 +237,7 @@ export function createLiveAccounts(session: LiveIdentitySession): AccountsPort {
       return { ...existing, roles: input.roles, status: input.status, revision: input.revision + (changed ? 1 : 0) };
     },
     async assignLegacyUsername() {
-      throw new ApiError('CAPABILITY_UNAVAILABLE', 'Chuẩn hóa tài khoản cũ đang chờ TV1/TV2 duyệt School mapping (issue #13).', 503);
+      throw new ApiError('CAPABILITY_UNAVAILABLE', 'Chuẩn hóa tài khoản cũ hiện chưa mở trên giao diện web; thao tác được thực hiện qua công cụ bảo trì quản trị.', 503);
     },
     async inviteStaff(input): Promise<StaffInvitationResult> {
       let sentStatus: string | null = null;

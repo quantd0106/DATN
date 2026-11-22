@@ -1,14 +1,13 @@
 flowchart TB
-  subgraph Core["Đã triển khai — phiên bản thử nghiệm phần lõi"]
-    I["Danh tính và phiên truy cập"]
-    C["Lớp học, danh sách học sinh"]
-    A["Quản trị và nhật ký kiểm toán"]
-    S["Bảng tin, bình luận, lịch học"]
-    N["Thông báo trong ứng dụng"]
+  subgraph Implemented["Đã triển khai — Core, Document, AI & Learning"]
+    I["Danh tính, phiên truy cập & trường học"]
+    C["Lớp học, danh sách, bảng tin, lịch & thông báo"]
+    A["Quản trị trường & nhật ký kiểm toán"]
+    D["Tài liệu 5 định dạng (IDP), grant & ghi chú"]
+    AI["Trợ lý Lumi SSE, RAG & sinh câu hỏi AI"]
+    L["Luyện tập, kiểm tra, bài tập, chấm điểm & phúc khảo"]
   end
-  subgraph Future["Chưa triển khai — thiết kế đề xuất"]
-    D["Quản lý tài liệu và ghi chú"]
-    L["Luyện tập, đánh giá, bài tập"]
-    R["Phân tích học tập, báo cáo"]
+  subgraph Proposed["Đề xuất (PROPOSED) — chưa triển khai"]
+    R["Phân tích học tập & báo cáo (Learner Intelligence)"]
   end
-  AI["Trí tuệ nhân tạo — chưa thuộc phạm vi thiết kế"] -.-> Future
+  Implemented -. "sự kiện học tập & điểm đã chốt" .-> Proposed

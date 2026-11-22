@@ -1,10 +1,10 @@
 flowchart TB
   U["Tầng 1 — Người sử dụng: Quản trị viên / Giáo viên / Học sinh"]
-  W["Tầng 2 — Trình bày: giao diện web Next.js"]
-  P["Tầng 3 — Tiếp nhận và chuyển tiếp API cùng miền"]
-  C["Tầng 4 — Nghiệp vụ: dịch vụ lõi FastAPI"]
-  D["Tầng 5 — Dữ liệu và xử lý nền: PostgreSQL, tác vụ nền, sự kiện"]
-  H["Tầng 6 — Hạ tầng và vận hành: Compose, Vercel, Cloud Run, Neon, CI"]
+  W["Tầng 2 — Trình bày: giao diện web Next.js 15 (71 routes)"]
+  P["Tầng 3 — Chuyển tiếp BFF: /api/v1, /api/ai/v1, /api/learning/v1"]
+  C["Tầng 4 — Nghiệp vụ: Core, Document (+IDP), AI (+RAG), Learning"]
+  D["Tầng 5 — Dữ liệu & xử lý nền: PostgreSQL (4 schemas), Blob stores, 4 Workers & Outbox"]
+  H["Tầng 6 — Hạ tầng & vận hành: Docker Compose (base/full), Cloud Run / Neon / Vercel, CI"]
   U --> W --> P --> C --> D
   H -. "cung cấp môi trường vận hành" .-> W
   H -. "cung cấp môi trường vận hành" .-> C

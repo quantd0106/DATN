@@ -1,9 +1,13 @@
 flowchart LR
-  subgraph Host["Máy phát triển — Docker Compose"]
+  subgraph Compose["Docker Compose (compose.yaml + compose.full.yaml)"]
     B["Trình duyệt"] -->|localhost:3000| W["web :3000 / Next.js"]
-    W -->|HTTP nội bộ| C["core :8000 / FastAPI"]
-    C --> DB[("db :5432 / PostgreSQL 16")]
-    K["notification-worker"] --> DB
-    M["migrate / Alembic"] --> DB
-    DB <--> V[("Docker volume pgdata")]
+    W --> C["core :8000"]
+    W --> D["document :8001"]
+    W --> A["ai :8002->8001 (full)"]
+    W --> L["learning :8003 (full)"]
+    C & D & A & L --> DB[("db :5432 / PostgreSQL 16")]
+    WK["notification · document · ai · learning workers"] --> DB
+    MIG["migrate · document-db-init · doc/ai/learning-migrate"] --> DB
+    DB <--> PG[("Volume pgdata")]
+    D & L & A & WK <--> BL[("Volumes: blobs & models")]
   end

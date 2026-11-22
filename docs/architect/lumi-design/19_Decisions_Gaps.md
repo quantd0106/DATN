@@ -8,7 +8,7 @@
 - **PROPOSED:** Viết thiết kế đề xuất để thảo luận, không được triển khai như quyết định.
 - **PENDING:** Thiếu thông tin đủ để chốt; không tự đặt default nghiệp vụ.
 - **DEFERRED:** Đã hoãn theo phạm vi hoặc chưa thể kiểm thử.
-- **CONFLICT:** Tài liệu/mã khác nhau; phải trỏ nguồn và chọn owner có thẩm quyền xử lý.
+- **CONFLICT:** Tài liệu/mã khác nhau; phải trỏ nguồn chuẩn có thẩm quyền để đối chiếu và cập nhật đồng bộ.
 
 ## 2. Bảng quyết định còn mở
 
@@ -16,7 +16,7 @@
 |---|---|---|---|---|---|
 | OD-01 | Identity verification Student | Bằng chứng xác minh, đại diện hợp lệ và quy trình bàn giao mã thực | Chiếm tài khoản hoặc xử lý dữ liệu sai quyền | PENDING OPERATOR | Production onboarding |
 | OD-02 | Data retention | Theo loại tài khoản, roster, posts, docs, notes, submissions, grades, evidence, logs, backups | Xóa sai/không thể đáp ứng yêu cầu | PENDING OPERATOR | All services |
-| OD-03 | DELETE executor | Service owner, bước xóa/ẩn danh, audit/result/rollback | COMPLETED giả hoặc mất dữ liệu cần giữ | PENDING OPERATOR | Data requests |
+| OD-03 | DELETE executor | Service sở hữu, bước xóa/ẩn danh, audit/result/rollback | COMPLETED giả hoặc mất dữ liệu cần giữ | PENDING OPERATOR | Data requests |
 | OD-04 | Backups/DR | RPO/RTO/restore drill và trách nhiệm | Không có khả năng phục hồi được chứng minh | PENDING OPS | Production |
 | OD-05 | Multi-worker Core | Có cần >1 worker/replica; shared limiter/idempotency store | Retry không bền và giới hạn không đồng bộ | PENDING OPERATING TARGET | Scale |
 | OD-06 | Document storage | **P0/P1 IMPLEMENTED — VERIFIED (`StorageBackend` / `LocalVolumeStorage`):** local Docker volume + ghi nguyên tử theo khóa `source/{document_id}/{version_id}` & `canonical/{document_id}/{version_id}.json` + kiểm chứng `source_sha256`, hạn mức 20 MB / 300 trang (`GET /documents/policy`), chống ZIP-bomb/magic-byte; **P2 DEFERRED (`TASK-017I`):** GCS signed URL upload, malware scan, quota, encryption key mgmt | Rò rỉ tài liệu/cost/timeouts khi lên cloud | P0/P1 IMPLEMENTED / P2 DEFERRED | G3 |
@@ -33,7 +33,7 @@
 | OD-17 | Report privacy | Các chiều lọc/suppression/differencing/export | Tái định danh học sinh | PROPOSED ADR-005 | G5 |
 | OD-18 | Web release acceptance | Danh sách Core 0.1 screen/E2E exit gate | Chỉ build được nhưng chưa hoạt động | PENDING HUMAN ACCEPTANCE | Core MVP |
 | OD-19 | Production runtime provenance | Redeploy cùng SHA/image digest/PUBLIC_WEB_URL | Email link sai và source drift | PENDING OPS EVIDENCE | Cloud staging/mock |
-| OD-20 | Future AI research | Nghiên cứu độc lập trước khi thiết kế | Khóa kiến trúc không có cơ sở | **OUT OF SCOPE** | Không tác động bộ này |
+| OD-20 | AI Service & RAG | Thiết kế, triển khai Tutor/Quiz & kiểm thử `QAS-06` (>= 100 câu GGUF thật) | Lệch pipeline vector/LLM hoặc thiếu kiểm chứng model | **IMPLEMENTED (gate QAS-06 mở)** | `microservices-v1/ai/` |
 
 ## 3. Những điểm **không** được coi là open decision nữa
 
@@ -48,9 +48,9 @@
 
 | ID | Nguồn lịch sử và nguồn mới | Cách xử lý tài liệu |
 |---|---|---|
-| CF-01 | Một số `BUSINESS_RULES.md` mục “PENDING DESIGN/lưu đồ chưa triển khai” viết ở thời điểm ban đầu; Core Design/API/migration đã triển khai sau | Giữ Business Rules làm chuẩn nghiệp vụ, dùng API/ORM/migration cho hiện trạng code; không xóa chú thích lịch sử trừ khi source owner cập nhật |
-| CF-02 | `apps/web/README.md` còn mô tả Next.js scaffold, trong khi Web PR #11/#33/#38 đã merge | Hiện trạng frontend phải lấy từ code, integration registry và newer SDD; cập nhật README bằng PR riêng nếu cần |
-| CF-03 | `tasks/README.md` báo mốc 30/10 `ec10fa9`, còn `main` 31/10 có `55324dc` và PR #38 | Luôn ghi commit/time cho test; không áp dụng test lịch sử cho revision mới nếu không có CI tương ứng |
+| CF-01 | Một số `BUSINESS_RULES.md` mục “PENDING DESIGN/lưu đồ chưa triển khai” viết ở thời điểm ban đầu; Core/Document/AI/Learning Design/API/migration đã triển khai sau | Giữ Business Rules làm chuẩn nghiệp vụ, dùng API/ORM/migration cho hiện trạng code; không tự ý chỉnh sửa `BUSINESS_RULES.md` |
+| CF-02 | Tài liệu Frontend/UI/UX cần phản ánh đúng 71 routes và 3 BFF proxy hiện hành | Đã đồng bộ vào [apps/web/README.md](../../../apps/web/README.md), [UI_UX_DESIGN.md](../../../apps/web/docs/UI_UX_DESIGN.md) và [13_UIUX.md](13_UIUX.md) |
+| CF-03 | Các bằng chứng kiểm thử lịch sử cuối 10/2026 chỉ gắn với commit thời điểm đó | Luôn ghi rõ commit/thời điểm cho từng lần chạy; không suy diễn kết quả cũ cho commit mới nếu chưa chạy lại CI/test |
 | CF-04 | Business Rules Product MVP bao gồm AI, nhưng bộ hồ sơ này loại AI theo yêu cầu hiện tại | Đánh dấu AI `OUT OF SCOPE`, không sửa Business Rules gốc |
 | CF-05 | QAS-01/02/06/07/08 có yếu tố AI; công việc đang hoãn | Không tạo test AI hoặc báo QAS-06 PASS; chỉ giữ nguyên nguồn tham khảo QAS |
 
@@ -58,7 +58,7 @@
 
 | ID | Giả định thực dụng | Cách kiểm chứng |
 |---|---|---|
-| AS-01 | Cần dùng các tệp Markdown trong monorepo để review/maintain | Owner xem lại định dạng và vị trí thư mục |
+| AS-01 | Giữ tài liệu thiết kế dạng Markdown trong monorepo để dễ cập nhật đồng bộ với mã nguồn | Rà soát định kỳ định dạng và vị trí thư mục |
 | AS-02 | Dữ liệu mẫu E2E chỉ là synthetic | Kiểm tra seed và test deployment |
 | AS-03 | Future services phải có DB/schema/storage riêng theo ownership, nhưng không nhất thiết máy chủ riêng | ADR/architecture review trước triển khai |
 | AS-04 | Mọi route trên Web không có backend thì hiển thị unavailable live | Đối chiếu integration registry, browser QA |
@@ -70,7 +70,7 @@
 2. Product/Operator quyết định thay đổi nghiệp vụ và chính sách; Architecture review dữ liệu/service boundaries.
 3. Cập nhật Business Rules/ADR (nếu cần) rồi BRD/SRS/FRS/UC/LLD/API/ERD/DFD/RTM.
 4. Cập nhật code/migration/tests theo approved contract; chạy regression và security tests.
-5. QA liên kết evidence/source revision; owner chốt acceptance.
+5. Kiểm thử liên kết evidence/source revision; xác nhận nghiệm thu theo từng gate.
 6. Ghi revision/date và migration compatibility; không ghi đè lịch sử.
 
 ## 7. Template ADR
@@ -84,7 +84,7 @@ Decision Drivers: <độ tin cậy, bảo mật, vận hành, chi phí>
 Alternatives: <2-3 phương án và tradeoffs>
 Decision: <chỉ điền khi duyệt>
 Consequences: <rủi ro, migration, testing, rollback>
-Owner/Approval: <ai và khi nào>
+Verified commit/Approval: <commit và ngày>
 Links: <SRS/LLD/PR/test evidence>
 ```
 
@@ -94,7 +94,7 @@ Links: <SRS/LLD/PR/test evidence>
 - [ ] AI không xuất hiện trong FRS/LLD/API/test; mọi tham chiếu chỉ là outside-scope placeholder/rule bảo lưu.
 - [ ] Core model names/fields/API được đối chiếu với source hiện hành và mục nào chưa xác nhận có ghi note.
 - [ ] Future schema/API được gắn **PROPOSED**, không giả đã triển khai.
-- [ ] Mỗi requirement được link tới use case/test/diagram; coverage gap có owner.
+- [ ] Mỗi requirement được link tới use case/test/diagram; coverage gap được ghi rõ trạng thái.
 - [ ] Security/privacy, admin actions, data retention và teen data được xử lý có policy.
 - [ ] Chiến lược migration, deployment, retry, monitoring, backup được mô tả với mức chắc chắn phù hợp.
 - [ ] Human approval và technical verification không được gộp chung.

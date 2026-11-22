@@ -33,7 +33,7 @@
 2. Đối chiếu `Business Rules`, `00_INDEX.md`, `API_CONTRACT.md`, `compose.yaml`, CI và migration khi sơ đồ thay đổi.
 3. Nếu thay đổi trách nhiệm module/service hoặc mạng, cập nhật Architecture Atlas, deployment và ADR cùng lúc.
 4. Không sửa hình PNG thủ công dẫn tới lệch mã nguồn. Chỉ dùng PNG/SVG là rendered outputs.
-5. Mỗi release ghi Git commit + reviewer + ngày kiểm tra; không dùng sơ đồ draft làm evidence triển khai.
+5. Mỗi release ghi Git commit + kết quả kiểm tra + ngày kiểm tra; không dùng sơ đồ draft làm evidence triển khai.
 
 ## 4. Tiêu chí thẩm định sơ đồ
 

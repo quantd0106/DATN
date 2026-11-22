@@ -1,6 +1,6 @@
 # Document Service API Contract v1
 
-**Trạng thái P0/P1:** `IMPLEMENTED — VERIFIED` · **Phân rã P0/P1/P2 & đối chiếu Web port:** [CODEX_ORCHESTRATION.md](CODEX_ORCHESTRATION.md)
+**Trạng thái P0/P1:** `IMPLEMENTED — VERIFIED` (đã tích hợp Core và Web live qua BFF proxy `/api/v1`)
 
 Ngày 2026-11-21, suite Document trên PostgreSQL 16 đạt **`99 passed in 11.59s`**. Trong Compose trên Docker Desktop 29.7.2 (linux), Document `/health/ready` trả `200`. PDF `10,500,004` byte đi qua Web proxy từ `201 PENDING` đến `SUCCESS`, cấp grant trả `201`, và Student đọc/tải trả `200` với bản tải đủ `10,500,004` byte. Tệp `20,971,521` byte bị từ chối `413`. Tài liệu này khóa **20 endpoint public** (+ **2 endpoint internal** cho AI), ánh xạ 1-1 tới **12 hàm** trong `DataAdapter['document']` (`apps/web/src/lib/data/port.ts`) và các tuyến `workspace.load` qua Proxy allowlist (trong đó `accept` và `retry` qua proxy dùng **`version_id` UUID**). Xem [TASK-017](../../../../tasks/TASK-017-document-service-design-impl.md) và [TASK-017E](../../../../tasks/TASK-017E-compose-demo-and-deployment.md).
 

@@ -2,6 +2,7 @@
 
 - **Mã Task:** `TASK-019`
 - **Giai đoạn:** `G4 — Learning`
+- **Trạng thái (2026-11-22):** `IMPLEMENTED` (`services/learning/`, `learning` schema 18 bảng / 4 migrations, blob storage, Web BFF `/api/learning/v1/*` 57 ops + 3 internal ops + Core calendar/notification internal sync; open gates: `QAS-03` `1,000` ca concurrency và full `TP-01`/`QAS-05`). Chi tiết xem [Learning DESIGN](../docs/architect/microservices-v1/learning/DESIGN.md) và [Learning API Contract](../docs/architect/microservices-v1/learning/API_CONTRACT.md).
 - **Business Rules liên quan:** `D0-D8`, `I1-I7`, `M1-M4`, `O3`, `O4`, `O5`, `QAS-03`
 - **Tài liệu căn cứ:** [BUSINESS_RULES.md](../docs/architect/BUSINESS_RULES.md#d-quiz-assessment-assignment), [ARCHITECTURE.md](../docs/architect/microservices-v1/ARCHITECTURE.md#2-ownership)
 
@@ -14,7 +15,7 @@
 - PRIMARY phê duyệt công bố Assessment, sửa/hủy điểm đã công bố và quyết định nhạy cảm; ASSISTING tạo nháp/đề xuất/chấm được phân công. Kiểm tra assignment hiện hành, không cho bất kỳ LECTURER tự phê duyệt; Admin chỉ can thiệp ngoại lệ có lý do/audit.
 - Bổ sung đủ 4 loại câu hỏi D2; duyệt câu hỏi AI trước dùng, AI không quyết định điểm cuối Assignment/tự luận. Tách practice với điểm chính thức theo D8.
 - Attempt ghim phiên bản đề bất biến; version mới áp dụng cho lượt giao tiếp theo (O3), có phương án công bằng M4 cho đề sai. Đồng bộ sửa điểm đã xác nhận bằng event có version để analytics không dùng điểm cũ.
-- Chốt transfer cutoff, bài/attempt dở và quyền grade_submitted_work/read_own_history cùng TASK-006/008: bài đã nộp tiếp tục chấm, owner xem kết quả/phúc khảo giới hạn dù enrollment kết thúc; không tự đặt hạn phúc khảo.
+- Chốt transfer cutoff, bài/attempt dở và quyền grade_submitted_work/read_own_history cùng TASK-006/008: bài đã nộp tiếp tục chấm, học sinh sở hữu bài nộp xem kết quả/phúc khảo giới hạn dù enrollment kết thúc; không tự đặt hạn phúc khảo.
 - Timer/resume/auto-submit dùng câu trả lời đã lưu thành công; idempotency không nhân đôi submission/grade/evidence. Hạn, best/latest/average, late policy, số lượt/bản được chấm phải cấu hình; gia hạn không tự đổi lượt hoặc trạng thái đã nộp.
 - Learning là nguồn deadline/Assessment state; phát outbox cho Calendar/Notification/analytics và cung cấp trạng thái chặn Tutor tích hợp D6. Không dời quyền quyết định điểm sang Core hoặc AI.
 

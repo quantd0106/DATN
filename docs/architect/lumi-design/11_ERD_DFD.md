@@ -1,6 +1,6 @@
 # SƠ ĐỒ DỮ LIỆU — ERD, DFD, SEQUENCE VÀ STATE
 
-**Mã:** LUMI-MODEL-001 · **Phiên bản:** 1.0-DRAFT · **Trạng thái:** Core ERD dựa trên ORM và SDD; future ERD chỉ là logical proposal.
+**Mã:** LUMI-MODEL-001 · **Phiên bản:** 1.1 · **Trạng thái:** Core (`15` migrations), Document (`7` bảng), AI (`7` bảng) và Learning (`18` bảng) phản ánh schema thực tế; Learner Intelligence vẫn là logical proposal (`PROPOSED`).
 
 ## 1. ERD Core — mức logic kiểm chứng được
 
@@ -34,7 +34,11 @@ erDiagram
 
 ## 2. Candidate ERD Document — PROPOSED
 
-> **Cập nhật hiện trạng (2026-11-21):** Sơ đồ dưới đây là mức khái niệm ban đầu (ví dụ khối `PROCESSING_JOB`). Thiết kế vật lý **P0/P1 đã triển khai và kiểm chứng** gồm `7` bảng trong schema `document` (`0001_initialize_document_schema.py`: `documents`, `document_versions` chứa `attempt_count`/`available_at` + lease/`SKIP LOCKED`, `class_document_grants`, `source_bound_notes`, `document_bookmarks`, `outbox_events`, `audit_events`) — xem [Document DESIGN](../microservices-v1/document/DESIGN.md) và bảng đối chiếu trong [CODEX_ORCHESTRATION](../microservices-v1/document/CODEX_ORCHESTRATION.md).
+> **Cập nhật hiện trạng (2026-11-22):**
+> - **Schema `document` (`IMPLEMENTED P0/P1`):** `7` bảng (`0001_initialize_document_schema.py`: `documents`, `document_versions` kèm `attempt_count`/`available_at` + lease/`SKIP LOCKED`, `class_document_grants`, `source_bound_notes`, `document_bookmarks`, `outbox_events`, `audit_events`) — xem [Document DESIGN](../microservices-v1/document/DESIGN.md).
+> - **Schema `ai` (`IMPLEMENTED`):** `7` bảng qua `2` migrations (`services/ai/migrations/`) — xem [AI DESIGN](../microservices-v1/ai/DESIGN.md).
+> - **Schema `learning` (`IMPLEMENTED`):** `18` bảng qua `4` migrations (`services/learning/migrations/`) — xem [Learning DESIGN](../microservices-v1/learning/DESIGN.md).
+> - Sơ đồ conceptual bên dưới giữ vai trò tham chiếu cấu trúc nghiệp vụ; riêng khối `Learner Intelligence` còn ở trạng thái `PROPOSED`.
 
 ```mermaid
 erDiagram
@@ -183,7 +187,7 @@ flowchart LR
 - Không lưu raw file/formula vào client-visible response nếu không cần.
 - Transaction commit nhất quán; replay dùng kết quả import batch bền vững.
 
-## 8. Sequence — revoke và historical access (future Document)
+## 8. Sequence — revoke và historical access (Document)
 
 ```mermaid
 sequenceDiagram
@@ -205,7 +209,7 @@ sequenceDiagram
  end
 ```
 
-## 9. Sequence — save/submit và grade event (future Learning)
+## 9. Sequence — save/submit và grade event (Learning)
 
 ```mermaid
 sequenceDiagram

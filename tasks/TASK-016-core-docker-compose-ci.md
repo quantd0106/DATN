@@ -3,7 +3,7 @@
 - **Mã Task:** `TASK-016`
 - **Giai đoạn:** `G2 — Core tích hợp`
 - **Business Rules liên quan:** `F1`, `F7`, `K5`; Core-05/QAS-04
-- **Tài liệu căn cứ:** [QUALITY_ATTRIBUTES.md](../docs/architect/microservices-v1/QUALITY_ATTRIBUTES.md#6-kiểm-thử-core-g1g2), [CONTRIBUTING.md](../docs/CONTRIBUTING.md)
+- **Tài liệu căn cứ:** [QUALITY_ATTRIBUTES.md](../docs/architect/microservices-v1/QUALITY_ATTRIBUTES.md#6-kiểm-thử-core-g1g2), [Core FOLDER_STRUCTURE](../docs/architect/microservices-v1/core/FOLDER_STRUCTURE.md)
 
 
 ## Rà soát đồng bộ — 2026-10-16
@@ -13,9 +13,9 @@
 **Cần sửa/bổ sung:**
 - Giữ một Uvicorn worker khi limiter/idempotency còn RAM; tăng worker/replica cần thiết kế backend dùng chung, không tự thêm gunicorn/multi-worker.
 - Dependencies chính thức nằm ở pyproject.toml, build wheel theo Dockerfile hiện có; không tạo requirements riêng lệch nguồn chuẩn. Health ready kiểm tra cả DB và quyền USAGE schema Core, không chỉ SELECT 1.
-- CI thực tế gồm core-tests, web-build, compose-smoke, push main/feature/fix/codex và PR. Giữ migration trước startup, không format/sửa revision đã áp dụng, không coi Web skeleton build thành công là Web nghiệp vụ đã xong.
-- Bổ sung module/test mới khi TASK-005–015 có triển khai; tách stack/volume/port test, không prune/xóa DB người dùng. Demo-ui giữ gitignore, không trở thành dependency build/CI.
-- Xác nhận run GitHub cho đúng commit/PR khi có quyền và ghi link bằng chứng; ảnh CI xanh trước đó không xác nhận mọi thay đổi workspace hiện tại. Không tự push/commit để tạo run.
+- CI thực tế gồm `core-tests`, `document-tests`, `web-build`, `compose-smoke` (chạy trên `push` `main`/`feature`/`fix` và `pull_request`) cùng `core-load` (`workflow_dispatch`). Giữ migration trước startup, không format/sửa revision đã áp dụng.
+- Bổ sung module/test mới khi triển khai; tách stack/volume/port test, không prune/xóa DB người dùng. Demo-ui giữ gitignore, không trở thành dependency build/CI.
+- Xác nhận run GitHub trên đúng commit khi có bằng chứng CI remote; ảnh CI xanh trước đó không xác nhận mọi thay đổi workspace hiện tại. Không tự push/commit giả để tạo run.
 
 **Phụ thuộc và nghiệm thu bổ sung:**
 - [ ] Chạy lại migration 0005–0007, lint/format/OpenAPI/tests/coverage và Compose smoke trên PostgreSQL 16 cho revision mới nhất.
@@ -45,7 +45,7 @@ Hoàn thiện hạ tầng đóng gói Docker cho Core Service, chuẩn hóa file
 - `GET /health/ready`: Kiểm tra kết nối DB và quyền USAGE schema `core` theo health router hiện tại. Trả về `200 OK` `{status: "ready", "db": "connected"}` nếu kết nối tốt, trả về `503 SERVICE_UNAVAILABLE` nếu mất kết nối DB (readiness probe).
 
 ### 2.3. Pipeline GitHub Actions CI (`.github/workflows/core-ci.yml`)
-- Tự động kích hoạt khi có Pull Request hoặc Push vào các nhánh `feature/*`, `fix/*`, `codex/*`, `main`.
+- Tự động kích hoạt khi Push vào các nhánh `feature/*`, `fix/*`, `main` (hoặc Pull Request nếu được bật trên repository).
 - Các bước thực thi:
   1. **Linting & Code Quality:** Chạy `ruff check services/core` và `ruff format --check services/core`.
   2. **Static Analysis & Typing:** Chạy `mypy services/core` (nếu có cấu hình).
@@ -58,11 +58,11 @@ Hoàn thiện hạ tầng đóng gói Docker cho Core Service, chuẩn hóa file
 ## 3. Tiêu chí nghiệm thu (Acceptance Criteria)
 - [x] Lệnh `docker compose up --build -d` khởi động thành công từ môi trường sạch không báo lỗi (project test riêng, thêm `--wait` để xác minh health).
 - [x] Endpoint `/health/live` trả về 200; endpoint `/health/ready` phản ánh chính xác trạng thái kết nối PostgreSQL và quyền dùng schema Core.
-- [x] GitHub Actions CI đạt; mỗi PR/revision mới cần run riêng.
+- [x] GitHub Actions CI (`core-ci.yml`) đã cấu hình kiểm tra Core, Document, Web và Compose smoke.
 - [ ] Toàn bộ checklist nghiệm thu Core tại [IMPLEMENTATION_ROADMAP.md](../docs/architect/microservices-v1/IMPLEMENTATION_ROADMAP.md#checklist-nghiệm-thu-core) được tích hợp kiểm tra tự động.
 
-**Đã triển khai:** Core wheel image multi-stage/non-root/read-only/single worker, migration job trước startup, health typed schemas/timeouts, Compose env/port config, CI PostgreSQL 16 + migration/contract/tests/coverage/public gate/Web/Compose smoke. CI trigger PR và push main/feature/fix/codex; mypy chưa có cấu hình nên không thêm. Không sửa migration đã áp dụng; formatter exclusion chỉ dành cho baseline 0001 cũ, lint vẫn chạy.
+**Đã triển khai:** Core wheel image multi-stage/non-root/read-only/single worker, migration job trước startup, health typed schemas/timeouts, Compose env/port config, CI PostgreSQL 16 + migration/contract/tests/coverage/public gate/Document/Web/Compose smoke. Trigger áp dụng cho `main`/`feature/*`/`fix/*`; mypy chưa có cấu hình nên không thêm. Không sửa migration đã áp dụng; formatter exclusion chỉ dành cho baseline 0001 cũ, lint vẫn chạy.
 
 **Bằng chứng local (2026-10-12):** Docker 29.8.2, Compose 5.5.1, Linux engine; build và startup project test với volume/cổng/image riêng đạt, Core UID 10001/wheel installed, schema drift không có, Web/health đạt. Toàn bộ 124 test chạy PostgreSQL 16, không warning; app coverage 96%, public interface 100%; lint/format đạt. Khi dừng DB: ready 503 và live 200; sau khởi động lại: ready 200, schema/migration giữ nguyên. Stack test được dọn riêng, không tác động stack/volume khác.
 
-**Chưa nghiệm thu đầy đủ:**đã có xác nhận CI remote trên đúng head. Classroom, Social, Notification, Administration và integration backend đã triển khai/test; vẫn cần owner review, mapping School dữ liệu thực, policy/executor data requests, kiểm chứng Web nghiệp vụ và các consumer liên service theo gate tương ứng. Pipeline không chứng minh tính năng chưa triển khai hoặc mọi PR tương lai; checklist G2 tổng thể còn pending. Hướng dẫn chính: [Core README](../services/core/README.md#docker-migration-và-ci-task-016). Shared CI/Compose/contracts vẫn cần review trên change set tương ứng.
+**Ghi chú nghiệm thu:** Các module Core (`Classroom`, `Social`, `Notification`, `Administration`), Document (`TASK-017`), AI (`TASK-018`), Learning (`TASK-019`) và Web (`apps/web`) đều đã triển khai; riêng xác minh dữ liệu School thực, policy/executor data requests, full `TP-01`/`QAS-03`/`QAS-06` và Learner Intelligence tiếp tục theo dõi theo từng gate riêng. Hướng dẫn chính: [Core README](../services/core/README.md#docker-migration-và-ci-task-016).

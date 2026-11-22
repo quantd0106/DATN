@@ -1,8 +1,10 @@
 flowchart LR
-  B["Trình duyệt"] -->|HTTPS / HTTP trong môi trường phát triển| W["Máy chủ Next.js"]
-  W -->|/api/v1| C["Core FastAPI — một tiến trình xử lý"]
-  C -->|Giao dịch SQL| DB[("PostgreSQL 16")]
-  M["Tác vụ migration Alembic"] -->|Cập nhật cấu trúc| DB
-  K["Tiến trình thông báo và thư xác thực"] --> DB
-  K -->|SMTP/TLS| E["Dịch vụ gửi thư"]
-  M -. "phải hoàn tất trước khi khởi động" .-> C
+  B["Trình duyệt"] -->|HTTPS / HTTP local| W["Next.js Web (:3000)"]
+  W -->|/api/v1| C["Core :8000"]
+  W -->|/api/v1| D["Document :8001"]
+  W -->|/api/ai/v1| A["AI :8002->8001"]
+  W -->|/api/learning/v1| L["Learning :8003"]
+  C & D & A & L -->|SQL| DB[("PostgreSQL 16 (4 schemas)")]
+  M["Alembic Migrations (core/doc/ai/learning)"] -. "hoàn tất trước" .-> C
+  WK["4 Background Workers"] --> DB & BV[("Blob Storage & Llama Models")]
+  WK -->|SMTP/TLS| E["Dịch vụ gửi thư"]

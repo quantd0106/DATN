@@ -156,3 +156,18 @@ flowchart LR
 ## 3. Quy tắc viết thêm use case
 
 Mỗi UC mới phải có: ID duy nhất, Rule ID, actor và preconditions, normal/alternative flows, data impact, permissions, errors, idempotency/retry, audit/notification, tests. Nếu UC đòi quyết định nghiệp vụ chưa có, ghi `PENDING` thay vì làm đầy bằng suy đoán.
+
+
+---
+
+## UC-15: AI Tutor, Sinh câu hỏi & Giải thích lỗi sai (`IMPLEMENTED` — `services/ai/` + `services/rag/`)
+
+- **Actor:** Student có quyền lớp hiện hành, Lecturer được phân công. **Rule:** `B1`, `C1`, `C2`, `C4`, `D1`, `D2`, `D5`, `D6`, `D8`, `H6`.
+- **Chi tiết hợp đồng:** [AI DESIGN](../microservices-v1/ai/DESIGN.md) · [AI API Contract](../microservices-v1/ai/API_CONTRACT.md).
+- **Luồng chính:**
+  1. Phiên bản tài liệu `SUCCESS` được lập chỉ mục vào `ai` schema; khi grant thu hồi hoặc lớp đổi trạng thái, `AI` vô hiệu hóa truy cập nguồn tương ứng (`H6`).
+  2. Học sinh mở **Hỏi Lumi** (`s.tutor`): hệ thống kiểm tra `assessment-lock` sang Learning (`D6`), nếu không đang thi chính thức thì mở luồng SSE (`QUICK_QA` hoặc `STEP_BY_STEP`: `HINT`/`CHECK`/`REVEAL`), hỗ trợ nút dừng (`/stop`) và trích dẫn deep-link trang tài liệu.
+  3. Giáo viên mở cấu hình Tutor lớp (`t.tutor`) chỉnh chế độ kiến thức tổng quát/tiết lộ lời giải với khóa lạc quan `expectedVersion` (`409` nếu xung đột).
+  4. Giáo viên sinh câu hỏi từ tài liệu lớp theo ma trận, xem/sửa/sinh lại từng câu ở trạng thái `PENDING` và duyệt xuất sang Learning (`D1`, `D2`).
+  5. Khi làm luyện tập hoặc chấm bài tập tự luận, AI cung cấp giải thích lỗi sai (`explain-mistake`) và gợi ý phản hồi (`grade-hint`, chỉ mang tính tư vấn theo `D5`).
+- **Trạng thái kiểm chứng:** Đã triển khai backend & Web BFF (`/api/ai/v1/*`); gate mở còn lại là `QAS-06` (`>= 100` câu hỏi với mô hình GGUF thật) và tự động hóa consumer `document.version.published`.

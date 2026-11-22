@@ -1,24 +1,30 @@
 # Kiến trúc Microservices v1
 
-**Trạng thái:** BASELINE THIẾT KẾ · **Ngày:** 2026-10-11
+**Trạng thái:** `Core`, `Document`, `AI`, `Learning` `IMPLEMENTED` · `Learner Intelligence` `PROPOSED` · **Cập nhật:** 2026-11-22
 
 ## 1. Cấu trúc và stack
-**Một Monorepo**, năm Microservices. Next.js Web gọi các API có phiên bản. Core chạy FastAPI, PostgreSQL (SQLAlchemy/Alembic), Docker Compose. Mỗi service có image, API, dữ liệu và quy trình triển khai riêng; không có yêu cầu máy chủ vật lý riêng.
+**Một Monorepo**, năm Microservices. Next.js Web (`apps/web`) gọi các API có phiên bản qua BFF proxy cùng miền (`/api/v1/*`, `/api/ai/v1/*`, `/api/learning/v1/*`). Các backend service đã triển khai (`Core`, `Document`, `AI`, `Learning`) sử dụng Python 3.12, FastAPI, SQLAlchemy 2, Alembic trên PostgreSQL 16 (cô lập 4 schema `core`, `document`, `ai`, `learning`) và Docker Compose (`compose.yaml` + `compose.full.yaml`). `Learner Intelligence` là service thứ năm theo kiến trúc, hiện ở trạng thái đề xuất chưa triển khai.
 
 ```mermaid
 flowchart LR
-  U[Student Lecturer Admin] --> W[Next.js Web]
-  W --> G[API Entry]
-  G --> C[Core]
-  G --> D[Document]
-  G --> A[AI]
-  G --> L[Learning]
-  G --> I[Learner Intelligence]
-  C --> P[(PostgreSQL Core schema)]
-  D -. membership check .-> C
-  A -. class access .-> C
-  A -. document grant .-> D
-  L -. class access .-> C
+  U[Student / Lecturer / Admin] --> W[Next.js Web :3000]
+  W --> G[Same-Origin BFF Proxy]
+  G --> C[Core :8000]
+  G --> D[Document :8001]
+  G --> A[AI :8002]
+  G --> L[Learning :8003]
+  G -. proposed .-> I[Learner Intelligence]
+  C --> PC[(PG16 schema: core)]
+  D --> PD[(PG16 schema: document)]
+  A --> PA[(PG16 schema: ai)]
+  L --> PL[(PG16 schema: learning)]
+  D -- introspect & access --> C
+  A -- session & access --> C
+  A -- active-grants / canonical --> D
+  A -- D6 lock & export --> L
+  L -- session & access / outbox --> C
+  L -- active-grants --> D
+  L -- explain / grade-hint --> A
 ```
 
 ## 2. Ownership
@@ -47,8 +53,13 @@ flowchart LR
 4. Learning lưu đề/attempt/grade/deadline, AI không quyết định điểm chính thức; phát event sửa điểm cho Learner Intelligence.
 5. Learner Intelligence chỉ kết luận có bằng chứng; ẩn thống kê AI Tutor nhóm nhỏ theo O6.
 
-## 5. Phạm vi thiết kế
-**Core** có đặc tả chi tiết tại [DESIGN](core/DESIGN.md), [API](core/API_CONTRACT.md) và [FOLDER STRUCTURE](core/FOLDER_STRUCTURE.md). Bốn service còn lại được cố định **ranh giới nghiệp vụ và hợp đồng nguyên tắc**; tên bảng, endpoint, model, message broker và hạ tầng riêng sẽ nằm trong thiết kế của từng service khi triển khai. Không xem chúng là quyết định đã được chốt ở đây.
+## 5. Tài liệu chi tiết từng service
+
+- **Core (`IMPLEMENTED`):** [DESIGN](core/DESIGN.md) · [API](core/API_CONTRACT.md) · [FOLDER STRUCTURE](core/FOLDER_STRUCTURE.md)
+- **Document (`IMPLEMENTED`):** [ADR-002](ADR-002-document-service.md) · [DESIGN](document/DESIGN.md) · [API](document/API_CONTRACT.md) · [FOLDER STRUCTURE](document/FOLDER_STRUCTURE.md)
+- **AI (`IMPLEMENTED`):** [DESIGN](ai/DESIGN.md) · [API](ai/API_CONTRACT.md) · [FOLDER STRUCTURE](ai/FOLDER_STRUCTURE.md)
+- **Learning (`IMPLEMENTED`):** [DESIGN](learning/DESIGN.md) · [API](learning/API_CONTRACT.md) · [FOLDER STRUCTURE](learning/FOLDER_STRUCTURE.md)
+- **Learner Intelligence (`PROPOSED`):** chỉ cố định ranh giới nghiệp vụ và hợp đồng nguyên tắc; chưa chốt schema vật lý hay endpoint triển khai.
 
 [Business Rules](../BUSINESS_RULES.md) · [ADR](ADR-001.md) · [Roadmap](IMPLEMENTATION_ROADMAP.md).
 

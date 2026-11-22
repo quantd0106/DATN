@@ -42,7 +42,7 @@ was a working-tree test run, not GitHub CI or a staging/production migration.
 | Core-03 / F1, K2/K4/K5 | Identity HTTP/service tests: Student no email, activation/purpose/expiry/reissue/recovery/legacy, cookie/CSRF, refresh replay/rotation, logout/password/status/role revocation, limiter and stale cache | Operator identity-verification/retention policy for real minors; these tests do not establish legal compliance |
 | Core-04 / F4/F7, G1–G4, K4/K5, L1/L3 | `security/test_http_journey.py`: real HTTP login/provision/activate/enrollment/feed/comment/calendar/recipient notification/moderation/audit/transfer/archive/revoke; existing worker crash/retry/dedup/rollback; data-request types require explicit manual fulfillment attestation; DELETE remains deferred | Learning projection tests are Core contract/projection evidence only, not Learning E2E; ACCESS/EXPORT still rely on school-approved out-of-band fulfillment and CORRECTION on the owning service's audit |
 | Core-04 boundaries | AST guard scans static absolute imports in production module files and literal cross-service SQL; own module imports and other modules' public interfaces are allowed | Static guard cannot prove absence of arbitrary dynamic imports or constructed SQL; real HTTP permission tests complement it |
-| Core-05 | Migration/drift/legacy/roundtrip/seed, health and bounded request admission; backend-only clean Compose smoke, wheel/non-root, DB outage/recovery; CI JUnit/coverage/rule artifacts | Remote CI/reviewer approval requires an actual push/run; local green is not remote evidence |
+| Core-05 | Migration/drift/legacy/roundtrip/seed, health and bounded request admission; backend-only clean Compose smoke, wheel/non-root, DB outage/recovery; CI JUnit/coverage/rule artifacts | Remote CI verification requires an actual push/run; local green is not remote evidence |
 | Core-06 / QAS-05 | Standalone `performance/class_list_load.py`, timed ASGI server plus separate client latency, scoped response validation and success ratio | Full mixed-service TP-01/RAG KPIs and end-user network performance are not certified |
 
 Zero observed leaks in this finite synthetic suite is not a universal guarantee.
@@ -112,7 +112,7 @@ the workflow file existing.
   and releases permits on exceptions/cancellation. Health/OpenAPI bypass the gate;
   liveness remains independent of the DB. Unit and real HTTP load verify this scope.
 
-Changes to Common/Identity public/Classroom require owner review. No schema change,
+Changes to Common/Identity public/Classroom must preserve public interface boundaries and pass the full regression suite. No schema change,
 new business endpoint, frontend implementation, deployment or provider change is
 part of TASK-015 backend work.
 

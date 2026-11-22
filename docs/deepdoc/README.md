@@ -11,7 +11,7 @@ Mã nguồn nằm trong [services/rag](../../services/rag/README.md). Pipeline n
 
 ## Chạy kiểm thử
 
-Dùng Python 3.12 và chạy từ `services/rag` trên Windows. Các test trích xuất thật cần Poppler trên `PATH`. Test OCR cần Tesseract và traineddata phù hợp. C?c ca ??i chi?u parser tham chi?u ???c b? qua khi th? m?c ngu?n ngo?i repo v?ng m?t.
+Dùng Python 3.12 và chạy từ `services/rag` trên Windows. Các test trích xuất thật cần Poppler trên `PATH`. Test OCR cần Tesseract và traineddata phù hợp. Các ca đối chiếu parser tham chiếu được bỏ qua khi thư mục nguồn ngoài repo vắng mặt.
 
 ```powershell
 py -3.12 -m venv .venv
@@ -23,6 +23,6 @@ py -3.12 -m venv .venv
 
 - Suite Windows đạt 489 pass, 2 skip và 2 XFAIL. Hai XFAIL ghi nhận giới hạn cũ về thứ tự đọc bảng và đơn vị tọa độ native/OCR.
 - Trên bản Canonical của SGK Toán 10 đã trích xuất, cả `bài 1.2` và `bai 1.2` trả đúng đề ở hạng nhất và xác minh trích dẫn ở trang PDF 12. Lượt thử dùng SQLite/BM25.
-- Bộ hồi quy model dùng fixture cho embedding, reranker và LLM, cùng một kiểm thử tokenizer thật trên file nhỏ. Các model thực cần artifact riêng. Web live vẫn có trạng thái chờ cho các tích hợp Document, Tutor và Learning.
+- Bộ hồi quy model dùng fixture cho embedding, reranker và LLM, cùng một kiểm thử tokenizer thật trên file nhỏ. Các model thực cần artifact riêng. Document, AI (Tutor/Quiz) và Learning đã được tích hợp trên Web live (2026-11-22); hiện chỉ còn Learner Intelligence ở trạng thái chờ triển khai.
 
 Chunking hiện dùng `idp-text-chunking-7`. Tạo lại bundle và chỉ mục từ tài liệu nguồn khi chuyển từ phiên bản chunking cũ.

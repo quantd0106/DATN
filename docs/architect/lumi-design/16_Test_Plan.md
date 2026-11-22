@@ -4,7 +4,7 @@
 
 ## 1. Mục đích
 
-Xác minh chức năng, quyền, dữ liệu, hoạt động bất đồng bộ, hiệu năng và hành vi khi lỗi theo các FR/NFR thuộc release. Tách rõ **technical verification** (agent/CI có thể thực hiện) và **human acceptance** (product/operator/owner cần xác nhận).
+Xác minh chức năng, quyền, dữ liệu, hoạt động bất đồng bộ, hiệu năng và hành vi khi lỗi theo các FR/NFR thuộc release. Tách rõ **technical verification** (CI và test tự động) và **operational acceptance** (kiểm tra vận hành và chính sách dữ liệu thực).
 
 ## 2. Scope
 
@@ -34,7 +34,7 @@ Xác minh chức năng, quyền, dữ liệu, hoạt động bất đồng bộ,
 - Next.js production **live** build and same-origin proxy against test Core; mock UI is separate UI-design test, not E2E evidence.
 - Worker enabled for notification/delivery scenarios; synthetic email provider or approved testing inbox; no real student email/data.
 - Browser Chrome baseline plus alternative browsers when resources available; record version/viewport/OS/timezone.
-- Future services need approved DB/storage/worker test harness before running; not counted passed while absent.
+- Implemented services (`Core`, `Document`, `AI`, `Learning`) maintain dedicated pytest/DB/storage/worker suites; Learner Intelligence (`PROPOSED`) is not counted passed while unimplemented.
 
 ## 5. TP-01 load configuration (đã định nghĩa trong Quality Attributes)
 
@@ -57,18 +57,18 @@ Xác minh chức năng, quyền, dữ liệu, hoạt động bất đồng bộ,
 
 **Technical ready Core:** tests P0 passed, no known critical blocking defect, real browser E2E Admin→Lecturer→Student pass, school/class denial and 401/403/404/409/422 validated, worker/notification pass, code/docs/evidence revision traceable.
 
-**Product acceptance:** operator/owner xác nhận scope, chính sách dữ liệu thật được duyệt, performance/backup/incident test phù hợp môi trường; không tự suy từ CI xanh.
+**Operational acceptance:** người vận hành xác nhận scope, chính sách dữ liệu thật được duyệt, performance/backup/incident test phù hợp môi trường; không tự suy từ CI xanh.
 
-**Future:** ADR/API/schema approved, positive/negative/edge/concurrency QAS evidence; không nghiệm thu bằng Mock.
+**Proposed services (`Learner Intelligence`):** ADR/API/schema approved, positive/negative/edge/concurrency QAS evidence; không nghiệm thu bằng Mock.
 
 ## 8. Test data management
 
 - Synthetic accounts: một Admin, một PRIMARY, một ASSISTING, học sinh ACTIVE/PENDING/LOCKED ở cùng trường, tối thiểu một trường thứ hai để kiểm tra IDOR.
 - Academic year/semester, grade 6–12; AUTO và MANUAL classes; roster versions để tạo conflict.
 - Social posts/comments/calendar; notification V2 event replay/V1 quarantine.
-- Future docs: 5 types, valid/malformed, v1 SUCCESS/v2 FAILED, two classes/grants/revoke.
-- Future Learning: saved answers, timeout, transfer, revision stale, grade correction and appeals.
-- Future LI: duplicate/late/out-of-order version, insufficient/adequate evidence, small aggregate groups, export.
+- Document (implemented P0/P1): 5 types, valid/malformed, v1 SUCCESS/v2 FAILED, two classes/grants/revoke.
+- Learning (implemented): saved answers, timeout, transfer, revision stale, grade correction and appeals (open gate: QAS-03 / TP-01).
+- Future LI (`PROPOSED`): duplicate/late/out-of-order version, insufficient/adequate evidence, small aggregate groups, export.
 - Dữ liệu mỗi test cô lập; cleanup không được xóa DB thực ngoài phạm vi.
 
 ## 9. Defect classification và workflow
@@ -80,7 +80,7 @@ Xác minh chức năng, quyền, dữ liệu, hoạt động bất đồng bộ,
 | P2 Medium | UI state sai nhưng backend vẫn an toàn, error copy chưa đúng | Fix theo kế hoạch, ghi rõ known issue |
 | P3 Low | Visual polish, thông báo chưa tối ưu | Backlog; không dùng làm kết luận nghiệp vụ |
 
-Issue: reproduction steps, expected/actual, scope/environment/source SHA, sanitized evidence, severity, owner, fix commit/test, retest status.
+Issue: reproduction steps, expected/actual, scope/environment/source SHA, sanitized evidence, severity, affected service, fix commit/test, retest status.
 
 ## 10. Test execution cycle
 
@@ -101,12 +101,12 @@ Issue: reproduction steps, expected/actual, scope/environment/source SHA, saniti
 | Results | Passed/Failed/Skipped/Not run **theo test** |
 | Defects | Open P0/P1/P2 và linked issue |
 | Evidence | Artifact links, timestamp, tool version |
-| Limitations | AI excluded, future service unavailable, not full TP-01 |
+| Limitations | QAS-06 (>=100 GGUF questions), QAS-03 (1,000 concurrency), full TP-01/QAS-05 & Learner Intelligence (`PROPOSED`) pending |
 | Decision | TECHNICAL PASS / PARTIAL / BLOCKED, human signoff |
 
 ## 12. Báo cáo kết quả lịch sử trong repository — không phải test mới
 
-- `tasks/README.md` ghi PR #33: Core 360 PostgreSQL tests và Web 251 tests; PR #34: 368; PR #35: 380.
+- Các mốc lịch sử cuối 10/2026 trên `main` từng ghi nhận 360–380 Core PostgreSQL tests và Web 251 tests.
 - Working-tree 30/10 có report 381 Core tests và migration 0014 trên PostgreSQL 16.15.
-- `SYSTEM_DESIGN.md` 31/10 ghi PR #38 Core/Web CI passed. Trong bộ tài liệu này **chưa có thực thi test mới**; không coi các số này là kết quả kiểm thử của bản thiết kế.
+- Sau đó hệ thống đã mở rộng thêm Document (`99` tests + `13/13` E2E), AI (`services/ai`), Learning (`services/learning`) và Web (`314` tests / `71` routes). Mọi kết quả hiện hành phải gắn với lệnh chạy trên commit hiện tại.
 - Benchmark 30/10 class-list subset: 58.521/58.521 HTTP 200, backend p95 21,84ms, client loopback p95 672ms, 0 scope mismatch; không full TP-01.

@@ -20,7 +20,7 @@
 - Public contracts và Administration consumers đã được triển khai; review.
 - [x] Public interface 100% line/branch coverage gate chạy trong GitHub CI; coverage này không thay thế nghiệm thu Classroom/Administration.
 - [x] Core API chỉ nhận attestation COMPLETED cho ACCESS/EXPORT/CORRECTION sau xác minh danh tính; PostgreSQL tests kiểm tra audit/redaction và replay. Core không truyền payload hay sửa dữ liệu thay service; DELETE giữ `IN_REVIEW/POLICY_PENDING` đến khi chốt retention/dọn dữ liệu liên service.
-- [ ] Web Admin integration và xác nhận vận hành quy trình thủ công. Issue #13 đã đóng; manifest chi tiết không lưu trong repo. Production mock hiện không có legacy user rows; backfill trong tương lai vẫn cần manifest có thẩm quyền.
+- [ ] Xác nhận vận hành quy trình thủ công và backfill khi có dữ liệu thực. Manifest chi tiết không lưu trong repo; Production mock hiện không có legacy user rows, backfill trong tương lai vẫn cần manifest có thẩm quyền.
 
 **Kiểm chứng hiện hành (2026-10-29):chạy PostgreSQL 16 Core CI đạt 360 passed/0 skipped và public interface 100% coverage gate xanh. Đây là branch evidence, không chứng minh đã xuất/xóa dữ liệu hoặc chốt policy. Xem [tasks/README](README.md).
 
@@ -75,4 +75,4 @@ Read functions hỗ trợ `session=` tùy chọn; bỏ qua thì tự mở/đóng
 
 **Bằng chứng lịch sử (2026-10-11):** Python 3.12.14, PostgreSQL 18 tạm; public helpers khi đó đạt 100% line/branch coverage. Evidence PostgreSQL 16 mới nhất được ghi ở mục kiểm chứng hiện hành.
 
-**Phần còn lại:** Admin HTTP/role management và Student import được TASK-013 tích hợp qua Identity public helpers. ACCESS/EXPORT fulfillment là thủ công ngoài Core; CORRECTION do service sở hữu xử lý và audit trước khi Admin xác nhận. DELETE/retention chưa được tự động hóa và vẫn hoãn; Web Admin integration và School mapping legacy còn pending. SMTP provider đã nghiệm thu ở issue #16. Hướng dẫn chính tại [Core README](../services/core/README.md#identity-public-interface-và-data-requests-task-004).
+**Phần còn lại:** Admin HTTP/role management và Student import được TASK-013 tích hợp qua Identity public helpers. ACCESS/EXPORT fulfillment là thủ công ngoài Core; CORRECTION do service sở hữu xử lý và audit trước khi Admin xác nhận. DELETE/retention tự động vẫn deferred; backfill School dữ liệu thực chỉ chạy qua manifest được duyệt. SMTP provider đã kiểm chứng trên staging. Hướng dẫn chính tại [Core README](../services/core/README.md#identity-public-interface-và-data-requests-task-004).

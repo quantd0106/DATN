@@ -14,13 +14,17 @@
 
 ```mermaid
 flowchart LR
-  subgraph Host["Máy phát triển — Docker Compose"]
+  subgraph Compose["Docker Compose (compose.yaml + compose.full.yaml)"]
     B["Trình duyệt"] -->|localhost:3000| W["web :3000 / Next.js"]
-    W -->|HTTP nội bộ| C["core :8000 / FastAPI"]
-    C --> DB[("db :5432 / PostgreSQL 16")]
-    K["notification-worker"] --> DB
-    M["migrate / Alembic"] --> DB
-    DB <--> V[("Docker volume pgdata")]
+    W --> C["core :8000"]
+    W --> D["document :8001"]
+    W --> A["ai :8002->8001 (full)"]
+    W --> L["learning :8003 (full)"]
+    C & D & A & L --> DB[("db :5432 / PostgreSQL 16")]
+    WK["notification · document · ai · learning workers"] --> DB
+    MIG["migrate · document-db-init · doc/ai/learning-migrate"] --> DB
+    DB <--> PG[("Volume pgdata")]
+    D & L & A & WK <--> BL[("Volumes: blobs & models")]
   end
 ```
 
@@ -80,11 +84,12 @@ Các lệnh minh họa trên là **runbook đề xuất để thực hiện**. C
 
 ```mermaid
 flowchart TB
-  G["Push / Pull Request / kích hoạt thủ công"] --> T["Kiểm thử Core — PostgreSQL 16, Ruff, Alembic, pytest"]
-  G --> W["Biên dịch và kiểm tra Web — Node.js 22"]
-  G --> S["Khởi động thử bằng Compose — Core / Web / DB / Worker"]
-  G -.-> L["Kiểm tra tải Core theo yêu cầu — 100 người dùng, 600 giây"]
-  T --> E["Bằng chứng: JUnit / coverage / truy vết yêu cầu"]
+  G["Push / Pull Request / kích hoạt thủ công"] --> T["core-tests: PG 16, Ruff, Alembic, pytest & 100% public coverage"]
+  G --> DT["document-tests: PG 16, Ruff, Alembic & IDP pytest"]
+  G --> W["web-build: Node 22, npm run check & NEXT_PUBLIC_DATA_MODE=live build"]
+  G --> S["compose-smoke: Compose (Core / Document / Workers / Web & cô lập 503)"]
+  G -. "workflow_dispatch" .-> L["core-load: kiểm tra tải Core theo yêu cầu"]
+  T & DT & W & S --> E["Bằng chứng: JUnit / coverage / kiểm chứng build"]
   L --> E
 ```
 
@@ -128,7 +133,9 @@ flowchart LR
 | Notification worker | Core image + worker runtime theo design | PARTIAL EVIDENCE | Worker invocation/trigger/credentials/batch, inbox end-to-end |
 | Production thực | Chưa có bằng chứng sẵn sàng cho dữ liệu học sinh thật | NOT APPROVED | Privacy policy, identity verification, backup, recovery, load, release acceptance |
 
-**Lưu ý phát hành:** trong lịch sử 30/10 có image được xây dựng từ mã nguồn chưa đồng bộ với kho Git; PR #38 sau đó đã hợp nhất Core/Web. Theo cập nhật trên `main` ngày 31/10/2026, Core Production mock đã triển khai image `production-mock-a01985e`, revision `lumi-core-api-production-00002-7jm`; kết nối PostgreSQL và cấu hình `PUBLIC_WEB_URL` cho API và tác vụ nền đã được ghi nhận. Tuy nhiên, nội dung thư mời/khôi phục thực nhận **chưa được xác minh sau lần triển khai này**; cần phát sinh yêu cầu mới và kiểm tra trực tiếp. Trước mỗi lần phát hành tiếp theo vẫn phải đối chiếu image digest, mã nguồn, kết quả CI và cấu hình môi trường; không công khai đường dẫn nhạy cảm hay thông tin xác thực.
+**Lưu ý phát hành:** trong lịch sử 30/10 có image được xây dựng từ mã nguồn chưa đồng bộ với kho Git; các bản hợp nhất sau đó trên `main` ngày 31/10/2026 đã triển khai Core Production mock image `production-mock-a01985e`, revision `lumi-core-api-production-00002-7jm` với cấu hình `PUBLIC_WEB_URL` cho API và worker. Nội dung thư mời/khôi phục thực nhận cần kiểm tra trực tiếp sau mỗi lần deploy; trước phát hành vẫn phải đối chiếu image digest, mã nguồn, kết quả CI và cấu hình môi trường.
+
+*(Đối với stack cục bộ 4 backend services hiện tại, dùng `compose.yaml` cho `Core` + `Document` và ghép `compose.yaml -f compose.full.yaml` để chạy đầy đủ `Learning` + `AI` + `Web`.)*
 
 ### B4.2. Luồng request thực tế cần đo trong cloud
 
@@ -153,17 +160,20 @@ flowchart LR
     B["Trình duyệt — URL và dữ liệu gửi lên không phải quyền truy cập"]
   end
   subgraph W["Tầng web"]
-    P["Chuyển tiếp API — danh sách thao tác cho phép, kiểm tra Origin"]
+    P["3 BFF Proxies — allowlist thao tác, kiểm tra Origin & cô lập lỗi"]
   end
-  subgraph C["Tầng nghiệp vụ"]
+  subgraph C["Tầng dịch vụ backend (X-Service-Key & Introspect)"]
     A["Core — JWT, vai trò, trạng thái, phạm vi trường/lớp"]
-    K["Tác vụ nền — dữ liệu sự kiện được kiểm soát"]
+    S["Document / AI / Learning — kiểm tra introspect, class action & fail closed"]
+    K["4 Workers — xử lý outbox/IDP/index/auto-submit có kiểm soát"]
   end
-  subgraph D["Vùng dữ liệu"]
-    DB[("PostgreSQL Core")]
+  subgraph D["Vùng dữ liệu cách ly schema & blob"]
+    DB[("PostgreSQL 16: core, document, ai, learning (riêng role)")]
+    BS[("Blob Volumes: document & learning")]
   end
-  B --> P --> A --> DB
-  K --> DB
+  B --> P --> A & S --> DB
+  S --> BS
+  K --> DB & BS
 ```
 
 [Nguồn sơ đồ](diagrams_arch/A09_Trust_Boundaries.mmd)
@@ -185,7 +195,7 @@ Một bản triển khai **hoàn chỉnh** cần có: tên môi trường, vùng
 
 | Thuộc tính | Local Dev | CI Core/Web | Preview/Staging | Production Mock | Production thật |
 |---|---|---|---|---|---|
-| Đối tượng | Dev | CI | QA/Reviewer | Diễn tập release | Học sinh/giáo viên thật |
+| Đối tượng | Dev | CI | Kiểm thử / Nghiệm thu | Diễn tập release | Học sinh/giáo viên thật |
 | DB | Compose PG16 | PG16 riêng runner | Neon staging (theo repo) | Neon mock (theo repo) | Chưa phê duyệt |
 | Dữ liệu | Synthetic | Synthetic/fixture | Synthetic/staging accounts | `Lumi Mock School` | Chỉ sau policy |
 | Auth | Real Core trên dev | Real tests | Live sessions | Real API, pending manual acceptance | TBD rollout |
@@ -213,13 +223,13 @@ Một bản triển khai **hoàn chỉnh** cần có: tên môi trường, vùng
 1. Xác nhận mô hình tải (lớp học, tỷ lệ login, xem feed, bình luận, import, archive, inbox; phân bố tương tác).
 2. Bắt đầu 100 CCU theo Core TP-01, đo warm-up, p95/p99 server, p95 browser, error rate, DB CPU/memory/locks, queue lag.
 3. Nếu yêu cầu 358 CCU vẫn có hiệu lực, xây mô hình tải riêng có phân bổ học sinh/giáo viên/Admin, không nhân kết quả 100 user bằng 3,58.
-4. Theo dõi khi test 1 worker (baseline); multi-worker cần xử lý process-local idempotency/rate-limit theo Issue #20 trước khi tăng replica.
+4. Theo dõi khi test 1 worker (baseline); tăng replica đa worker chỉ thực hiện sau khi chuyển idempotency/rate-limit từ process-local sang store dùng chung.
 5. Đánh giá thêm production network, auth token rotation và 409 conflict khi thao tác đồng thời.
 6. Chỉ đưa thông số vào bảng sizing approved sau khi đo và review.
 
 ## B8. Hai sơ đồ triển khai cần sử dụng trong báo cáo thẩm định
 
 - **Sơ đồ “thực tại”**: Vercel → Cloud Run Core → Neon + worker/SMTP (đánh dấu phần worker chưa được xác minh), ghi commit runtime và ngày chụp bằng chứng. Không phóng đại đảm bảo sẵn sàng cao.
-- **Sơ đồ “mục tiêu tương lai”**: Web + Core + Document/Learning/LI, DB riêng theo ownership; có ghi `PROPOSED`, hạ tầng/storage/message broker chưa chốt, không ép Kubernetes hay microservice đều nằm trên host riêng.
+- **Sơ đồ “mục tiêu tương lai”**: Web + Core + Document + AI + Learning đã triển khai, kèm Learner Intelligence (`PROPOSED`), DB riêng theo schema ownership; hạ tầng Cloud đa dịch vụ/message broker ngoài local Compose được ghi chú rõ phạm vi.
 
 Đây là hai trang khác nhau; không dùng đường mũi tên liền từ Web đến Document khi service Document chưa có API được duyệt.

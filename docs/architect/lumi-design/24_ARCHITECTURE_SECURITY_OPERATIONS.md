@@ -7,14 +7,14 @@
 | Yếu tố chi phối | Căn cứ | Phương án thiết kế | Bằng chứng và nội dung còn thiếu |
 |---|---|---|---|
 | Lớp chính khóa một trường 6–12 | Business Rules A1–A8 | School scope, homeroom, AUTO/MANUAL, Admin-only | Core code/contracts; legacy mapping policy riêng |
-| Quyền hiện hành thay quyền lịch sử | H/L/M/O | Phía máy chủ access decisions, 404 concealment, history exception | Core tests; future Learning/Document còn thiếu |
+| Quyền hiện hành thay quyền lịch sử | H/L/M/O | Phía máy chủ access decisions, 404 concealment, history exception | Core, Document, AI và Learning tests |
 | Kiểm soát tài khoản học sinh | F1/K | Admin provision + mã kích hoạt single-use | Core Identity; verify real onboarding policy trước dữ liệu thật |
-| Toàn vẹn roster | A4/A5, QAS-03 liên quan | Transaction, version conflict, unique ACTIVE constraint | Core tests; cross-service attempts chưa triển khai |
-| Thông báo đúng audience lịch sử | G4/Notification | V2 recipient snapshot, worker dedup | Implemented; V1 backlog bị giữ lại để tránh gửi nhầm |
+| Toàn vẹn roster | A4/A5, QAS-03 liên quan | Transaction, version conflict, unique ACTIVE constraint | Core & Learning tests; gate `QAS-03` 1,000 concurrency mở |
+| Thông báo đúng audience lịch sử | G4/Notification | V2 recipient snapshot, worker dedup | Implemented (Core & Learning internal events); V1 backlog giữ để tránh gửi nhầm |
 | Dữ liệu nhạy cảm và khả năng giải trình | F4/F7/K1–K6 | Audit allowlist, scoped data request, retention pending | ACCESS/EXPORT/CORRECTION thủ công; DELETE deferred |
-| Demo ba ngày/increment | Ràng buộc project | Compose, CI, seed giả lập, browser smoke | Không thay thế full acceptance |
+| Demo & Triển khai | Ràng buộc project | Compose (`compose.yaml` + `compose.full.yaml`), CI, seed giả lập | Không thay thế full QAS/TP-01 acceptance |
 | Khả năng mở rộng | QAS TP-01 | Class-list load harness + middleware connection control | Chưa full mixed workloads, multiworker cache process-local |
-| Cách ly service tương lai | ADR-001 | DB ownership, API service access check | Document/Learning/LI chưa có phía máy chủ live |
+| Cách ly giữa các service | ADR-001, ADR-002 | DB schema/role isolation, `X-Service-Key` + `introspect`/access check | Core, Document, AI, Learning (`services/*`); Learner Intelligence `PROPOSED` |
 
 ## D2. Mô hình nguy cơ theo các điểm truy cập hệ thống
 
@@ -26,17 +26,20 @@ flowchart LR
     B["Trình duyệt — URL và dữ liệu gửi lên không phải quyền truy cập"]
   end
   subgraph W["Tầng web"]
-    P["Chuyển tiếp API — danh sách thao tác cho phép, kiểm tra Origin"]
+    P["3 BFF Proxies — allowlist thao tác, kiểm tra Origin & cô lập lỗi"]
   end
-  subgraph C["Tầng nghiệp vụ"]
+  subgraph C["Tầng dịch vụ backend (X-Service-Key & Introspect)"]
     A["Core — JWT, vai trò, trạng thái, phạm vi trường/lớp"]
-    K["Tác vụ nền — dữ liệu sự kiện được kiểm soát"]
+    S["Document / AI / Learning — kiểm tra introspect, class action & fail closed"]
+    K["4 Workers — xử lý outbox/IDP/index/auto-submit có kiểm soát"]
   end
-  subgraph D["Vùng dữ liệu"]
-    DB[("PostgreSQL Core")]
+  subgraph D["Vùng dữ liệu cách ly schema & blob"]
+    DB[("PostgreSQL 16: core, document, ai, learning (riêng role)")]
+    BS[("Blob Volumes: document & learning")]
   end
-  B --> P --> A --> DB
-  K --> DB
+  B --> P --> A & S --> DB
+  S --> BS
+  K --> DB & BS
 ```
 
 [Nguồn sơ đồ](diagrams_arch/A09_Trust_Boundaries.mmd)
@@ -116,7 +119,7 @@ erDiagram
 | Admin-only provisioning | Quản trị học sinh dễ kiểm soát hơn self-join | Đòi hỏi quy trình operator/school roster chính xác | Nhiều trường hoặc self-service được Business Rules phê duyệt |
 | Synthetic Production Mock | Test deploy tránh dữ liệu học sinh thật | Không đại diện privacy/compliance mô hình tải thật | Trước phát hành dữ liệu thật phải có policy/consent/retention |
 
-**Không kết luận** microservices tự động tốt hơn monolith; kiến trúc Lumi có năm service mục tiêu, nhưng ở hiện tại mới Core deployable chứa các module trên. Chi phí điều hành, consistency, observability và giới hạn nhóm phải được phản ánh trong ADR.
+**Không kết luận** microservices tự động tốt hơn monolith; kiến trúc Lumi tách năm ranh giới service (4 service đã triển khai: `Core`, `Document`, `AI`, `Learning`; và 1 service đề xuất: `Learner Intelligence`). Chi phí điều hành, consistency, observability và giới hạn triển khai thực tế phải được phản ánh trong ADR.
 
 ## D5. Theo dõi tình trạng vận hành và mục tiêu chất lượng dịch vụ
 
@@ -195,11 +198,11 @@ flowchart TB
 
 | ADR ID đề xuất | Quyết định cần chốt | Bên phê duyệt | Có phải Core MVP blocker? |
 |---|---|---|---|
-| ADR-CORE-SCALE | Single-worker vs replicas, shared rate/idempotency store | Architect/Operator | Không, nếu giữ single worker |
-| ADR-PRIVACY-RETENTION | Retention theo data type + DELETE executor | Product/Operator/Privacy reviewer | Có trước dữ liệu người thật |
-| ADR-CLOUD-RELEASE | Pipeline source-image-runtime, TLS/secret, khôi phục phiên bản trước | Architect/Ops | Có trước release production thật |
-| ADR-DOC-STORE | Object storage, scanning, extraction, version/grant | Future Document owner | Chỉ G3 |
-| ADR-LEARNING-ATTEMPT | Timer, save/resume, immutable attempt, grade approval | Future Learning owner + Product | Chỉ G4 |
-| ADR-LI-EVIDENCE | Evidence provenance, correction version, suppression | Future LI owner + Product | Chỉ G5 |
+| ADR-CORE-SCALE | Single-worker vs replicas, shared rate/idempotency store | Kiến trúc & Vận hành | Không, nếu giữ single worker |
+| ADR-PRIVACY-RETENTION | Retention theo data type + DELETE executor | Chính sách vận hành & bảo mật dữ liệu | Có trước dữ liệu người thật |
+| ADR-CLOUD-RELEASE | Pipeline source-image-runtime, TLS/secret, khôi phục phiên bản trước | Kiến trúc & Vận hành | Có trước release production thật |
+| ADR-DOC-CLOUD-P2 | GCS signed URL, malware scan, quota, Cloud Run Document | Thiết kế Document P2 (`TASK-017I`) | Chỉ pha Cloud sau P0/P1 |
+| ADR-AI-MODEL-SLA | Chuẩn bị & đánh giá `QAS-06` (>= 100 câu GGUF), worker index tự động | Thiết kế AI Service (`services/ai`) | Hoàn thiện gate G3 |
+| ADR-LI-EVIDENCE | Evidence provenance, correction version, suppression | Thiết kế Learner Intelligence (`TASK-020`) | Chỉ G5 (`PROPOSED`) |
 
-Không tự thiết kế AI Service hoặc đặt ADR về model/retrieval vì người dùng yêu cầu hoãn phần đó.
+Các dịch vụ `Core`, `Document`, `AI` và `Learning` đã có thiết kế và đặc tả API tương ứng tại `docs/architect/microservices-v1/`; chỉ `Learner Intelligence` giữ ở trạng thái `PROPOSED`.

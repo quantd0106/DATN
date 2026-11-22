@@ -943,7 +943,7 @@ worker_enabled: true
 result: NOT_RUN  # PASSED | FAILED | BLOCKED | NOT_RUN
 evidence: []
 issues: []
-reviewed_by: <reviewer>
+verified_by: <verifier>
 ```
 
 Không coi chính sách `NOT RUN` là lỗi hệ thống; nó chỉ mô tả phạm vi tài liệu mới tạo.

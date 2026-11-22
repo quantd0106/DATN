@@ -3,14 +3,17 @@ flowchart LR
     B["Trình duyệt — URL và dữ liệu gửi lên không phải quyền truy cập"]
   end
   subgraph W["Tầng web"]
-    P["Chuyển tiếp API — danh sách thao tác cho phép, kiểm tra Origin"]
+    P["3 BFF Proxies — allowlist thao tác, kiểm tra Origin & cô lập lỗi"]
   end
-  subgraph C["Tầng nghiệp vụ"]
+  subgraph C["Tầng dịch vụ backend (X-Service-Key & Introspect)"]
     A["Core — JWT, vai trò, trạng thái, phạm vi trường/lớp"]
-    K["Tác vụ nền — dữ liệu sự kiện được kiểm soát"]
+    S["Document / AI / Learning — kiểm tra introspect, class action & fail closed"]
+    K["4 Workers — xử lý outbox/IDP/index/auto-submit có kiểm soát"]
   end
-  subgraph D["Vùng dữ liệu"]
-    DB[("PostgreSQL Core")]
+  subgraph D["Vùng dữ liệu cách ly schema & blob"]
+    DB[("PostgreSQL 16: core, document, ai, learning (riêng role)")]
+    BS[("Blob Volumes: document & learning")]
   end
-  B --> P --> A --> DB
-  K --> DB
+  B --> P --> A & S --> DB
+  S --> BS
+  K --> DB & BS

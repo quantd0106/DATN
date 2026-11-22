@@ -124,7 +124,7 @@ QAS-05 đặt mục tiêu **p95 phía máy chủ danh sách lớp ≤ 500ms** v�
 | EXP-R05 | Token revoked/locked | Reuse access/refresh token cũ | Reject theo auth state thực | Identity tests |
 | EXP-R06 | Core API offline lúc browser mutate | Web form | Thông báo lỗi kết nối, không báo thành công giả | Cần browser E2E lưu evidence |
 | EXP-R07 | Ngắt mạng sau submit có commit | Retry qua idempotency | Không tạo record trùng trong scope supported | Theo từng endpoint; process-local limitation |
-| EXP-R08 | Không có tài liệu/learning service | Click route chưa có phía máy chủ | UI trạng thái unavailable, không fallback mock production | Registry và browser test |
+| EXP-R08 | Phân hệ Learner Intelligence (`PROPOSED`) | Click route chưa có phía máy chủ (`s.progress`, `t.analytics`, `a.reports`, `a.dataRequests`) | UI trạng thái unavailable / ẩn điều hướng live, không fallback mock production | Registry và contract test |
 
 **Chú ý:** một số test ở bảng được tham chiếu từ repository, một số là **test phải chạy**, không viết `PASS` khi không có test report tương ứng.
 
@@ -178,14 +178,14 @@ MEASUREMENT: backend/client timings; status counts
 OBSERVED RESULTS: raw numbers, charts/evidence links
 COMPARISON: objective -> pass/fail/partial
 KNOWN LIMITS: provider-shared machine, no real end-user network, etc.
-REVIEW: reviewer + UTC date + open bugs
+VERIFICATION: commit SHA + UTC date + open gates/bugs
 ```
 
-## C9. Đồ án và nghiên cứu phải trình bày gì trước hội đồng?
+## C9. Tổng hợp báo cáo kết quả thực nghiệm và bằng chứng kiểm chứng
 
 - Phân biệt **mục tiêu hệ thống** và **đo đạc hệ thống đã triển khai**.
 - Có bảng công nghệ thực, phiên bản, topology và cấu hình máy/hạ tầng theo từng phép thử.
-- Các sơ đồ phải có chú giải, chiều luồng, protocol, service owner và trạng thái Current/Target.
+- Các sơ đồ phải có chú giải, chiều luồng, protocol, service sở hữu và trạng thái Implemented/Proposed.
 - Có test coverage chức năng, boundary tests, concurrency tests, error handling và browser E2E.
 - Có security/privacy assumptions và RPO/RTO chưa duyệt; không tự viết “đáp ứng 24/7” hay “0 lỗi bảo mật”.
 - Không có phần thực nghiệm AI Service do scope hoãn nghiên cứu.

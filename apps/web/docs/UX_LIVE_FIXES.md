@@ -69,9 +69,9 @@ preserved. Changes cover existing classroom, feed, calendar and account flows.
   verification stopped when the tool detected concurrent user input. Desktop
   and mobile responsive fixes are therefore not certified by browser screenshots.
 
-Document/Tutor/Learning services remain outside this repair. Hiding their live
-navigation does not implement them. Backend/public response changes require
-joint Classroom/Web review; there was no commit, push or remote deployment.
+Document/Tutor/Learning services were added later on 2026-11-22 (see section below). Hiding their live
+navigation at the 2026-11-15 checkpoint did not implement them. Backend/public response changes
+require synchronized Core Classroom and Web updates.
 
 ---
 

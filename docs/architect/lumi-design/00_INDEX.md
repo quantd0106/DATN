@@ -23,7 +23,7 @@
 | UC | [07_UseCases.md](07_UseCases.md) | Người dùng tương tác ra sao trong luồng chính và ngoại lệ? |
 | HLD | [08_HLD.md](08_HLD.md) | Kiến trúc logic, deployment, service ownership và failure boundaries? |
 | LLD-CORE | [09_LLD_Core.md](09_LLD_Core.md) | Thiết kế lớp/module, dữ liệu, transaction và cơ chế Core? |
-| LLD-FUT | [10_LLD_Future.md](10_LLD_Future.md) | Phác thảo thiết kế Document, Learning, Intelligence — còn chờ duyệt? |
+| LLD-FUT | [10_LLD_Future.md](10_LLD_Future.md) | Chi tiết bổ sung Learner Intelligence (`PROPOSED`) & tóm tắt liên kết LLD 4 service đã triển khai |
 | MODEL | [11_ERD_DFD.md](11_ERD_DFD.md) | ERD, DFD, luồng sự kiện và ranh giới dữ liệu? |
 | API | [12_API_Contracts.md](12_API_Contracts.md) | HTTP, quyền, lỗi, version, API hiện có và hợp đồng đề xuất? |
 | UI | [13_UIUX.md](13_UIUX.md) | Vai trò, màn hình, trường/nút, tương tác và trạng thái? |
@@ -50,7 +50,7 @@
 | **IMPLEMENTED** | Có mã thực tế | Phải đối chiếu commit và đường dẫn code |
 | **VERIFIED** | Có bằng chứng kiểm thử | Chỉ đúng phạm vi/môi trường được ghi |
 | **PROPOSED** | Thiết kế để xem xét | Không được tự coi là API/schema đã phê duyệt |
-| **PENDING** | Cần chốt hoặc chưa làm | Ghi rõ owner/quyết định cần thiết |
+| **PENDING** | Cần chốt hoặc chưa làm | Ghi rõ phạm vi/quyết định cần thiết |
 | **DEFERRED** | Hoãn theo phạm vi | Không quảng bá như đã chạy |
 | **OUT OF SCOPE** | Không có trong đợt tài liệu này | Không viết LLD, API, test tương ứng |
 
@@ -84,7 +84,7 @@ Không nên dùng chữ “MVP hoàn thành” nếu chỉ có Core/Web mà chư
 - Không xóa nội dung v1: giữ BRD/SRS/FRS/LLD/Use Case/Test/RTM làm baseline, bổ sung 6 tập kiến trúc chuyên sâu.
 - Có 16 sơ đồ Mermaid `.mmd` trong `diagrams_arch/`, phân biệt hiện trạng, thiết kế logic, môi trường cloud báo cáo và đề xuất.
 - Đối chiếu thêm các tài liệu công khai của CMC Global, FPT Software, Rikkeisoft và hồ sơ thiết kế kỹ thuật công khai tại Việt Nam; nội dung nghiệp vụ Lumi vẫn do Business Rules/ADRs/code làm nguồn chuẩn.
-- Không đặc tả AI Service. Các giá trị môi trường chưa được xác minh, số đo chưa chạy, service chưa triển khai vẫn được đánh dấu rõ.
+- Đã đồng bộ kiến trúc 4 backend services (`Core`, `Document`, `AI` + `RAG`, `Learning`) và `apps/web` theo trạng thái triển khai thực tế (`2026-11-22`); phân hệ `Learner Intelligence` vẫn ở trạng thái `PROPOSED`. Các giá trị môi trường chưa được xác minh hoặc benchmark/E2E chưa chạy đều được đánh dấu rõ ràng.
 
 | Phiên bản | Ngày | Tác động | Duyệt |
 |---|---|---|---|

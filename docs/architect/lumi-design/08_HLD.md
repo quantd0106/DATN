@@ -21,16 +21,18 @@ flowchart LR
     C --> SM[SMTP staff invite/recovery]
     CW[Notification / credential worker] --> DB
     CW --> SM
-    P -. document binary/json .-> D[Document - P0/P1 IMPLEMENTED]
-    P -. future contract .-> L[Learning - PROPOSED]
+    P --> D[Document - P0/P1 IMPLEMENTED]
+    P --> A[AI + RAG - IMPLEMENTED]
+    P --> L[Learning - IMPLEMENTED]
     P -. future contract .-> I[Learner Intelligence - PROPOSED]
     D -- introspect & action check --> C
-    L -. action check .-> C
+    A -- introspect, grants & lock check --> C
+    A -. assessment-lock .-> L
+    L -- introspect, action & calendar/notif sync --> C
     I -. authorized evidence .-> L
-    FUT[Future AI - NOT DESIGNED] -. placeholder only .-> P
 ```
 
-> Placeholder Future AI chỉ biểu thị vị trí sản phẩm tương lai; không mô tả thuật toán, pipeline, API, dữ liệu hoặc kết nối đã chốt.
+> Ghi chú trạng thái (2026-11-22): `Core`, `Document`, `AI + RAG` và `Learning` đã triển khai mã nguồn, Docker Compose (`compose.yaml` + `compose.full.yaml`) và tích hợp Web live; chỉ `Learner Intelligence` (`TASK-020`) còn ở trạng thái `PROPOSED`.
 
 ## 3. Logical architecture — ownership
 
@@ -71,7 +73,7 @@ Core là **modular service**: Common/Identity/Classroom/Social/Notification/Admi
 - `users.school_id` FK nullable đã bổ sung ở migration 0014; mapping dữ liệu cũ **không** tự suy từ row history. Không tự chuyển sang NOT NULL khi chưa có bằng chứng sạch.
 - Với service dự kiến, mỗi service sở hữu schema/credential/storage; nếu dùng một Postgres instance vẫn phải có ranh giới quyền SQL.
 - Event-derived projection không thay thế authoritative data. Learning là nguồn deadline/grade; Core Calendar là projection deadline khi contract được triển khai.
-- Không có thiết kế chính thức cho cache/broker/vector database của future services. **Không tự thêm công nghệ**.
+- `Learner Intelligence` (`PROPOSED`) chưa chốt thiết kế hạ tầng riêng; **không tự thêm công nghệ** ngoài đặc tả đã duyệt trong từng service `DESIGN.md`.
 
 ## 6. Security architecture
 

@@ -1,13 +1,16 @@
 flowchart LR
-  W["Giao diện web"] --> C["Dịch vụ lõi — ĐÃ TRIỂN KHAI"]
-  C --> DB[("PostgreSQL Core")]
-  W -.-> D["Tài liệu — CHƯA TRIỂN KHAI"]
-  W -.-> L["Học tập — CHƯA TRIỂN KHAI"]
-  W -.-> I["Phân tích học tập — CHƯA TRIỂN KHAI"]
-  D -. "kiểm tra quyền hiện hành" .-> C
-  L -. "kiểm tra quyền hiện hành" .-> C
+  W["Giao diện web (Next.js 15)"] --> C["Core — ĐÃ TRIỂN KHAI"]
+  W --> D["Document P0/P1 — ĐÃ TRIỂN KHAI"]
+  W --> A["AI + RAG — ĐÃ TRIỂN KHAI"]
+  W --> L["Learning — ĐÃ TRIỂN KHAI"]
+  W -.-> I["Learner Intelligence — CHƯA TRIỂN KHAI (PROPOSED)"]
+  C --> CDB[("Schema core (0001–0015)")]
+  D --> DDB[("Schema document + Blob")]
+  A --> ADB[("Schema ai + RAG vector/BM25")]
+  L --> LDB[("Schema learning + Blob")]
+  D -- "introspect & access" --> C
+  A -- "grants & canonical" --> D
+  A -- "introspect, access & lock" --> C
+  L -- "introspect, access & calendar/notif" --> C
   I -. "bằng chứng đã xác nhận" .-> L
-  D -.-> DS[("Kho dữ liệu Document — CHƯA CHỐT")]
-  L -.-> LS[("Kho dữ liệu Learning — CHƯA CHỐT")]
-  I -.-> IS[("Kho dữ liệu phân tích — CHƯA CHỐT")]
-  A["Dịch vụ AI — ngoài phạm vi thiết kế hiện tại"]
+  I -.-> IS[("Kho phân tích — CHƯA CHỐT")]

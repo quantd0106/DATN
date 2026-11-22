@@ -55,7 +55,7 @@ Actors: Admin, Lecturer (PRIMARY/ASSISTING), Student, operator được ủy quy
 | FR-NO-02 | Notification phát tới audience đúng thời điểm sự kiện; dedup/retry không gửi nhầm người nhận | F7,L3 | Core |
 | FR-NO-03 | Payload notification không chứa password, token, nội dung chat riêng tư, tài liệu nguyên văn | F3,K5 | Core |
 
-## 5. Functional Requirements — Document (**PROPOSED, chưa triển khai**)
+## 5. Functional Requirements — Document (**IMPLEMENTED P0/P1** — `services/document/`)
 
 | ID | Yêu cầu | Rule |
 |---|---|---|
@@ -67,7 +67,7 @@ Actors: Admin, Lecturer (PRIMARY/ASSISTING), Student, operator được ủy quy
 | FR-DOC-06 | Student/teacher lưu notes/bookmarks chỉ chủ sở hữu xem/sửa; giữ chữ tự viết và che quote/source khi mất quyền | G5,H6,L6,O2 |
 | FR-DOC-07 | Xử lý crash/retry không làm mất file gốc/previous successful version | H3,QAS-10 |
 
-## 6. Functional Requirements — Learning (**PROPOSED, chưa triển khai**)
+## 6. Functional Requirements — Learning (**IMPLEMENTED** — `services/learning/`, open gates `QAS-03`/`TP-01`)
 
 | ID | Yêu cầu | Rule |
 |---|---|---|
@@ -81,6 +81,18 @@ Actors: Admin, Lecturer (PRIMARY/ASSISTING), Student, operator được ủy quy
 | FR-LE-08 | Người đã chuyển lớp vẫn có quyền giới hạn với kết quả/bài đã nộp/phúc khảo hợp lệ | L2,M1,O4 |
 | FR-LE-09 | Điểm cuối cùng của Assignment và câu chủ quan do giáo viên quyết định; sửa điểm lưu version và audit | D4,D5,I6,J3 |
 | FR-LE-10 | Learning là nguồn deadline chính thức; thay đổi deadline phát thông báo/bản chiếu lịch có kiểm soát | L3,O5 |
+
+## 6A. Functional Requirements — AI Tutor & Sinh câu hỏi (**IMPLEMENTED** — `services/ai/` + `services/rag/`, open gate `QAS-06`)
+
+*(Chi tiết hợp đồng kỹ thuật xem tại [AI DESIGN](../microservices-v1/ai/DESIGN.md) và [AI API Contract](../microservices-v1/ai/API_CONTRACT.md).)*
+
+| Mã FR | Mô tả yêu cầu | Business Rule | Trạng thái |
+|---|---|---|---|
+| `FR-AI-01` | Lập chỉ mục vector từ Canonical JSON của phiên bản tài liệu hợp lệ và vô hiệu hóa tức thì khi grant bị thu hồi hoặc lớp chuyển trạng thái | `B1`, `C1`, `H6` | `IMPLEMENTED` |
+| `FR-AI-02` | Trợ lý Lumi (`QUICK_QA` / `STEP_BY_STEP` với `HINT`/`CHECK`/`REVEAL`), cấu hình sư phạm theo lớp có khóa lạc quan và SSE streaming hỗ trợ `/stop` | `C1`, `C2`, `C4`, `D6` | `IMPLEMENTED` |
+| `FR-AI-03` | Sinh câu hỏi luyện tập/đề theo ma trận tài liệu lớp, cho phép giáo viên duyệt, từ chối, sinh lại từng câu và xuất sang Learning | `D1`, `D2` | `IMPLEMENTED` |
+| `FR-AI-04` | Giải thích lỗi sai luyện tập (`explain-mistake`) và gợi ý phản hồi chấm bài tập ở chế độ tư vấn (`grade-hint`) | `D5`, `D8` | `IMPLEMENTED` |
+| `FR-AI-05` | Chặn hỏi mới AI Tutor trong thời gian học sinh có ca kiểm tra chính thức đang mở (`assessment-lock`), chỉ giữ quyền đọc lịch sử hợp lệ | `D6`, `H6` | `IMPLEMENTED` |
 
 ## 7. Functional Requirements — Learner Intelligence (**PROPOSED, chưa triển khai**)
 
@@ -126,7 +138,7 @@ Actors: Admin, Lecturer (PRIMARY/ASSISTING), Student, operator được ủy quy
 ## 10. External constraints và chưa chốt
 
 - Retention và pháp lý dữ liệu người chưa thành niên: cần operator/product duyệt; không tự định thời gian.
-- Thời hạn late appeal, công thức chấm/độ tin cậy mastery, cấu hình storage/queue future services: cần thiết kế riêng.
+- Thời hạn late appeal, công thức chấm/độ tin cậy mastery và thiết kế chi tiết Learner Intelligence (`TASK-020`): cần thiết kế và nghiệm thu riêng trước khi triển khai.
 - Các route AI tồn tại trong Web prototype không tạo ra nghĩa vụ triển khai API trong tài liệu này.
 - Nếu use case cần quyền lịch sử, điều kiện từng action phải được mô tả trong contract và test negative.
 

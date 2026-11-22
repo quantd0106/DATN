@@ -23,7 +23,7 @@
 
 **Bằng chứng 2026-10-18:** `pytest tests/social -q -W error` → 35 passed; toàn Core không có `TEST_DATABASE_URL` → 135 passed, 62 skipped. Test PostgreSQL 16 review chưa hoàn tất nên checklist review giữ nguyên.
 
-**Cập nhật sau (2026-10-19):** Feed hiện đã có trong `main`; full Core PostgreSQL 16 suite trên commit sau đạt 342 passed, 0 skipped, CI cũng xanh. Các con số 135/62 và nhận định chưa triển khai ở trên là bằng chứng lịch sử, không phải trạng thái mới. Owner review cho shared/action contracts vẫn cần ghi nhận riêng.
+**Cập nhật sau (2026-10-19):** Feed hiện đã có trong `main`; full Core PostgreSQL 16 suite trên commit sau đạt 342 passed, 0 skipped, CI cũng xanh. Các con số 135/62 và nhận định chưa triển khai ở trên là bằng chứng lịch sử, không phải trạng thái mới. Shared/action contracts được kiểm tra tự động qua test suite.
 
 ---
 

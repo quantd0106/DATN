@@ -1,8 +1,17 @@
 # Lumi Web
 
-Next.js frontend scaffold in the product monorepo. Route/layout coverage is not completion of the 104 designs. Feature ownership and unimplemented integrations are explicit in `docs/FRONTEND.md` and `src/lib/data/integrations.ts`.
+Giao diện web của nền tảng **Lumi — RAG Course Assistant**, xây dựng trên **Next.js 15 (App Router)**, **React 19** và **TypeScript**. Ứng dụng cài đặt **71 product routes** (`apps/web/src/config/routes.ts`) cùng trang chuyển hướng phiên gốc `app/page.tsx` (`72` tệp `page.tsx`), chạy với kiến trúc same-origin BFF proxy và adapter hai chế độ tách biệt (`live` mặc định và `mock` preview cục bộ).
 
-Requires Node 22.17+ and npm. From `apps/web`:
+Xem tài liệu chi tiết:
+- Kiến trúc frontend & biên tích hợp: [docs/FRONTEND.md](docs/FRONTEND.md)
+- Đặc tả thiết kế UI/UX & bản đồ 71 routes: [docs/UI_UX_DESIGN.md](docs/UI_UX_DESIGN.md)
+- Nhật ký hoàn thiện UI/UX & đồng bộ live: [docs/UI_UX_REFINEMENT.md](docs/UI_UX_REFINEMENT.md) · [docs/UX_LIVE_FIXES.md](docs/UX_LIVE_FIXES.md)
+- Hướng dẫn kiểm thử live cục bộ: [docs/LOCAL_LIVE_TESTING.md](docs/LOCAL_LIVE_TESTING.md)
+- Bảng trạng thái tích hợp theo năng lực: [src/lib/data/integrations.ts](src/lib/data/integrations.ts)
+
+## Yêu cầu môi trường & chạy trong workspace
+
+Yêu cầu **Node.js `>= 22.17.0`** và `npm`. Chạy từ thư mục `apps/web`:
 
 ```powershell
 npm ci
@@ -10,9 +19,26 @@ if (!(Test-Path .env.local)) { Copy-Item .env.example .env.local }
 npm run dev
 ```
 
-Live is the default. Set server-only `CORE_API_URL` and `WEB_ORIGIN` in `.env.local`; browser requests use same-origin `/api/v1`. `WEB_ORIGIN` is the exact public web scheme/host/port, even behind Docker or a reverse proxy. Set Core `CORS_ORIGINS` to that same public origin and configure cookie security appropriately. No internal service credential belongs in the web app.
+Chế độ `live` là mặc định. Các biến server-only trong `.env.local` (xem `.env.example`):
+- `CORE_API_URL`: origin của Core Service (mặc định local `http://localhost:8000`) — phục vụ qua proxy `/api/v1/*`.
+- `DOCUMENT_API_URL`: origin của Document Service (mặc định local `http://localhost:8001`) — phục vụ qua proxy `/api/v1/*` (kèm multipart upload & binary stream).
+- `AI_API_URL`: origin của AI Service (mặc định local `http://localhost:8002`) — phục vụ qua proxy `/api/ai/v1/*` (kèm SSE stream Tutor).
+- `LEARNING_API_URL`: origin của Learning Service (mặc định local `http://localhost:8003`) — phục vụ qua proxy `/api/learning/v1/*`.
+- `WEB_ORIGIN`: exact public origin của Web (ví dụ `http://localhost:3000`) dùng để kiểm tra `Origin` chống CSRF tại BFF proxy và phải khớp `CORS_ORIGINS` ở Core.
 
-For an isolated UI preview: `npm run dev:mock`. Preview accounts and data exist only in `dev/mocks/fixtures.ts`; Student username `minh.anh10a1`, staff `ha.nguyen@lumi.example` / `nam.pham@lumi.example`. Enter any nonempty password in this development-only adapter. The preview banner is always shown; no email/file/grade/backend persistence occurs. Refreshing a tab loses the in-memory preview session.
+Không đưa bất kỳ `INTERNAL_SERVICE_SECRET`, `AI_INTERNAL_SERVICE_SECRET` hay `NEXT_PUBLIC_*` credential nào vào mã nguồn frontend.
+
+## Chế độ Mock Preview cục bộ
+
+Để xem trước toàn bộ UI bằng dữ liệu mẫu trong bộ nhớ (không cần backend/PostgreSQL):
+
+```powershell
+npm run dev:mock
+```
+
+Tài khoản mẫu nằm trong `dev/mocks/fixtures.ts`: học sinh `minh.anh10a1`, giáo viên `ha.nguyen@lumi.example` / `minh.tran@lumi.example`, quản trị viên `nam.pham@lumi.example` (mật khẩu bất kỳ khác rỗng trong chế độ mock). Thanh preview luôn hiển thị rõ; dữ liệu không lưu xuống đĩa hay CSDL và được đặt lại khi tải lại trang.
+
+## Kiểm tra chất lượng & Build Production
 
 ```powershell
 npm run check
@@ -20,4 +46,4 @@ npm run build
 npm start
 ```
 
-The production build and server reject mock mode. The live build selects the live adapter at compilation, checks product import boundaries, then scans served bundles for the fixture marker. Missing APIs, invalid responses and errors never return fixture data. See `docs/FRONTEND.md` for integration steps and limitations.
+`npm run check` chạy lần lượt kiểm tra biên import (`check:boundaries`), kiểm tra kiểu TypeScript (`tsc --noEmit`) và bộ unit/contract tests (`tsx --test`). `npm run build` từ chối `NEXT_PUBLIC_DATA_MODE=mock`, biên dịch bản `live` và quét bundle đầu ra (`check:release`) để bảo đảm không chứa dữ liệu fixture.

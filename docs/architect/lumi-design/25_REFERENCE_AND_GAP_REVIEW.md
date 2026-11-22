@@ -30,7 +30,7 @@
 |---|---|---|
 | Có context nhưng thiếu bản đồ kiến trúc **theo tầng** với giải thích tầng | Người đọc nhầm module, tier, service và host | A03; `21_ARCHITECTURE_ATLAS.md` A4 |
 | Gộp logic và physical deployment | Không biết container nào chạy ở đâu | A04/A06/A07/A08; `22_ENVIRONMENTS_DEPLOYMENT.md` |
-| Một sơ đồ tổng thể chứa cả service chưa triển khai | Nhầm “planned architecture” với “implemented architecture” | A01/A02/A15, nét liền/nét đứt |
+| Một sơ đồ tổng thể chứa cả service chưa triển khai | Nhầm “planned architecture” với “implemented architecture” | A01/A02/A15, phân tách `IMPLEMENTED` và `PROPOSED` bằng nét liền/nét đứt |
 | Thiếu môi trường thực nghiệm cụ thể và tính tái lập | Không thể đánh giá kết quả p95/coverage | `23_EXPERIMENTAL_ENVIRONMENT.md` |
 | Ít diễn giải vùng mạng và ranh giới tin cậy | Sơ đồ chưa làm rõ đường truy cập và nơi enforce quyền | A09 và các bảng SEC-01–SEC-10 |
 | Chưa tách environment local/CI/staging/mock/prod thực | Dễ áp sai seed, dữ liệu hoặc cấu hình secret | B2/B3/B4/B6 |
@@ -56,7 +56,7 @@
 | 10 Test Plan/Case & RTM | Functional/negative/concurrency/performance/recovery, traceability | Verification |
 | 11 ADR/Release/Operations | Tech tradeoffs, incident/backup/DR, change control và go/no-go | Maintenance/Acceptance |
 
-Không phải tất cả mục cần nằm trong **một file Word**. Để công cụ lập trình và reviewers tìm nhanh, nên giữ Markdown phân file và có một quyển tổng hợp (generated PDF/DOCX) phục vụ nộp.
+Không phải tất cả mục cần nằm trong **một file Word**. Để công cụ lập trình và người đọc kỹ thuật tìm nhanh, nên giữ Markdown phân file trong monorepo và có thể xuất bản tổng hợp khi cần.
 
 ## E4. Kiểm tra chất lượng hồ sơ thiết kế (không đánh giá chất lượng sản phẩm)
 
@@ -69,7 +69,7 @@ Không phải tất cả mục cần nằm trong **một file Word**. Để côn
 | CI bám quy trình xử lý thật | Có job, runner, PG version và artifact | Đối chiếu `core-ci.yml` |
 | Cloud chỉ báo cáo phần thực có evidence | Không tự vẽ autoscaling/WAF/Redis | Đã gắn REPORTED/TBD |
 | Kế hoạch test không bị gọi là kết quả | Phân loại target/measured/missing | Có C1–C9 |
-| AI Service không được thiết kế kỹ thuật | Không có API/schema/model/vector pipeline | Giữ future placeholder |
+| AI Service & RAG đã triển khai | Cần giữ tài liệu kiến trúc khớp với code `services/ai` + `services/rag` | Đã có `microservices-v1/ai/{DESIGN,API_CONTRACT,FOLDER_STRUCTURE}.md` |
 | Tài liệu có thể chỉnh sửa | Mermaid/DOT/Markdown và PDF/DOCX bổ trợ | DOT/PNG/SVG + Markdown |
 
 ## E5. Quy trình thẩm định trước khi đưa vào nhánh chính

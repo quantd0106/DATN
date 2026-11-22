@@ -65,7 +65,7 @@ Bổ sung hai giao diện nội bộ còn thiếu ở Core Service trước khi 
 
 - **Không sửa `services/core/tests/identity/openapi_contract.json`:** kiểm tra `services/core/tests/identity/test_openapi.py` chỉ lọc prefix `/api/v1/auth/`, `/api/v1/users/me`, `/api/v1/admin/students`, nên `/internal/v1/auth/introspect` không phá vỡ snapshot công khai.
 - **Không sửa migration đã áp dụng (`0001..0014`):** task này không cần thêm bảng hay cột DB mới.
-- **Shared files (`app/common/auth_dependencies.py`, `app/bootstrap.py`):** tuân thủ quy trình review file shared theo [CONTRIBUTING.md](../docs/CONTRIBUTING.md).
+- **Shared files (`app/common/auth_dependencies.py`, `app/bootstrap.py`):** tuân thủ ranh giới module và public interface theo [Core FOLDER_STRUCTURE](../docs/architect/microservices-v1/core/FOLDER_STRUCTURE.md).
 - **Không cache kết quả introspect ở P1.**
 
 ---

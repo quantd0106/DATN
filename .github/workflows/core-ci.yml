@@ -8,7 +8,7 @@ on:
         default: false
   pull_request:
   push:
-    branches: [main, tv4, 'feature/**', 'fix/**', 'codex/**']
+    branches: [main, 'feature/**', 'fix/**']
 permissions:
   contents: read
 concurrency:

@@ -22,12 +22,12 @@ Common, Identity, Classroom Admin/access, Social, Notification và Administratio
 
 ## Social (TASK-009–011)
 
-- Feed: `GET/POST /api/v1/classes/{class_id}/posts`, `PATCH/DELETE /api/v1/classes/{class_id}/posts/{post_id}`. Comments lồng dưới post với GET/POST/PATCH/DELETE. Calendar dùng `GET/POST /api/v1/classes/{class_id}/calendar` và `PATCH/DELETE .../{event_id}`. Không có detail GET cho post và không có HTTP endpoint đồng bộ Learning.
+- Feed: `GET/POST /api/v1/classes/{class_id}/posts`, `PATCH/DELETE /api/v1/classes/{class_id}/posts/{post_id}`. Comments lồng dưới post với GET/POST/PATCH/DELETE. Calendar dùng `GET/POST /api/v1/classes/{class_id}/calendar` và `PATCH/DELETE .../{event_id}`. Không có detail GET cho post; đồng bộ từ Learning service đi qua internal HTTP endpoints (`PUT /internal/v1/calendar/learning-deadlines`, `POST /internal/v1/notifications/learning-events` với `verify_internal_service_key`).
 - Tất cả quyền lớp đi qua `classroom.public.check_class_action`; Comments chỉ xác minh post qua `social.feed.public.get_visible_post_ref`, không import model/repository Feed. Author response chỉ có `id,display_name`; Identity được batch lookup một lần mỗi trang, user không còn tồn tại trả tên null.
 - Người mất membership/assignment hiện hành không đọc hoặc ghi Social. ARCHIVED vẫn đọc, mọi ghi trả 409. Admin không được đọc; Admin cùng trường chỉ moderation DELETE, ghi audit reason code `POLICY_VIOLATION`. Post/comment soft-delete; CORE calendar event hard-delete; LEARNING projection read-only qua API.
 - Cursor là UUID bản ghi cuối trang nhưng repository tra timestamp trong đúng parent trước khi tiếp tục: Feed sắp `created_at DESC,id DESC`; Comments `created_at ASC,id ASC`; Calendar `starts_at ASC,id ASC`. Cursor parent khác trả 400.
 - Tạo post ghi `SOCIAL_POST_CREATED`; tạo comment cho tác giả khác ghi `SOCIAL_COMMENT_CREATED`; tạo/cập nhật projection deadline ghi `CALENDAR_DEADLINE_CHANGED`. Outbox và snapshot người nhận cùng transaction, payload không chứa body; recipient/delivery theo TASK-012 bên dưới.
-- Public Feed interface: `get_visible_post_ref(class_id, post_id, *, session=None) -> PostRefDTO | None`, chỉ trả `{id,class_id,author_id}` cho post chưa xóa. Internal Calendar helper `upsert_learning_deadline(...)` đang chờ contract TASK-019; event trùng/cũ không ghi đè.
+- Public Feed interface: `get_visible_post_ref(class_id, post_id, *, session=None) -> PostRefDTO | None`, chỉ trả `{id,class_id,author_id}` cho post chưa xóa. Internal Learning sync đã triển khai đầy đủ tại `PUT /internal/v1/calendar/learning-deadlines` (`upsert_learning_deadline`, dedup theo `(class_id, external_ref)`, event trùng/cũ không ghi đè) và `POST /internal/v1/notifications/learning-events` (sử dụng migration `0015` `outbox_events.aggregate_type`).
 - Test nhanh: `pytest tests/social -q -W error`. Integration/migration: đặt `TEST_DATABASE_URL` tới PostgreSQL test riêng rồi chạy `pytest tests/integration/test_social.py -q -W error`; không có DB thì bị skip và không được tính là bằng chứng PostgreSQL.
 
 ## Notification (TASK-012)
@@ -68,7 +68,7 @@ pending/published theo schema_version; không đọc hoặc in payload, aggregat
 và yêu cầu DB đang ở migration head. Migration 0014 giữ `school_id` nullable; nếu
 legacy orphan được phát hiện, FK chờ maintenance apply mapping validate sau khi gán
 School có căn cứ. Test-only synthetic UUID không được dùng cho database thật. Mapping
-user thực vẫn cần owner xác minh; không tự gán trường, kích hoạt hoặc mở LOCKED.
+user thực vẫn cần người vận hành có thẩm quyền xác minh; không tự gán trường, kích hoạt hoặc mở LOCKED.
 
 Seed cần `CORE_SEED_ADMIN_PASSWORD` riêng qua môi trường, không có credential mặc định.
 Tạo School/Admin, staff invitation và Student activation, lớp khối 6–12 AUTO/MANUAL,
@@ -89,7 +89,7 @@ HTTP/public workflows, 100 thao tác cạnh tranh cho mỗi sync/transfer/import
 module-boundary guard và script đo tải 10 phút. `tests/security/evidence.py` tạo
 Rule ID → scenario → kết quả từ JUnit; missing/skip không được ghi là đã xác minh.
 CI lưu evidence, có job đo tải riêng qua workflow_dispatch. Chưa có remote CI run
-khi chưa push; Web E2E và các service chưa triển khai được ghi rõ ngoài phạm vi/pending.
+khi chưa push; phạm vi Web E2E đầy đủ 4 service hoặc phân hệ Learner Intelligence (`PROPOSED`) được ghi rõ theo từng báo cáo kiểm thử.
 
 Regression đã phát hiện/sửa: cache Classroom recheck tài nguyên hiện hành trước
 replay; request DB được queue trước dependency sync để tránh pool/thread starvation.
@@ -181,7 +181,7 @@ POST chỉ ghi nhận yêu cầu; không tự xuất/xóa/ẩn danh dữ liệu,
 
 Coverage public interface: `pytest tests/identity/test_public.py -W error --cov=app.modules.identity.public --cov-branch --cov-report=term-missing --cov-fail-under=100`. Test PostgreSQL/HTTP nằm trong `test_service.py` và `test_router.py`, cần `TEST_DATABASE_URL` là DB test riêng.
 
-**Kiểm chứng Identity Lumi 2026-10-14:** Python 3.12.14, PostgreSQL 18 tạm riêng; toàn Core 153 test đạt với warnings-as-errors, public line/branch coverage 100%; Ruff lint/format và Compose config validation đạt. Bao gồm Student không email/SMTP, activation/recovery expiry/replay/concurrency, provision trùng username, chuyển legacy giữ ID/hash, chéo trường, audit không có mã, CORRECTION, upgrade từ 0004 giữ dữ liệu, migration round trip/drift. Migration chưa áp dụng vào DB demo; PostgreSQL 16/Docker runtime cho thay đổi này chưa chạy do daemon không hoạt động. Bulk import/School workflow vẫn chưa triển khai. Test migration dùng database con riêng và cần quyền CREATE DATABASE trên môi trường test.
+**Kiểm chứng Identity Lumi 2026-10-14:** Python 3.12.14, PostgreSQL 18 tạm riêng; toàn Core 153 test đạt với warnings-as-errors, public line/branch coverage 100%; Ruff lint/format và Compose config validation đạt. Bao gồm Student không email/SMTP, activation/recovery expiry/replay/concurrency, provision trùng username, chuyển legacy giữ ID/hash, chéo trường, audit không có mã, CORRECTION, upgrade từ 0004 giữ dữ liệu, migration round trip/drift. Migration chưa áp dụng vào DB demo; PostgreSQL 16/Docker runtime cho thay đổi này chưa chạy do daemon không hoạt động. *(Lưu ý cập nhật: ở các mốc sau đó, Bulk CSV/XLSX import đã triển khai tại TASK-013, `0014`–`0015` đã bổ sung FK `school_id` và `outbox.aggregate_type`, cùng internal Learning sync endpoints và Document/AI/Learning live integration.)* Test migration dùng database con riêng và cần quyền CREATE DATABASE trên môi trường test.
 
 ## Docker, migration và CI (TASK-016)
 
@@ -189,7 +189,7 @@ Coverage public interface: `pytest tests/identity/test_public.py -W error --cov=
 - PostgreSQL 16 dùng named volume `pgdata` theo project, port chỉ bind loopback. Các port cấu hình bằng `POSTGRES_PORT` (5432), `CORE_PORT` (8000), `WEB_PORT` (3000); Web proxy dùng server-only `CORE_API_URL` (Compose: `http://core:8000`) và `WEB_ORIGIN`, còn Core `CORS_ORIGINS` phải khớp exact browser origin. `NEXT_PUBLIC_CORE_API_URL` không được dùng trong Web live proxy hiện tại. `CORE_IMAGE` tùy chọn cho tag test độc lập, mặc định `rag-course-core:local`.
 - DB credentials và `DATABASE_URL` cần khớp; URL-encode ký tự đặc biệt trong credential. Các default trong mẫu chỉ dùng local. Thay môi trường không tự đổi credential của volume PostgreSQL đã khởi tạo. Stack này chưa phải cấu hình production HA hoặc phân quyền DB cho cả năm service.
 - Kiểm tra cấu hình bằng `docker compose config --quiet` (không xuất nội dung secret). Xem trạng thái bằng `docker compose ps -a`; retry migration sau khi sửa nguyên nhân bằng `docker compose run --rm migrate`. Thay đổi schema luôn tạo revision mới; không sửa migration đã áp dụng.
-- `.github/workflows/core-ci.yml` chạy trên mọi PR và push main/feature/fix/codex: lint/format, PostgreSQL 16, upgrade/drift check, OpenAPI snapshot, toàn bộ tests có DB và coverage/JUnit artifact, public coverage 100%, Web build và Compose smoke riêng. Smoke kiểm tra non-root/package/migration/health/Web, dừng DB rồi kiểm tra 503/live và phục hồi. Cleanup chỉ project CI riêng, không prune Docker toàn cục.
+- `.github/workflows/core-ci.yml` chạy trên mọi push `main`/`feature`/`fix` (và pull request nếu cấu hình): lint/format, PostgreSQL 16, upgrade/drift check, OpenAPI snapshot, toàn bộ tests có DB và coverage/JUnit artifact, public coverage 100%, Web build và Compose smoke riêng. Smoke kiểm tra non-root/package/migration/health/Web, dừng DB rồi kiểm tra 503/live và phục hồi. Cleanup chỉ project CI riêng, không prune Docker toàn cục.
 - Formatter giữ nguyên migration 0001 đã áp dụng bằng exclusion riêng (baseline cũ không được format); lint vẫn kiểm tra file đó. Không có cấu hình mypy hiện tại nên chưa thêm type-check Python; Next build có kiểm tra TypeScript.
 
 Kiểm tra tương đương CI tại `services/core` với `DATABASE_URL`/`TEST_DATABASE_URL` trỏ đến DB test riêng đã cấu hình: `ruff check app tests migrations`, `ruff format --check app tests migrations`, `alembic upgrade head`, `alembic check`, `pytest -W error --cov=app --cov-branch --cov-report=xml --junitxml=test-results.xml`. Không chạy các integration test trên DB có dữ liệu cần giữ. Reports local không được track.

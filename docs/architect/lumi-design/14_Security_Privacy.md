@@ -1,6 +1,6 @@
 # SECURITY, PRIVACY & DATA GOVERNANCE DESIGN
 
-**Mã:** LUMI-SEC-001 · **Trạng thái:** Chính sách từ Business Rules; biện pháp Core theo code/tài liệu; control future là PROPOSED.
+**Mã:** LUMI-SEC-001 · **Trạng thái:** Chính sách từ Business Rules; biện pháp bảo mật đã triển khai trên Core, Document, AI và Learning; control Learner Intelligence là PROPOSED.
 
 ## 1. Tài sản và đối tượng rủi ro
 
@@ -54,7 +54,7 @@
 - API validate trường và dùng parameterized ORM; không tin input user_id/school_id.
 - Next.js same-origin proxy có allowlist route/headers/query, chặn unsafe Origin mutation, không ghi token sang analytics.
 - XSS: escape/sanitize body post/comments, HTML preview của tài liệu cần sandbox/allowlist khi implement.
-- SSRF/path traversal: future Document upload/download phải validate storage keys/URLs; không nhận arbitrary fetch URL chưa có policy.
+- SSRF/path traversal: Document và Learning upload/download phải validate storage keys/URLs và magic-byte; không nhận arbitrary fetch URL ngoài allowlist.
 - CORS chỉ public origin được xác định, không bật wildcard + credentials.
 - Redact sensitive error details; structured error code cố định không tiết lộ hidden record.
 
@@ -74,7 +74,7 @@ flowchart LR
   R --> V[Admin verifies subject]
   V --> P{Policy + executor approved?}
   P -->|No| D[IN_REVIEW / POLICY_PENDING]
-  P -->|Yes| E[Execute by data owner]
+  P -->|Yes| E[Execute by owning service]
   E --> A{Evidence success?}
   A -->|Yes| C[COMPLETED + audit]
   A -->|No| D
@@ -84,11 +84,11 @@ flowchart LR
 - `identity_verified` là ghi nhận xác minh thủ công, không tự chứng minh danh tính.
 - ACCESS/EXPORT/CORRECTION có workflow thủ công đã duyệt trong Core hiện tại; DELETE/retention liên service vẫn deferred.
 - Không để việc xóa User cascade làm chính sách xóa toàn hệ thống; giữ audit tối thiểu theo policy.
-- Mỗi data type cần: owner service, retention, lý do giữ, masking/anonymization, executor, backup effects, verify/audit.
+- Mỗi data type cần: service sở hữu, retention, lý do giữ, masking/anonymization, executor, backup effects, verify/audit.
 
 ## 8. Retention decision matrix — chưa gán thời hạn
 
-| Loại dữ liệu | Owner | Tác động khi user yêu cầu DELETE | Retention duration |
+| Loại dữ liệu | Service sở hữu | Tác động khi user yêu cầu DELETE | Retention duration |
 |---|---|---|---|
 | User/profile/auth | Core.Identity | Điều tra điều kiện xóa/ẩn danh và chứng cứ liên quan | **PENDING POLICY** |
 | Classroom episodes/audit | Core.Classroom/Common | Bảo vệ lịch sử nghiệp vụ và giới hạn truy cập | **PENDING POLICY** |
@@ -107,7 +107,7 @@ flowchart LR
 
 ## 10. Security test acceptance
 
-SEC-T01..: login/refresh replay; LOCKED access; cross-school IDOR; non-admin Admin route; ASSISTING cannot approve; stale grant; replay event; XSS; CSRF; sample report export leakage; private notes; secret-free audit and notification. Mỗi finding cần CVSS/impact hoặc mức rủi ro, reproduction an toàn, fix/test/owner.
+SEC-T01..: login/refresh replay; LOCKED access; cross-school IDOR; non-admin Admin route; ASSISTING cannot approve; stale grant; replay event; XSS; CSRF; sample report export leakage; private notes; secret-free audit and notification. Mỗi finding cần CVSS/impact hoặc mức rủi ro, reproduction an toàn, fix/test/verification.
 
 ## 11. Những kiểm soát bắt buộc trước production thật
 

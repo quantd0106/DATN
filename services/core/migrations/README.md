@@ -40,7 +40,7 @@ school-at-event-time giữ null; không backfill bằng school hiện tại củ
 
 Test có thể dùng School/User UUID tổng hợp để kiểm tra migration trong database
 `test_`/`dev_` riêng. Không dùng UUID tổng hợp để gán tài khoản staging/production.
-Mapping thật vẫn cần nguồn có thẩm quyền được owner TV1/TV2 xác minh trước khi
+Mapping thật vẫn cần nguồn có thẩm quyền được người vận hành có thẩm quyền xác minh trước khi
 áp dụng vào database thật.
 
 `report` chỉ đọc, trả UUID, trạng thái/role, version, các School và issue codes:
@@ -50,7 +50,7 @@ Mapping thật vẫn cần nguồn có thẩm quyền được owner TV1/TV2 xá
 username gốc, hash, token, mã hoặc nội dung yêu cầu dữ liệu. Roster/membership/
 assignment gồm cả lịch sử được báo bằng School UUID, không suy ra mapping từ đó.
 
-Owner chuẩn bị file JSON theo dữ liệu đã xác minh, ví dụ cấu trúc:
+Người vận hành có thẩm quyền chuẩn bị file JSON theo dữ liệu đã xác minh, ví dụ cấu trúc:
 
 ```json
 {
@@ -74,7 +74,7 @@ Apply là thao tác offline: dừng Core/worker và các writer trước khi ch�
 database theo quy trình của môi trường. CLI khóa các bảng Core theo thứ tự trong
 một transaction, rồi tính lại mã kiểm tra từ manifest/database/revision/trạng thái
 hiện hành. Sai mã hoặc dữ liệu thay đổi thì rollback. Không được dùng kết quả hash
-thay cho review owner. Chỉ gán scope còn thiếu hoặc giữ nguyên scope khớp; không
+thay cho bước kiểm tra phê duyệt của người vận hành. Chỉ gán scope còn thiếu hoặc giữ nguyên scope khớp; không
 đổi trường đã gán, không tạo mapping trái với lịch sử Classroom. UUID/hash/status,
 data requests và token history được giữ. Khi scope thay đổi, tăng session_version,
 revoke refresh sessions và ghi audit `LEGACY_ASSIGN_SCHOOL`; không tự mở LOCKED,
@@ -124,7 +124,7 @@ Các lớp khối khác để trống. Audit/outbox từ các workflow commit c�
 Marker `DEV_SEED_COMPLETED` chỉ ghi khi toàn bộ thành công. Chạy đồng thời được
 serialize; lỗi giữa chừng rollback tất cả. Không dùng bootstrap demo-ui.
 
-### Bộ mock thủ công cho issue #18
+### Bộ dữ liệu tổng hợp dev/test (Synthetic Onboarding)
 
 Khi chưa có trường đối tác, dùng bộ synthetic này trong database `test_`/`dev_`
 riêng để diễn tập onboarding; không gọi đây là dữ liệu Production:
@@ -233,7 +233,7 @@ helper chỉ chấp nhận đúng tên School mock, DB trống ở migration hea
 SMTP sender/password chỉ tham chiếu Secret Manager. Core API và worker cần
 `PUBLIC_WEB_URL` đặt thành origin Vercel Production để liên kết mời/khôi phục mở đúng trang;
 biến này không phải secret. Sau khi cập nhật thư mời/đặt lại mật khẩu, biến đã được cấu hình
-trên API và worker thành `https://se-2026-t09-rag-course-assistant.vercel.app`.
+trên API và worker thành origin của ứng dụng Web triển khai (`<production-web-origin>`).
 
 Lần đầu tạo School UUID và Admin `PENDING_VERIFICATION` cùng audit/durable invitation
 trong một transaction. Lần chạy lại cùng profile là idempotent; profile/marker khác
@@ -242,7 +242,7 @@ Job `lumi-production-admin-bootstrap` là lệnh offline operator-triggered, kh�
 HTTP bootstrap route. Worker và scheduler Production phải dùng Production DB/secrets
 riêng, không trỏ sang staging. Không chạy lại bootstrap để gửi lại lời mời.
 
-Sau khi PR #38 được hợp nhất, Core đã được build/deploy từ commit `a01985e` với image
+Core đã được build/deploy từ commit `a01985e` với image
 `asia-southeast1-docker.pkg.dev/pelagic-cat-492008-i2/cloud-run-source-deploy/lumi-core:production-mock-a01985e`.
 Revision `lumi-core-api-production-00002-7jm` phục vụ 100% traffic; readiness xác nhận
 DB connected. Notification Job cũng được cập nhật sang image mới. Thay đổi này chỉ cập nhật
@@ -284,4 +284,4 @@ PostgreSQL skip, không được dùng kết quả đó làm bằng chứng nghi
 Core CI chạy migration/check/heads/report trước suite PostgreSQL 16, lưu report và
 JUnit/coverage artifacts. Compose của TASK-016 đã yêu cầu migrate thành công trước
 Core/notification-worker; không đổi thứ tự này. Kết quả local ghi tại TASK-014;
-chưa thay thế kết quả CI remote hoặc review owner của mapping dữ liệu thực.
+chưa thay thế kết quả CI remote hoặc bước xác minh dữ liệu mapping thực từ nguồn có thẩm quyền.

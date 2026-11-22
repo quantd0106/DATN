@@ -58,7 +58,7 @@
 | 9 | `services/core/app/modules/**/models.py` và Alembic | Physical data truth tại revision |
 | 10 | `services/core/app/modules/**/router.py` và OpenAPI | HTTP implementation truth |
 | 11 | `services/core/README.md`, `services/core/migrations/README.md` | Runtime/seed/migration |
-| 12 | `apps/web/README.md`, `apps/web/src/lib/data/integrations.ts`, `apps/web/FRONTEND_COMPLETION.md` | Web routes, data mode, live vs mock limitations |
+| 12 | `apps/web/README.md`, `apps/web/src/lib/data/integrations.ts`, `apps/web/docs/UI_UX_DESIGN.md` | Web 71 routes, data mode, UI/UX tokens, live vs mock boundaries |
 | 13 | `tasks/README.md`, `tasks/TASK-001`…`TASK-020` | Task-level scope/evidence, một số snapshot lịch sử |
 
 
@@ -81,4 +81,4 @@ Các mẫu được dùng **để tham khảo cách tổ chức hồ sơ**; khô
 
 ## 5. Chất lượng của một bản cập nhật tài liệu
 
-Mọi thay đổi bổ sung phải ghi rõ **source file/commit → câu thay đổi → trạng thái DECIDED/IMPLEMENTED/PROPOSED → ảnh hưởng FR/test → reviewer**. Đừng chỉ tăng số trang mà không làm rõ nguồn gốc và kiểm chứng.
+Mọi thay đổi bổ sung phải ghi rõ **source file/commit → câu thay đổi → trạng thái DECIDED/IMPLEMENTED/PROPOSED → ảnh hưởng FR/test → ngày cập nhật**. Đừng chỉ tăng số trang mà không làm rõ nguồn gốc và kiểm chứng.

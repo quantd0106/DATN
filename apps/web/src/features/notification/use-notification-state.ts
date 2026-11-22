@@ -9,7 +9,7 @@ import { createNotificationReadController, type NotificationReadController, type
 
 const emptyState = (actorId: string): NotificationReadState => ({ actorId, items: [], unreadCount: 0, busy: false, reconciling: false, issue: null, snapshotError: null });
 
-/** Business controller for the AGY-authored, controlled NotificationCenter UI. */
+/** Business controller for the controlled NotificationCenter UI. */
 export function useNotificationState(data: WorkspaceData | null, user: User, reloadParent: () => void) {
   const router = useRouter();
   const actorId = user.id;

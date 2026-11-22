@@ -8,7 +8,7 @@
 
 ## Rà soát đồng bộ & Chốt thiết kế P1 — 2026-11-21
 
-**Hiện trạng P0/P1 & Cẩm nang điều phối Codex CLI:** [TASK-017A](TASK-017A-core-document-prereqs.md) → [TASK-017E](TASK-017E-compose-demo-and-deployment.md) đã triển khai và kiểm chứng qua integration tests PostgreSQL 16, Web unit/build và Compose HTTP smoke. Cẩm nang điều phối Codex CLI (`sol 6.2`, `high`) + đối chiếu Mục 3/Mục 4 (P0/P1/P2) đặt tại [CODEX_ORCHESTRATION.md](../docs/architect/microservices-v1/document/CODEX_ORCHESTRATION.md). [TASK-017F](TASK-017F-doc-ai-event-and-report-sync.md) giữ checklist đồng bộ AI + báo cáo/slide ngoài Git; hoàn thiện CI và full Compose E2E + Runbook bảo vệ giao cho [TASK-017G](TASK-017G-document-ci-and-compose-smoke.md) và [TASK-017H](TASK-017H-document-compose-e2e-and-demo-runbook.md); phần P2 sau bảo vệ gom vào [TASK-017I](TASK-017I-document-p2-cloud-and-governance.md). Tài liệu thiết kế và hợp đồng tại [ADR-002](../docs/architect/microservices-v1/ADR-002-document-service.md), [Document DESIGN](../docs/architect/microservices-v1/document/DESIGN.md), [Document API Contract](../docs/architect/microservices-v1/document/API_CONTRACT.md) và [Document FOLDER STRUCTURE](../docs/architect/microservices-v1/document/FOLDER_STRUCTURE.md).
+**Hiện trạng P0/P1:** [TASK-017A](TASK-017A-core-document-prereqs.md) → [TASK-017E](TASK-017E-compose-demo-and-deployment.md) cùng [TASK-017G](TASK-017G-document-ci-and-compose-smoke.md) và [TASK-017H](TASK-017H-document-compose-e2e-and-demo-runbook.md) đã triển khai và kiểm chứng qua integration tests PostgreSQL 16 (`99 passed`), Web unit/build và Compose full E2E (`verify_compose_e2e.py` `13/13 PASS`). [TASK-017F](TASK-017F-doc-ai-event-and-report-sync.md) theo dõi đồng bộ sự kiện Document↔AI và tài liệu thuyết minh; phần mở rộng Cloud/P2 gom vào [TASK-017I](TASK-017I-document-p2-cloud-and-governance.md). Tài liệu thiết kế và hợp đồng tại [ADR-002](../docs/architect/microservices-v1/ADR-002-document-service.md), [Document DESIGN](../docs/architect/microservices-v1/document/DESIGN.md), [Document API Contract](../docs/architect/microservices-v1/document/API_CONTRACT.md) và [Document FOLDER STRUCTURE](../docs/architect/microservices-v1/document/FOLDER_STRUCTURE.md).
 
 **Tám điểm lệch đã chốt trước khi code:**
 1. **Trạng thái phiên bản:** Backend lưu 5 giá trị `PENDING | PROCESSING | SUCCESS | NEEDS_REVIEW | FAILED`. Không lưu `SUPERSEDED` trong DB (tính dẫn xuất `is_serving` / `is_superseded` lúc đọc để bảo toàn Rule `H3`). Web live decoder map `SUCCESS → READY` và `MARKDOWN → MD`.
@@ -17,10 +17,10 @@
 4. **Xác thực người dùng không chia sẻ `SECRET_KEY`:** Core thêm `POST /internal/v1/auth/introspect` (`X-Service-Key`, kiểm tra chữ ký + `session_version` + `status == ACTIVE`, fail closed, không cache ở P1).
 5. **Web Proxy đa upstream & thân nhị phân:** `apps/web` định tuyến tới `CORE_API_URL` hoặc `DOCUMENT_API_URL` theo bảng allowlist, đọc thân bằng `arrayBuffer()` thay `text()`, thêm đủ operations Document và cô lập lỗi 503.
 6. **Môi trường Demo P1 vs Cloud P2:** Demo bảo vệ chạy trên **Docker Compose** (tránh trần ~4,5 MB của Vercel Functions với tệp mẫu 10 MB `TP-01`); upload trực tiếp lên **GCS qua signed URL** chuyển sang **P2**.
-7. **Ranh giới IDP vs AI Indexing:** `SUCCESS` nghĩa là Canonical artifact đã trích xuất và lưu bền vững (`services/rag/idp/canonical.py` hiện xuất `idp-canonical-1`; harness AI hỗ trợ `idp-canonical-1` và `idp-canonical-2`). Document phát `document.version.published`; AI tự lập chỉ mục bất đồng bộ và chỉ phục vụ khi bundle đủ (`complete: true`). Sửa Hình 2.16 trong báo cáo/slide cho khớp.
+7. **Ranh giới IDP vs AI Indexing:** `SUCCESS` nghĩa là Canonical artifact đã trích xuất và lưu bền vững (`services/rag/idp/canonical.py` hiện xuất `idp-canonical-1`; harness AI hỗ trợ `idp-canonical-1` và `idp-canonical-2`). Document phát `document.version.published`; AI tự lập chỉ mục bất đồng bộ và chỉ phục vụ khi bundle đủ (`complete: true`).
 8. **Chính sách upload P1:** **`20 MB` (`20_971_520` bytes)** và **`300 trang`**, công bố qua `GET /api/v1/documents/policy` (đồng bộ mock từ 50 MB về 20 MB).
 
-**Kế hoạch triển khai phân kỳ P0 / P1 / P2 (giao Codex CLI theo [CODEX_ORCHESTRATION.md](../docs/architect/microservices-v1/document/CODEX_ORCHESTRATION.md)):**
+**Phân kỳ triển khai P0 / P1 / P2:**
 
 | Sub-task | Ưu tiên | Phạm vi chính | Trạng thái / Phụ thuộc |
 |---|---|---|---|
@@ -29,14 +29,14 @@
 | [TASK-017C](TASK-017C-document-idp-worker-and-review.md) | `P0 / P1` | Document Worker & Review: `worker.py`, tích hợp `services/rag/idp`, `NEEDS_REVIEW`, `/accept`, `/retry`, H3 fallback, outbox `document.version.published` | `DONE — VERIFIED` · `TASK-017B` |
 | [TASK-017D](TASK-017D-web-proxy-and-document-ui.md) | `P0 / P1` | Web Proxy & Live UI: `DOCUMENT_API_URL`, `arrayBuffer()`, `FormData`, 12 hàm Web port, decoder `SUCCESS→READY`, nút `/accept`, notes/bookmark + cảnh báo `B6` | `DONE — VERIFIED` · `TASK-017B`, `TASK-017C` |
 | [TASK-017E](TASK-017E-compose-demo-and-deployment.md) | `P0` | Docker Compose Demo: `Dockerfile`, `compose.yaml`, cô lập `document_svc`, smoke PDF `10 MB`, test `413` & `503` | `DONE — VERIFIED` · `TASK-017B..D` |
-| [TASK-017F](TASK-017F-doc-ai-event-and-report-sync.md) | `P0 + Báo cáo` | Hợp đồng Document↔AI (`TASK-018`) và Checklist sửa Báo cáo / Slide ngoài Git (Hình 2.16 & thuật ngữ v1) | `TODO / IN PROGRESS` · song song |
+| [TASK-017F](TASK-017F-doc-ai-event-and-report-sync.md) | `P0` | Hợp đồng Document↔AI (`TASK-018`) và kiểm thử đầu-cuối sự kiện `document.version.published` | `IN PROGRESS` |
 | [TASK-017G](TASK-017G-document-ci-and-compose-smoke.md) | `P0 / P1` *(Wave 1A)* | GitHub Actions CI cho `services/document/`, thêm `npm run check` vào `web-build`, nâng cấp `compose-smoke` gồm Document + fault isolation | `DONE — VERIFIED` *(local PG16 & Compose)* |
 | [TASK-017H](TASK-017H-document-compose-e2e-and-demo-runbook.md) | `P0 / P1` *(Wave 1B)* | Script Compose full E2E (`verify_compose_e2e.py`) phủ 5 định dạng, `NEEDS_REVIEW -> /accept`, `H3`, `B6`, `H6/L6/O2`, `QAS-10`, `QAS-01/02` + `DEMO_RUNBOOK.md` | `DONE — VERIFIED` *(13/13 PASS qua Web Proxy)* |
 | [TASK-017I](TASK-017I-document-p2-cloud-and-governance.md) | `P2` *(Sau bảo vệ)* | GCS signed URL (`StorageBackend`), malware scan, quota, retention (`OD-02`/`OD-03`), thông báo khi share *(blocked by Core API)*, Cloud Run deploy | `DEFERRED (P2)` · Wave 2 |
 
 **Phụ thuộc và nghiệm thu bổ sung:**
 - [x] Hoàn tất triển khai và kiểm chứng code/runtime của `TASK-017A` → `TASK-017E`, cùng Wave 1A ([TASK-017G](TASK-017G-document-ci-and-compose-smoke.md)) và Wave 1B ([TASK-017H](TASK-017H-document-compose-e2e-and-demo-runbook.md)).
-- [ ] Hoàn tất [TASK-017F](TASK-017F-doc-ai-event-and-report-sync.md) (cập nhật `Bao_cao_DATN.docx` & slide ngoài Git theo Nhóm A/B và kiểm chứng đầu-cuối khi dựng AI HTTP).
+- [ ] Hoàn tất [TASK-017F](TASK-017F-doc-ai-event-and-report-sync.md) (kiểm chứng đầu-cuối sự kiện `document.version.published` qua AI HTTP).
 - [ ] Hoàn tất Wave 2 ([TASK-017I](TASK-017I-document-p2-cloud-and-governance.md)) sau bảo vệ khi chốt `OD-02`, `OD-03` và Core internal notification API.
 - [x] Document suite kiểm tra IDP thật cho 5 định dạng, `NEEDS_REVIEW` accept, H3 fallback/crash, cross-school/class, thu hồi grant trước lượt mở nguồn kế tiếp, owner-only notes/bookmarks và O2.
 - [ ] Kiểm chứng thu hồi quyền giữa lúc AI truy hồi và người dùng mở nguồn trong luồng Document↔AI.

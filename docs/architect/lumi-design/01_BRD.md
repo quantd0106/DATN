@@ -77,7 +77,7 @@ Các vấn đề trên là **khái quát nghiệp vụ dựa trên Business Rule
 | Giáo viên | Thực hiện hoạt động giảng dạy trong lớp được phân công | Tổ chức hoạt động lớp, quản lý tài liệu và đánh giá | Quyền giáo viên chính/phối hợp theo phân công |
 | Học sinh | Tham gia lớp học chính khóa | Truy cập lớp, hoạt động học tập, kết quả cá nhân và yêu cầu dữ liệu | Không tự ghi danh hoặc chuyển lớp |
 | Đại diện sản phẩm và đơn vị vận hành | Phê duyệt chính sách và quy trình vận hành | Lưu giữ dữ liệu, xác minh danh tính, xử lý sự cố | Phải được phê duyệt bởi người có thẩm quyền |
-| Nhóm phát triển và kiểm thử | Xây dựng và xác nhận hệ thống | Đặc tả giao diện, bằng chứng kiểm thử và giám sát | Quyết định kỹ thuật trong phạm vi được duyệt |
+| Phát triển và kiểm thử | Xây dựng và xác nhận hệ thống | Đặc tả giao diện, bằng chứng kiểm thử và giám sát | Quyết định kỹ thuật trong phạm vi được duyệt |
 
 ## 6. Các năng lực nghiệp vụ và quy trình xử lý xuyên suốt
 

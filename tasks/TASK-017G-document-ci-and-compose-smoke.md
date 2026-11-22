@@ -1,8 +1,7 @@
 # TASK-017G: Document CI Pipeline & Compose Smoke Upgrade
 
 **ID:** `TASK-017G` · **Mức ưu tiên:** `P0 / P1` *(Wave 1A)* · **Trạng thái:** `DONE — VERIFIED` *(cục bộ qua YAML/Ruff/PG16/Docker Compose; chờ kích hoạt trên GitHub runner khi push)*
-**Owner chính:** Codex CLI (`sol 6.2` / `gpt-6.2-sol`, reasoning `high`) · **Người nghiệm thu:** Coordinator  
-**Tham chiếu chuẩn:** [CODEX_ORCHESTRATION.md](../docs/architect/microservices-v1/document/CODEX_ORCHESTRATION.md) · [22_ENVIRONMENTS_DEPLOYMENT.md](../docs/architect/lumi-design/22_ENVIRONMENTS_DEPLOYMENT.md) · [core-ci.yml](../.github/workflows/core-ci.yml)
+**Tham chiếu chuẩn:** [Document DESIGN](../docs/architect/microservices-v1/document/DESIGN.md) · [22_ENVIRONMENTS_DEPLOYMENT.md](../docs/architect/lumi-design/22_ENVIRONMENTS_DEPLOYMENT.md) · [core-ci.yml](../.github/workflows/core-ci.yml)
 
 ---
 
@@ -13,7 +12,7 @@ Hiện tại [.github/workflows/core-ci.yml](../.github/workflows/core-ci.yml) c
 - `web-build` (chỉ chạy `npm run build`, chưa chạy `npm run check`)
 - `compose-smoke` (mới kiểm tra `db`, `migrate`, `core`, `notification-worker`, `web`; chưa kiểm chứng `document-migrate`, `document`, `document-worker`, cô lập role `document_svc`, và kịch bản cô lập lỗi `docker compose stop document`).
 
-Mục tiêu của `TASK-017G` là đưa toàn bộ bảo chứng chất lượng đã chạy tay ở `TASK-017A..E` vào **GitHub Actions CI tự động**, bảo đảm không một PR nào làm gãy hợp đồng Core–Document–Web–Compose.
+Mục tiêu của `TASK-017G` là đưa toàn bộ bảo chứng chất lượng đã chạy tay ở `TASK-017A..E` vào **GitHub Actions CI tự động**, bảo đảm các thay đổi không làm gãy hợp đồng Core–Document–Web–Compose.
 
 ---
 
@@ -51,7 +50,7 @@ Mục tiêu của `TASK-017G` là đưa toàn bộ bảo chứng chất lượng
 
 ## 4. Lệnh nghiệm thu (Verification Gate)
 
-Trước khi báo hoàn thành, Codex CLI & Coordinator phải chứng minh trên môi trường cục bộ / runner:
+Trước khi xác nhận hoàn thành, cần kiểm chứng trực tiếp trên môi trường cục bộ / runner:
 1. Validate cú pháp workflow YAML (`actionlint` nếu có hoặc Python `yaml.safe_load` / kiểm tra cấu trúc chuẩn).
 2. Chạy thật cục bộ đúng các lệnh mới thêm vào CI:
    - `services/document`: `ruff check --no-cache .`, `ruff format --check --no-cache .`, `pytest -p no:cacheprovider -W error` (ghi rõ số test passed/skipped).

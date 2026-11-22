@@ -72,18 +72,18 @@ Ghi nhận thực tế mã nguồn tại thời điểm ra quyết định:
 ### Quyết định 6 — Môi trường Demo P1 (Docker Compose) vs Cloud Upload (P2)
 - **Vấn đề:** Giới hạn kích thước request body của Vercel Functions (khoảng 4,5 MB; cần kiểm chứng lại từ tài liệu Vercel hiện hành khi triển khai cloud) sẽ chặn tệp mẫu 10 MB của cấu hình kiểm thử `TP-01` (`QUALITY_ATTRIBUTES.md`) cũng như hạn mức 20 MB nếu chạy upload qua Next.js API route trên Vercel.
 - **Quyết định:**
-  1. **Giai đoạn P1 (demo bảo vệ & nghiệm thu G3):** Chạy toàn bộ Web (Next.js standalone), Core, Core Worker, Document API, Document Worker và PostgreSQL 16 trên **Docker Compose** (`compose.yaml`), lưu tệp gốc và Canonical artifact trên Docker volume cục bộ thông qua abstraction `StorageBackend`. Trong môi trường Docker Compose, Next.js Node server không chịu trần 4,5 MB của Vercel Serverless Functions nên upload trực tiếp qua `/api/v1/documents` tới 20 MB hoạt động thông suốt.
-  2. **Giai đoạn P2 (triển khai cloud sau bảo vệ):** Tách luồng upload sang **direct-to-GCS signed URL** (`POST /documents/uploads/init` → client `PUT` trực tiếp lên GCS signed URL → `POST /documents/uploads/complete`) để bỏ qua trần kích thước body của tầng Web/Serverless proxy.
-- **Hệ quả:** P1 đơn giản, khép kín, không phụ thuộc cloud storage bên ngoài khi demo hội đồng; `StorageBackend` giữ đường nâng cấp P2 sạch sẽ.
+  1. **Giai đoạn P1 (Docker Compose & nghiệm thu G3):** Chạy toàn bộ Web (Next.js standalone), Core, Core Worker, Document API, Document Worker và PostgreSQL 16 trên **Docker Compose** (`compose.yaml`, và `compose.full.yaml` khi chạy đủ 4 backend services), lưu tệp gốc và Canonical artifact trên Docker volume cục bộ thông qua abstraction `StorageBackend`. Trong môi trường Docker Compose, Next.js Node server không chịu trần 4,5 MB của Vercel Serverless Functions nên upload trực tiếp qua `/api/v1/documents` tới 20 MB hoạt động thông suốt.
+  2. **Giai đoạn P2 (triển khai cloud mở rộng):** Tách luồng upload sang **direct-to-GCS signed URL** (`POST /documents/uploads/init` → client `PUT` trực tiếp lên GCS signed URL → `POST /documents/uploads/complete`) để bỏ qua trần kích thước body của tầng Web/Serverless proxy.
+- **Hệ quả:** P1 đơn giản, khép kín, không phụ thuộc cloud storage bên ngoài khi chạy cục bộ/Compose; `StorageBackend` giữ đường nâng cấp P2 sạch sẽ.
 
 ### Quyết định 7 — Tách rạch ròi ranh giới Document (IDP) và AI (Lập chỉ mục)
-- **Vấn đề:** Hình 2.16 trong báo cáo/slide đang đặt bước "lập chỉ mục" trước trạng thái `SUCCESS` của phiên bản tài liệu, xung đột với [ADR-001](ADR-001.md) và [ARCHITECTURE.md](ARCHITECTURE.md#2-ownership) (Document sở hữu tài liệu/phiên bản/grant; AI sở hữu chỉ mục RAG dẫn xuất).
+- **Vấn đề:** Cần bảo đảm bước "lập chỉ mục" tách biệt rõ sau trạng thái `SUCCESS` của phiên bản tài liệu, tuân thủ [ADR-001](ADR-001.md) và [ARCHITECTURE.md](ARCHITECTURE.md#2-ownership) (Document sở hữu tài liệu/phiên bản/grant; AI sở hữu chỉ mục RAG dẫn xuất).
 - **Quyết định:**
   1. Trong Document Service, **`SUCCESS`** có nghĩa là: tệp nguồn đã qua kiểm tra hợp lệ, pipeline IDP đã trích xuất xong **Canonical artifact** (`canonical.json` + assets + outline/page projection cho Reader) và lưu bền vững cùng checksum `canonical_sha256`.
   2. Thực tế mã nguồn: `services/rag/idp/canonical.py` hiện xuất `schema_version = "idp-canonical-1"`, trong khi `services/rag/retrieval/canonical_harness.py` hỗ trợ cả `idp-canonical-1` và `idp-canonical-2`. Document Service lưu tường minh `canonical_schema_version` vào `document_versions` và phát trong payload sự kiện mà không giả định tính năng `idp.publish` chưa có trong workspace.
   3. Khi một phiên bản chuyển sang `SUCCESS` (tự động từ worker hoặc do chủ sở hữu chấp nhận từ `NEEDS_REVIEW`), trong **cùng transaction**, Document ghi sự kiện transactional outbox **`document.version.published`** (kèm `document.grant.changed` khi cấp/thu hồi chia sẻ, `document.deleted` khi xóa).
   4. **AI Service** tiêu thụ sự kiện bất đồng bộ để tự chia đoạn (chunking), nhúng vector/BM25 và **chỉ phục vụ truy hồi phiên bản mới khi bundle chỉ mục đã hoàn chỉnh** (`complete: true`, đúng `QAS-10` và `FT-05`).
-  5. **Sửa báo cáo & slide (Hình 2.16):** Cập nhật sơ đồ và lời thuyết minh trong báo cáo/slide để đặt bước lập chỉ mục **sau** sự kiện `document.version.published` thuộc trách nhiệm AI Service (chi tiết đối chiếu trong [TASK-017F](../../../tasks/TASK-017F-doc-ai-event-and-report-sync.md)).
+  5. **Đồng bộ tài liệu & hợp đồng tích hợp:** Toàn bộ sơ đồ/đặc tả đặt bước lập chỉ mục **sau** sự kiện `document.version.published` thuộc trách nhiệm AI Service (chi tiết đối chiếu trong [TASK-017F](../../../tasks/TASK-017F-doc-ai-event-and-report-sync.md) và [AI API Contract](ai/API_CONTRACT.md)).
 - **Hệ quả:** Cô lập lỗi đúng theo `QAS-01` và `QAS-02`: nếu AI Service hoặc vector index gặp sự cố, giáo viên vẫn tải lên, xem và chia sẻ tài liệu cho học sinh đọc bình thường.
 
 ### Quyết định 8 — Chốt hạn mức Upload P1 và Endpoint Chính sách (`GET /api/v1/documents/policy`)
@@ -101,7 +101,6 @@ Ghi nhận thực tế mã nguồn tại thời điểm ra quyết định:
 
 ## 3. Tài liệu và Task dẫn xuất
 
-- Cẩm nang điều phối Codex CLI & bảng ánh xạ Thiết kế tóm tắt Mục 3 / P0-P1-P2: [document/CODEX_ORCHESTRATION.md](document/CODEX_ORCHESTRATION.md)
 - Thiết kế chi tiết Document Service: [document/DESIGN.md](document/DESIGN.md)
 - Hợp đồng API Document Service & bảng Web Proxy allowlist: [document/API_CONTRACT.md](document/API_CONTRACT.md)
 - Cấu trúc mã nguồn `services/document/`: [document/FOLDER_STRUCTURE.md](document/FOLDER_STRUCTURE.md)

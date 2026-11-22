@@ -1,6 +1,6 @@
 # Document Service — Thiết kế v1
 
-**Trạng thái P0/P1:** `IMPLEMENTED — VERIFIED` · **Điều phối hoàn thiện & đối chiếu P0/P1/P2:** [CODEX_ORCHESTRATION.md](CODEX_ORCHESTRATION.md)
+**Trạng thái P0/P1:** `IMPLEMENTED — VERIFIED` (đã tích hợp Core và Web live)
 
 Thiết kế v1 dựa trên [ADR-002](../ADR-002-document-service.md). Tài liệu thiết kế tóm tắt gọi lớp trừu tượng lưu tệp là `BlobStore` (hiện thực là `StorageBackend` / `LocalVolumeStorage` với khóa `source/{document_id}/{version_id}` & `canonical/{document_id}/{version_id}.json`) và nhóm xử lý worker là `processing_jobs` (hiện thực P0/P1 gom cột claim/lease `attempt_count`, `available_at` cùng `FOR UPDATE SKIP LOCKED` + `pg_advisory_xact_lock` ngay trên `document.document_versions` trong tổng `7` bảng schema `document`, gồm thêm `audit_events`); phần Cloud Run / GCS / quota / malware scan / retention thuộc pha P2 tại [TASK-017I](../../../../tasks/TASK-017I-document-p2-cloud-and-governance.md).
 

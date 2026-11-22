@@ -37,21 +37,26 @@
 | `FR-NO-03` | Payload notification không chứa password, token, nội dung chat riêng tư, tài liệu ngu… | F3,K5 | 03_FRS_Core.md, 09_LLD_Core.md — CORE BACKEND / E2E PENDING | `TC-031` |
 | `FR-DOC-01` | Lecturer có thư viện cá nhân và sở hữu nguồn; một nguồn chia sẻ nhiều lớp | B1,B2 | 04_FRS_Document.md, document/DESIGN.md, document/API_CONTRACT.md — P0/P1 IMPLEMENTED (PG16/Compose) | `DOC-T01`, `DOC-T02` |
 | `FR-DOC-02` | Hỗ trợ PDF/PPTX/DOCX/TXT/Markdown với xử lý/validation và thông tin lỗi | B3,B5 | 04_FRS_Document.md, document/DESIGN.md, services/document/tests/ — P0/P1 IMPLEMENTED (PG16 IDP 5 định dạng) | `DOC-T03`, `DOC-T04` |
-| `FR-DOC-03` | Quản lý version, chỉ công bố version đã SUCCESS; khi bản mới lỗi dùng bản thành công … | B4,H3 | 04_FRS_Document.md, document/DESIGN.md, document/CODEX_ORCHESTRATION.md — P0/P1 IMPLEMENTED | `DOC-T05` |
+| `FR-DOC-03` | Quản lý version, chỉ công bố version đã SUCCESS; khi bản mới lỗi dùng bản thành công … | B4,H3 | 04_FRS_Document.md, document/DESIGN.md — P0/P1 IMPLEMENTED | `DOC-T05` |
 | `FR-DOC-04` | PRIMARY/ASSISTING được grant/revoke vào lớp theo quyền hiện hành; không sửa tệp nguồn… | B2,B6,O1 | 04_FRS_Document.md, core/API_CONTRACT.md (`manage_class_documents`), document/API_CONTRACT.md — P0/P1 IMPLEMENTED | `DOC-T06`, `DOC-T07` |
 | `FR-DOC-05` | Revoke chặn nguồn tại lần kiểm tra mới, không chỉ ẩn giao diện; cảnh báo trước xóa ng… | B6,B7 | 04_FRS_Document.md, document/API_CONTRACT.md (`409 B6`, fail closed `503`) — P0/P1 IMPLEMENTED | `DOC-T02`, `DOC-T08`, `DOC-T09`, `DOC-T10` |
 | `FR-DOC-06` | Student/teacher lưu notes/bookmarks chỉ chủ sở hữu xem/sửa; giữ chữ tự viết và che qu… | G5,H6,L6,O2 | 04_FRS_Document.md, document/API_CONTRACT.md, apps/web/ — P1 IMPLEMENTED (PG16 + Compose full E2E 13/13 PASS ở TASK-017H) | `DOC-T11`, `DOC-T12`, `DOC-T13` |
 | `FR-DOC-07` | Xử lý crash/retry không làm mất file gốc/previous successful version | H3,QAS-10 | 04_FRS_Document.md, document/DESIGN.md (`attempt_count`/`available_at`, `SKIP LOCKED`) — P1 IMPLEMENTED (PG16 + QAS-10 Compose worker kill PASS ở TASK-017H) | `DOC-T05` |
-| `FR-LE-01` | Tách Practice, Assessment và Assignment, tách kết quả luyện tập khỏi điểm chính thức | D0,D3,D8 | 05_FRS_Learning.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `LE-T01` |
-| `FR-LE-02` | Bốn loại câu hỏi: single, multiple, true/false, short answer | D2 | 05_FRS_Learning.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `LE-T01` |
-| `FR-LE-03` | Nội dung assessment đã công bố bất biến; mỗi attempt gắn một đề version cụ thể | I4,O3 | 05_FRS_Learning.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `LE-T04`, `LE-T05` |
-| `FR-LE-04` | PRIMARY duyệt công bố chính thức, sửa/hủy điểm nhạy cảm; ASSISTING chỉ thao tác theo … | D1,D4,D7,I6,M2,M4 | 05_FRS_Learning.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `LE-T01`, `LE-T02`, `LE-T03`, `LE-T11`, `LE-T13`, `LE-T14` |
-| `FR-LE-05` | Lưu thành công câu trả lời từng phần, resume khi còn giờ; auto-submit khi hết giờ nhữ… | I1,I2 | 05_FRS_Learning.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `LE-T05`, `LE-T06`, `LE-T07`, `LE-T08` |
-| `FR-LE-06` | Double submit/retry/timeout không nhân đôi attempt/submission/grade/evidence | QAS-03 | 05_FRS_Learning.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `LE-T09` |
-| `FR-LE-07` | Late policy, resubmission, best/latest/average do giáo viên cấu hình trong giới hạn r… | I3,I5,M3,O5 | 05_FRS_Learning.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `LE-T15`, `LE-T16`, `LE-T17`, `LE-T18` |
-| `FR-LE-08` | Người đã chuyển lớp vẫn có quyền giới hạn với kết quả/bài đã nộp/phúc khảo hợp lệ | L2,M1,O4 | 05_FRS_Learning.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `LE-T19`, `LE-T20`, `LE-T21`, `LE-T22` |
-| `FR-LE-09` | Điểm cuối cùng của Assignment và câu chủ quan do giáo viên quyết định; sửa điểm lưu v… | D4,D5,I6,J3 | 05_FRS_Learning.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `LE-T10`, `LE-T11`, `LE-T12` |
-| `FR-LE-10` | Learning là nguồn deadline chính thức; thay đổi deadline phát thông báo/bản chiếu lịc… | L3,O5 | 05_FRS_Learning.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `LE-T17`, `LE-T23`, `LE-T24`, `LE-T25` |
+| `FR-LE-01` | Tách Practice, Assessment và Assignment, tách kết quả luyện tập khỏi điểm chính thức | D0,D3,D8 | 05_FRS_Learning.md, learning/DESIGN.md — IMPLEMENTED | `LE-T01` |
+| `FR-LE-02` | Bốn loại câu hỏi: single, multiple, true/false, short answer | D2 | 05_FRS_Learning.md, learning/DESIGN.md — IMPLEMENTED | `LE-T01` |
+| `FR-LE-03` | Nội dung assessment đã công bố bất biến; mỗi attempt gắn một đề version cụ thể | I4,O3 | 05_FRS_Learning.md, learning/DESIGN.md — IMPLEMENTED | `LE-T04`, `LE-T05` |
+| `FR-LE-04` | PRIMARY duyệt công bố chính thức, sửa/hủy điểm nhạy cảm; ASSISTING chỉ thao tác theo … | D1,D4,D7,I6,M2,M4 | 05_FRS_Learning.md, learning/DESIGN.md — IMPLEMENTED | `LE-T01`, `LE-T02`, `LE-T03`, `LE-T11`, `LE-T13`, `LE-T14` |
+| `FR-LE-05` | Lưu thành công câu trả lời từng phần, resume khi còn giờ; auto-submit khi hết giờ nhữ… | I1,I2 | 05_FRS_Learning.md, learning/DESIGN.md — IMPLEMENTED | `LE-T05`, `LE-T06`, `LE-T07`, `LE-T08` |
+| `FR-LE-06` | Double submit/retry/timeout không nhân đôi attempt/submission/grade/evidence | QAS-03 | 05_FRS_Learning.md, learning/DESIGN.md — IMPLEMENTED (gate QAS-03 mở) | `LE-T09` |
+| `FR-LE-07` | Late policy, resubmission, best/latest/average do giáo viên cấu hình trong giới hạn r… | I3,I5,M3,O5 | 05_FRS_Learning.md, learning/DESIGN.md — IMPLEMENTED | `LE-T15`, `LE-T16`, `LE-T17`, `LE-T18` |
+| `FR-LE-08` | Người đã chuyển lớp vẫn có quyền giới hạn với kết quả/bài đã nộp/phúc khảo hợp lệ | L2,M1,O4 | 05_FRS_Learning.md, learning/DESIGN.md — IMPLEMENTED | `LE-T19`, `LE-T20`, `LE-T21`, `LE-T22` |
+| `FR-LE-09` | Điểm cuối cùng của Assignment và câu chủ quan do giáo viên quyết định; sửa điểm lưu v… | D4,D5,I6,J3 | 05_FRS_Learning.md, learning/DESIGN.md — IMPLEMENTED | `LE-T10`, `LE-T11`, `LE-T12` |
+| `FR-LE-10` | Learning là nguồn deadline chính thức; thay đổi deadline phát thông báo/bản chiếu lịc… | L3,O5 | 05_FRS_Learning.md, learning/DESIGN.md — IMPLEMENTED | `LE-T17`, `LE-T23`, `LE-T24`, `LE-T25` |
+| `FR-AI-01` | Lập chỉ mục vector từ Canonical JSON hợp lệ và thu hồi truy cập nguồn tức thì | B1,C1,H6 | 02_SRS.md, ai/DESIGN.md — IMPLEMENTED | `AI` integration suite |
+| `FR-AI-02` | AI Tutor (`QUICK_QA` / `STEP_BY_STEP`), cấu hình sư phạm lớp & streaming SSE `/stop` | C1,C2,C4,D6 | 02_SRS.md, ai/API_CONTRACT.md — IMPLEMENTED | `AI` tutor tests |
+| `FR-AI-03` | Sinh câu hỏi AI theo ma trận, duyệt/sinh lại từng câu và xuất sang Learning | D1,D2 | 02_SRS.md, ai/API_CONTRACT.md — IMPLEMENTED (gate QAS-06 mở) | `AI` quiz tests |
+| `FR-AI-04` | Giải thích lỗi sai luyện tập và gợi ý phản hồi chấm bài ở chế độ tư vấn | D5,D8 | 02_SRS.md, ai/API_CONTRACT.md — IMPLEMENTED | `AI` / `Learning` tests |
+| `FR-AI-05` | Chặn hỏi mới AI Tutor khi học sinh đang có bài kiểm tra chính thức mở | D6,H6 | 02_SRS.md, ai/DESIGN.md — IMPLEMENTED | `Learning` + `AI` lock check |
 | `FR-LI-01` | Nhận và đối soát learning evidence có provenance, version, idempotency; không lấy điể… | E3,J3 | 06_FRS_Intelligence.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `LI-T01`, `LI-T02`, `LI-T03`, `LI-T04` |
 | `FR-LI-02` | Không kết luận mastery nếu thiếu evidence độc lập hoặc coverage; hiển thị “Chưa đủ dữ… | J1,J2,O6 | 06_FRS_Intelligence.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `LI-T05`, `LI-T06`, `LI-T07` |
 | `FR-LI-03` | Student xem dữ liệu mình; teacher xem lớp được phân công; không lộ dữ liệu chat riêng… | E1,E2,E5 | 06_FRS_Intelligence.md, 10_LLD_Future.md — PROPOSED / NOT IMPLEMENTED | `LI-T11`, `LI-T12` |
@@ -101,7 +106,7 @@ code_paths: []
 test_cases: [TC-012, TC-015]
 test_run_evidence: []
 verification_status: NOT_RUN
-owner_acceptance: PENDING
+acceptance_status: PENDING
 ```
 
 ## 6. Quy trình cập nhật RTM

@@ -1,9 +1,9 @@
 # Quy ước tổ chức mã nguồn Document Service
 
-**Trạng thái:** `P0/P1 IMPLEMENTED — VERIFIED` (xem quy tắc điều phối tại [CODEX_ORCHESTRATION.md](CODEX_ORCHESTRATION.md), triển khai theo [TASK-017B](../../../../tasks/TASK-017B-document-service-foundation.md), [TASK-017C](../../../../tasks/TASK-017C-document-idp-worker-and-review.md) và [TASK-017E](../../../../tasks/TASK-017E-compose-demo-and-deployment.md)).
+**Trạng thái:** `P0/P1 IMPLEMENTED — VERIFIED` (triển khai theo [TASK-017B](../../../../tasks/TASK-017B-document-service-foundation.md), [TASK-017C](../../../../tasks/TASK-017C-document-idp-worker-and-review.md) và [TASK-017E](../../../../tasks/TASK-017E-compose-demo-and-deployment.md)).
 
 > [!NOTE]
-> **Phần bổ sung thực tế sau triển khai (`services/document/`):** Ngoài khung baseline ban đầu bên dưới, mã nguồn thực tế có thêm `app/bootstrap.py`, `app/model_registry.py`, `app/common/types.py`, `app/modules/versions/processing.py`, `docker/init-document-db.sh`, `Dockerfile`, `Dockerfile.dockerignore`, `README.md` và `tests/test_packaging_contract.py`. Hạng mục sắp bổ sung trong Wave 1 ([TASK-017H](../../../../tasks/TASK-017H-document-compose-e2e-and-demo-runbook.md)): `scripts/verify_compose_e2e.py` và `docs/architect/microservices-v1/document/DEMO_RUNBOOK.md`.
+> **Cập nhật cấu trúc thực tế (`services/document/`):** Ngoài khung baseline ban đầu bên dưới, mã nguồn hiện tại đã triển khai đầy đủ `app/bootstrap.py`, `app/model_registry.py`, `app/common/types.py`, `app/modules/notes/public.py`, `app/modules/versions/processing.py`, `docker/init-document-db.sh`, `Dockerfile`, `Dockerfile.dockerignore`, `README.md`, `tests/test_packaging_contract.py`, script kiểm thử `scripts/verify_compose_e2e.py` và hướng dẫn vận hành tại [DEMO_RUNBOOK.md](DEMO_RUNBOOK.md).
 **Phạm vi:** `services/document/` trong **một monorepo**; Document là một FastAPI microservice độc lập cùng worker nền chung image/schema.
 
 ---

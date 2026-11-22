@@ -17,7 +17,8 @@
 - Giáo viên được phân công tạo nháp, định nghĩa loại bài, title, mô tả, câu hỏi, topic và time/due policy; validation theo hợp đồng đã duyệt.
 - Hỗ trợ single-choice, multiple-choice, true/false và short answer. Không áp dụng công thức điểm mặc định nếu chưa duyệt.
 - Assessment công bố chính thức bắt buộc PRIMARY phê duyệt; ASSISTING chỉ được tạo nháp/đề xuất/chấm phần đã phân công.
-- Nội dung do công cụ bên ngoài hỗ trợ tạo, nếu xuất hiện ở tương lai, vẫn phải được giáo viên duyệt; bộ tài liệu này không thiết kế AI.
+- **Trạng thái triển khai (2026-11-22):** **IMPLEMENTED** tại [Learning Service](../../../services/learning/) (`DESIGN.md` / `API_CONTRACT.md`), tích hợp đồng bộ lịch & thông báo nội bộ với Core, câu hỏi AI với AI Service (`D1`, `D5`), và giao diện Web live (`apps/web`). Các gate kiểm thử hiệu năng cao (`QAS-03` 1,000 concurrency, `TP-01` / `QAS-05`) tiếp tục được theo dõi trong kế hoạch kiểm thử.
+- Câu hỏi hoặc gợi ý phản hồi do AI Service hỗ trợ sinh (`FR-AI-03`, `FR-AI-04`) bắt buộc qua giáo viên duyệt trước khi xuất sang đề/ngân hàng (`D1`) và chỉ mang tính tư vấn khi chấm tự luận (`D5`).
 - Khi publish, đóng băng version; sửa sau publish tạo version mới, không mutate ngầm attempt cũ.
 - **AC:** LE-T01–LE-T04.
 

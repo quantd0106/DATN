@@ -13,14 +13,14 @@
 **Cần sửa/bổ sung:**
 - Mô tả model/schema theo code hiện tại: email nullable, username unique/lowercase, school_id, activated_at; token purpose Student tách staff. Login nhận đúng một username/email, không dùng điều kiện email_verified chung cho mọi Student.
 - Giữ chuyển đổi legacy có chủ đích: Admin cùng trường gán username, giữ UUID/hash/dữ liệu, thu hồi phiên/token cũ; pending cần activation, LOCKED không tự mở. Không backfill ngẫu nhiên hoặc bật lại email login Student.
-- Để TASK-013 điều phối import/role/data-request workflows qua public interface; Identity sở hữu user/token, Classroom sở hữu School/roster. PR #33 gắn import preview cache với user/school/session và không tái dùng cache chứa mã một lần qua phiên khác.
+- Để TASK-013 điều phối import/role/data-request workflows qua public interface; Identity sở hữu user/token, Classroom sở hữu School/roster. Import preview cache gắn với user/school/session và không tái dùng cache chứa mã một lần qua phiên khác.
 - Hoàn thiện mapping School theo TASK-005/014 và quy trình xác minh recovery được người vận hành duyệt; `identity_verified=true` chỉ là xác nhận của Admin.
 
 **Phụ thuộc và nghiệm thu bổ sung:**
 - [ ] TASK-013/014 kiểm thử chuyển dữ liệu cũ có mapping thật được duyệt, giữ ID/hash/trạng thái và không cấp quyền chéo trường.
 - [x] Chạy lại Identity/Core suite và migration drift checks trên PostgreSQL 16 trong GitHub CI (360 passed, 0 skipped).
 
-**Kiểm chứng hiện hành (2026-10-30):** Identity scenarios thuộc Core CI PostgreSQL 16 đã đạt 380 passed/0 skipped tại PR #35. Issue #16 sau đó xác nhận Gmail staging invitation/recovery delivery, same-token retry, reissue và simulated failure tests; Production vẫn tách biệt. Legacy School mapping/FK (#13) và Production onboarding (#18) còn mở. Xem [tasks/README](README.md).
+**Kiểm chứng lịch sử (2026-10-30):** Identity scenarios thuộc Core CI PostgreSQL 16 đã đạt 380 passed/0 skipped cùng Gmail staging invitation/recovery delivery, same-token retry, reissue và simulated failure tests; Production vẫn tách biệt. Mapping dữ liệu trường thực và Production onboarding là tác vụ vận hành riêng. Xem [tasks/README](README.md).
 
 ---
 
@@ -110,4 +110,4 @@ Xây dựng các bảng trong schema `core`:
 
 **Bằng chứng lịch sử (2026-10-11):** Python 3.12.14, PostgreSQL 18 tạm; identity tests và migration 0003 checks đạt. Evidence PostgreSQL 16 mới nhất được ghi ở mục kiểm chứng hiện hành.
 
-**Phạm vi tiếp theo:** TASK-003 triển khai router, cookie/CSRF/rate limit; SMTP adapter ban đầu dùng bộ gửi giả, sau đó issue #16 bổ sung durable queue/retry và xác nhận provider thật trên staging. TASK-004 mở rộng public workflows/data requests; policy Admin thủ công cho ACCESS/EXPORT/CORRECTION đã được duyệt, còn DELETE/retention và Web Admin integration ở #15. Hướng dẫn gọi service, cấu hình expiry và transaction tại [Core README](../services/core/README.md#identity-auth-core-task-002).
+**Phạm vi tiếp theo:** TASK-003 triển khai router, cookie/CSRF/rate limit; SMTP adapter ban đầu dùng bộ gửi giả, sau đó được bổ sung durable queue/retry và xác nhận provider thật trên staging. TASK-004 mở rộng public workflows/data requests; policy Admin thủ công cho ACCESS/EXPORT/CORRECTION đã được duyệt, còn DELETE/retention liên service tiếp tục deferred. Hướng dẫn gọi service, cấu hình expiry và transaction tại [Core README](../services/core/README.md#identity-auth-core-task-002).

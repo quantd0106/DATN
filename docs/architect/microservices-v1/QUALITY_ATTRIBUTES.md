@@ -80,7 +80,7 @@ Tối thiểu 50 tình huống học tập do giáo viên kiểm tra. Gợi ý p
 | FT-07 | Ngắt nguồn xác minh quyền | Thao tác nhạy cảm từ chối an toàn |
 
 ## 5. Quy trình nghiệm thu
-1. Nhóm review kịch bản và cách đo.
+1. Rà soát kịch bản và phương pháp đo.
 2. Ghi cấu hình môi trường và xác nhận phương pháp đo trước khi chạy.
 3. Triển khai đo đạc, kiểm thử lỗi, tải, bảo mật và đánh giá RAG.
 4. Lưu kết quả thực tế, bằng chứng và sai lệch; chỉ đánh dấu **đã kiểm chứng** khi có kết quả.

@@ -18,7 +18,7 @@
 
 **Container smoke:** Docker build Core thành công với wheel và dependencies thực; runtime UID 10001, package nằm trong site-packages, defusedxml bật, OpenAPI có Administration routes. Image chạy `alembic upgrade head`, `alembic check` và Notification worker `--once` thành công trên PostgreSQL 16 test. Đây là smoke Core/package, không phải full-stack Web E2E.
 
-**Owner review còn cần xác nhận sau merge:** review Identity admin helpers/revocation/last-admin lock; review public roster append/session ownership và scope audit Classroom; review scope audit Social; review audit metadata/index, migration 0012, bootstrap và dependencies openpyxl/defusedxml. CI xanh, nhưng CI không thay owner approval. Contract đầy đủ tại [API_CONTRACT.md](../docs/architect/microservices-v1/core/API_CONTRACT.md#administration--implemented-task-013).
+**Phạm vi kiểm tra trọng tâm:** Identity admin helpers/revocation/last-admin lock; public roster append/session ownership và scope audit Classroom/Social; audit metadata/index, migration 0012, bootstrap và dependencies `openpyxl`/`defusedxml`. Mọi thay đổi public contract cần đi kèm test suite tương ứng. Contract đầy đủ tại [API_CONTRACT.md](../docs/architect/microservices-v1/core/API_CONTRACT.md#administration--implemented-task-013).
 
 **Quyết định triển khai:**
 - Student dùng helper provision/issue-code/legacy username đã có; staff dùng email invitation ADMIN/LECTURER. Không cho `/admin/users` tạo Student bằng email hoặc đăng ký lại route Student hiện có.

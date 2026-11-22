@@ -57,13 +57,13 @@ gốc được giữ là gate tích hợp riêng, ngoài phạm vi lần này; k
 - Admin provision → Student activate → Admin roster/AUTO hoặc MANUAL → thông báo → Student feed/comment/calendar → moderation có audit → transfer/archive.
 - Kiểm tra relation class–post–comment, soft delete list/detail, recipient-only notification, worker retry/crash/dedup và producer rollback.
 - Admin role/lock/data request ACCESS/EXPORT/CORRECTION/DELETE có xác minh, audit/redaction, không tự xóa liên service.
-- Calendar LEARNING read-only; duplicate/out-of-order deadline và notification đúng contract. Learning chưa triển khai thì chỉ ghi kết quả contract/projection test.
+- Calendar LEARNING read-only; duplicate/out-of-order deadline và notification đúng contract qua `PUT /internal/v1/calendar/learning-deadlines` và `POST /internal/v1/notifications/learning-events` (`services/learning/` đã triển khai).
 - Bộ test hợp đồng bảo vệ module boundaries; không có import repository/model chéo hoặc SQL xuyên service.
 
 ### 2.5. Hạ tầng và hiệu năng — Core-05/06
 
 - TASK-014/016: upgrade/drift/legacy data preservation, clean Compose startup, installed wheel/non-root, readiness DB/schema, outage/recovery, lint/format/OpenAPI và coverage gates.
-- Đo p95 danh sách lớp ≤500 ms và thành công ≥99% theo TP-01 sau khi có API danh sách lớp được duyệt; không tự coi GET /classes là route đã triển khai.
+- Đo p95 danh sách lớp ≤500 ms và thành công ≥99% theo TP-01 trên API `GET /api/v1/classes` đã triển khai của Core; riêng mixed-service full TP-01 vẫn là gate riêng.
 - Ghi máy/cấu hình/tải/script và kết quả thật. Không suy ra KPI tải/RAG hoặc toàn bộ G2 chỉ vì unit tests/CI green.
 
 ## 3. Tiêu chí nghiệm thu
@@ -73,7 +73,7 @@ gốc được giữ là gate tích hợp riêng, ngoài phạm vi lần này; k
 - [ ] Web E2E đầy đủ: **ngoài scope backend người dùng chốt 2026-10-19**, không thay đổi apps/web hoặc dùng backend test để nghiệm thu Web.
 - [x] Các ca truy cập trái phép trong phạm vi test bị chặn sau fix; không quan sát rò rỉ trong suite hữu hạn. Pending services, client latency, cache durability và remote review/CI được ghi rõ; không khẳng định bảo đảm tuyệt đối.
 - [x] Remote CI : `core-tests`, `compose-smoke`, `web-build` đạt ở head `bb7f88d` trước squash merge.
-- [ ] Reviewer/owner approval và nghiệm thu toàn Core G2 hoặc mixed-service TP-01.
+- [ ] Nghiệm thu toàn Core G2 và mixed-service full TP-01 trên hạ tầng mục tiêu.
 
 ## 4. Triển khai backend — 2026-10-19
 
@@ -84,7 +84,7 @@ gốc được giữ là gate tích hợp riêng, ngoài phạm vi lần này; k
 - `scenarios.json` + `evidence.py` nối Rule ID → scenario → JUnit/result; missing/skip/failure không được tính đạt. Có mục pending cho service chưa triển khai và Web ngoài scope. CI lưu rule evidence, JUnit/coverage; thêm job đo tải backend 10 phút qua workflow_dispatch.
 - Script `tests/performance/class_list_load.py` tạo database/load fixtures riêng, đo 100 user/10 lớp/50 Student mỗi lớp, 30 giây warmup + 600 giây, cùng HTTP pool và stagger lịch đóng. Báo cáo backend ASGI p95 lẫn client p95, tỷ lệ thành công, scope check và cấu hình máy/DB. Đây là Core subset TP-01, không nghiệm thu toàn mixed-service/RAG.
 - Sửa hai vấn đề phát hiện khi kiểm thử: cached Classroom mutation phải recheck tài nguyên nguồn/đích/created resource theo scope hiện hành; thêm admission queue trước sync dependencies để hạn chế DB pool starvation, giữ permit qua cleanup, timeout trả no-store 503/Retry-After, health bypass. Mặc định pool 5+10; profile đo dùng 15+0 để giữ kết nối, cùng trần tối đa 15.
-- Shared/owner review: Identity/public/Common, Classroom/replay, test matrix và CI. Không đổi schema/Business Rules, không thêm HTTP nghiệp vụ, không push/commit/deploy; `apps/web` không có thay đổi.
+- Phạm vi kiểm thử: Identity/public/Common, Classroom/replay, test matrix và CI. Không đổi schema/Business Rules, không thêm HTTP nghiệp vụ.
 - Hướng dẫn, giới hạn và lệnh: [backend test guide](../services/core/tests/README.md). Bằng chứng local bên dưới là mốc thực hiện; CI được ghi trong cập nhật đầu tài liệu.
 
 ## 5. Bằng chứng local — 2026-10-19
@@ -96,5 +96,5 @@ gốc được giữ là gate tích hợp riêng, ngoài phạm vi lần này; k
 - Core-06: 100 user, 10 lớp × 50 Student, warmup 30 giây + cấu hình 600 giây, completion 604.91 giây; **11.416 request**, **11.415 HTTP 200**, **1 transport/contract error**. Backend ASGI p95 **96.51 ms**, success **99.9912%**, scope mismatch **0**. Máy Windows 12 logical CPU/RAM ~16.9 GB, PostgreSQL Docker loopback, pool **15+0**.
 - **Giới hạn hiệu năng:** client p95 **15.58 giây**, max **45.72 giây** trong lượt đo dùng chung máy với coverage/build. Backend samples 11.415 tương ứng các request đến ASGI; lỗi phía client vẫn tính vào mẫu success. Đây là closed-loop traffic, không phải cam kết 100 request/giây, không chứng minh độ trễ người dùng tốt hoặc full TP-01. Không có Document/Learning/AI/intelligence traffic; cần benchmark môi trường riêng trước nghiệm thu toàn hệ thống.
 - **Follow-up tải 2026-10-19:** Không chạy suite/build đồng thời; vẫn dùng máy Windows dùng chung, không cô lập tài nguyên. PostgreSQL 16.15, migration 0012, pool 15+0; 100 users / 10 classes / 500 Students trong 601 giây: **56.229 request, 56.229 HTTP 200, 0 scope mismatch**, backend p95 **18,79 ms**, client p95 **1,17 giây**, max client **9,99 giây**. Ngưỡng backend subset đạt; kết quả thấp hơn lượt chạy cùng coverage/build trước đó nhưng chưa xác định nguyên nhân và chưa xác nhận user-facing SLO.
-- **Follow-up Core-06 trên VPS CKEY 2026-10-30:** KR, Ubuntu 22.04.5, cấu hình 6/12 vCPU, RAM 16 GB, GPU không dùng; PostgreSQL **16.15**, migration **0013**, Python **3.12.16**, pool **5+10**. 100 user / 10 lớp / 500 Student, warmup 30 giây + đo 600 giây: **58.521/58.521 HTTP 200**, backend p95 **21,84 ms**, client loopback p95 **672,04 ms**, max client **4,65 giây**, scope mismatch **0**; Core class-list threshold đạt theo harness. Máy thuê và tiến trình thuộc host provider-shared, không đo mức cô lập hay CPU/RAM utilization; client p95 chỉ đo loopback, không đại diện Cloud Run/Neon hoặc latency phía trình duyệt. `full_tp01_verified=false`; Learning/Document/AI/Intelligence không được đo. GitHub issue #17 đóng ở phạm vi benchmark Core subset; không thay thế nghiệm thu full TP-01.
+- **Follow-up Core-06 trên VPS CKEY 2026-10-30:** KR, Ubuntu 22.04.5, cấu hình 6/12 vCPU, RAM 16 GB, GPU không dùng; PostgreSQL **16.15**, migration **0013**, Python **3.12.16**, pool **5+10**. 100 user / 10 lớp / 500 Student, warmup 30 giây + đo 600 giây: **58.521/58.521 HTTP 200**, backend p95 **21,84 ms**, client loopback p95 **672,04 ms**, max client **4,65 giây**, scope mismatch **0**; Core class-list threshold đạt theo harness. Máy thuê và tiến trình thuộc host provider-shared, không đo mức cô lập hay CPU/RAM utilization; client p95 chỉ đo loopback, không đại diện Cloud Run/Neon hoặc latency phía trình duyệt. `full_tp01_verified=false`; Learning/Document/AI/Intelligence không được đo trong lần chạy này và không thay thế nghiệm thu full TP-01.
 - Safe aggregate artifacts: [verification](../services/core/test-evidence/task015/verification.json), [Rule results](../services/core/test-evidence/task015/rule-results.json), [load ban đầu](../services/core/test-evidence/task015/core-load-2026-10-19.json), [load follow-up](../services/core/test-evidence/task015/core-load-followup-2026-10-19.json), [CKEY Core-06](../services/core/test-evidence/task015/core-load-ckey-2026-10-30.json), [runtime](../services/core/test-evidence/task015/runtime.json). JUnit/coverage raw nằm ở output test bị gitignore hoặc CI artifact; không đưa credential/header/code vào báo cáo tổng hợp.

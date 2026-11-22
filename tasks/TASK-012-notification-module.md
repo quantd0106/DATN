@@ -8,7 +8,7 @@
 
 ## Triển khai và kiểm chứng — 2026-10-18
 
-**Hiện trạng:** Đã triển khai inbox API, recipient-only pagination/read/read-all, snapshot người nhận, worker transactional outbox, dedup và retry. Tái sử dụng outbox Common/migration 0009, bổ sung migration 0011 sau head 0010; không tạo bảng/model outbox thứ hai. Credential SMTP luôn ở ngoài Notification payload. Follow-up issue #16 thêm Identity delivery queue riêng tại migration 0013; Compose/Cloud worker runner gọi Notification và credential worker độc lập.
+**Hiện trạng:** Đã triển khai inbox API, recipient-only pagination/read/read-all, snapshot người nhận, worker transactional outbox, dedup và retry (bao gồm internal intake từ Learning qua `POST /internal/v1/notifications/learning-events` + migration 0015). Tái sử dụng outbox Common/migration 0009, bổ sung migration 0011 và 0015; không tạo bảng/model outbox thứ hai. Credential SMTP luôn ở ngoài Notification payload và nằm trong Identity delivery queue riêng tại migration 0013.
 
 **Bằng chứng local:** Windows, Python 3.12.14, PostgreSQL 16 container test riêng; `TEST_DATABASE_URL` chỉ tới database tổng hợp. `pytest -q -W error -p no:cacheprovider --tb=short` đạt **251 passed**, không skip; gồm **31 test Notification**. Integration chạy thật các ca AUTO/MANUAL, assignment/archive/transfer, producer rollback, uncommitted event, crash sau insert, replay/version/out-of-order, retry, recipient-only HTTP, source permission revoke, concurrent workers, read-all cạnh tranh và migration roundtrip/drift. Tắt cacheprovider để tránh ACL cache Windows, không tắt kiểm thử. Đây là bằng chứng backend local, không thay thế review/CI hoặc nghiệm thu toàn Core/Web G2.
 
@@ -27,7 +27,7 @@
 - [ ] review enqueue/event contracts, migration ở TASK-014 và integration ở TASK-015.
 - [x] Test duplicate/replay/out-of-order, rollback producer, worker crash/retry, recipient-only và thu hồi quyền sau notification; không nhân đôi hoặc làm mất thông báo đã nhận xử lý trong các kịch bản kiểm thử.
 
-**Cập nhật sau (2026-10-19):** Worker chỉ giao schema V2 có recipient snapshot; backlog V1 được giữ nhưng bỏ qua, gồm bản ghi do app cũ ghi trong rolling deployment. Full Core PostgreSQL 16 đạt 342 passed, 0 skipped; CI. Owner review vẫn cần xác nhận riêng.
+**Cập nhật sau (2026-10-19):** Worker chỉ giao schema V2 có recipient snapshot; backlog V1 được giữ nhưng bỏ qua, gồm bản ghi do app cũ ghi trong rolling deployment. Full Core PostgreSQL 16 đạt 342 passed, 0 skipped; CI xanh.
 
 ---
 

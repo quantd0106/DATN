@@ -1,7 +1,8 @@
 flowchart TB
-  G["Push / Pull Request / kích hoạt thủ công"] --> T["Kiểm thử Core — PostgreSQL 16, Ruff, Alembic, pytest"]
-  G --> W["Biên dịch và kiểm tra Web — Node.js 22"]
-  G --> S["Khởi động thử bằng Compose — Core / Web / DB / Worker"]
-  G -.-> L["Kiểm tra tải Core theo yêu cầu — 100 người dùng, 600 giây"]
-  T --> E["Bằng chứng: JUnit / coverage / truy vết yêu cầu"]
+  G["Push / Pull Request / kích hoạt thủ công"] --> T["core-tests: PG 16, Ruff, Alembic, pytest & 100% public coverage"]
+  G --> DT["document-tests: PG 16, Ruff, Alembic & IDP pytest"]
+  G --> W["web-build: Node 22, npm run check & NEXT_PUBLIC_DATA_MODE=live build"]
+  G --> S["compose-smoke: Compose (Core / Document / Workers / Web & cô lập 503)"]
+  G -. "workflow_dispatch" .-> L["core-load: kiểm tra tải Core theo yêu cầu"]
+  T & DT & W & S --> E["Bằng chứng: JUnit / coverage / kiểm chứng build"]
   L --> E

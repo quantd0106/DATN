@@ -4,11 +4,11 @@
 
 | Giai đoạn | Phạm vi | Điều kiện chuyển |
 |---|---|---|
-| **G0 — Contract Core** | ERD, state machines, RBAC, API, folder ownership, mock | Nhóm review hợp đồng và phân công |
+| **G0 — Contract Core** | ERD, state machines, RBAC, API, folder ownership, mock | Chốt hợp đồng kiến trúc, API, phân quyền và cấu trúc thư mục |
 | **G1 — Core chức năng đầy đủ** | Identity/JWT, user/role, School/roster/lớp môn học, enrollment AUTO/MANUAL, Admin teaching assignment/transfer/archive, feed/comments/calendar, notification, Core admin/audit | Web → Core → DB thực hiện được các luồng, có test quyền |
 | **G2 — Core tích hợp** | Compose, migration, CI, health, security, concurrency, API/contract/integration test | Demo toàn bộ Core trên môi trường sạch, có bằng chứng kiểm thử |
-| **G3 — Document + AI** | File/version/grant/processing, source-bound notes/bookmarks, RAG Tutor | Quyền nguồn, thu hồi, citation/abstention được kiểm thử |
-| **G4 — Learning** | Practice, Assessment, Assignment, grading, deadlines, appeal | Test deadline, attempt/version, audit, sửa điểm |
+| **G3 — Document + AI** | File/version/grant/processing, source-bound notes/bookmarks, RAG Tutor & Quiz generator | Quyền nguồn, thu hồi, citation/abstention, QAS-06 được kiểm thử |
+| **G4 — Learning** | Practice, Assessment, Assignment, grading, deadlines, appeal | Test deadline, attempt/version, audit, sửa điểm, QAS-03/QAS-05 |
 | **G5 — Learner Intelligence + MVP** | Evidence/mastery/recommendations, dashboard, báo cáo PDF/Excel và tích hợp | Kiểm tra Business Rules và Quality Attributes |
 
 **Không chuyển G3 khi chỉ hoàn thành Core Foundation.** Notes/bookmarks gắn nguồn thuộc Document ở G3; báo cáo tổng hợp nhiều service được tích hợp G5, không loại khỏi MVP.
@@ -21,9 +21,12 @@
 4. Tích hợp từng luồng, test cross-class, locked, archived, teacher assignment, enrollment sync, concurrent requests.
 5. Chạy Compose từ môi trường sạch, CI, security/contract tests, lưu kết quả rồi mới sang G3.
 
-## Checklist nghiệm thu Core
+## Checklist nghiệm thu và hiện trạng (`2026-11-22`)
 
-**Trạng thái backend trên `main` `2f7d70a` (2026-10-19):** Các luồng backend 001–016 đã triển khai; full Core PostgreSQL 16 đạt **342 passed, 0 skipped**. CI PR #10 đạt `core-tests`, `compose-smoke`, `web-build` trên head `bb7f88d` trước squash merge. Đo tải follow-up Core subset đạt ngưỡng backend (p95 18,79 ms), client p95 1,17 giây; đây chưa phải chứng nhận user-facing SLO/full TP-01. Checklist dưới đây vẫn là gate ký nghiệm thu Core G2: School mapping dữ liệu thật/FK, data-request policy/executor, owner review và consumer liên service còn pending. Web nghiệp vụ không nằm trong phạm vi backend đã chốt; `apps/web` build xanh không phải Web E2E.
+- **Core (G1–G2):** Các luồng backend 001–016 và Web Core MVP đã triển khai; full Core PostgreSQL 16 đạt **381 passed** trong các đợt kiểm chứng gần nhất. Vẫn còn mở gate mapping School dữ liệu thật (khi có tài khoản thực), executor `DELETE`/retention (`OD-02`, `OD-03`), và full mixed-service `TP-01`.
+- **Document (G3):** `P0/P1 IMPLEMENTED — VERIFIED` trên PostgreSQL 16 (`99 passed`, `94.19%`) và Docker Compose live (`13/13 PASS`). Hạng mục P2 cloud/GCS/quota theo dõi tại `TASK-017I`.
+- **AI & Learning (G3–G4):** Mã nguồn `services/ai/`, `services/learning/` và tích hợp Web live (`/api/ai/v1/*`, `/api/learning/v1/*`) đã được triển khai và chạy trên Docker Compose (`compose.full.yaml`). Gate còn mở gồm đánh giá định lượng `QAS-06` (`>= 100` câu hỏi với model GGUF thật), bật consumer outbox `document.version.published` → `/canonical` end-to-end, kiểm thử trình duyệt đầy đủ 4 service và đo tải `TP-01` / `QAS-05`.
+- **Learner Intelligence (G5):** Chưa triển khai (`PROPOSED`), vẫn ẩn trên điều hướng live Web.
 
 - [ ] Admin provision/Student activate/login/refresh/logout/revoke, Admin account/roles/lock.
 - [ ] Admin tạo lớp môn học gắn lớp hành chính/năm học, phân công giáo viên, nhập CSV/Excel, ghi danh AUTO/MANUAL, chuyển lớp và archive/restore; Student không tự join/leave; Lecturer không tạo lớp.
@@ -43,7 +46,7 @@ MVP Lumi hướng tới lớp chính khóa THCS/THPT (khối 6–12), không ph�
 - **G3:** tài liệu có grant và thu hồi, notes/bookmarks và chat lịch sử riêng tư, AI Tutor chỉ ở lớp hiện hành.
 - **G4:** assessment draft/approval, grade proposal/approval, chuyển lớp với pending submission/attempt, lịch sử/phúc khảo.
 - **G5:** analytics lịch sử và sửa điểm, yêu cầu dữ liệu Admin xử lý có audit, báo cáo PDF/Excel.
-- Các dòng checklist cũ về join/approve/reject, Lecturer enrollment, owner transfer/archive và public Student registration được **thay thế** bởi baseline này; các phần code hiện có chưa được coi là hoàn tất nghiệp vụ mục tiêu.
+- Các dòng checklist cũ về join/approve/reject, Lecturer enrollment, class-owner transfer/archive và public Student registration được **thay thế** bởi baseline này; các endpoint legacy không nằm trong hợp đồng phát hành MVP.
 
 ## Backlog đồng bộ
 

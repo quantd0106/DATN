@@ -1,6 +1,6 @@
 # Kịch bản bảo vệ Document Service
 
-Luồng chính bám Mục 5.7 của `Bao_cao_DATN.docx`. Dành nhiều thời gian nhất cho
+Luồng chính minh họa đầy đủ 7 bước vòng đời tài liệu (từ upload đến thu hồi chia sẻ và bảo lưu ghi chú). Dành nhiều thời gian nhất cho
 bước 4 (xử lý và chia sẻ) và bước 7 (thu hồi). Dùng ba hồ sơ trình duyệt riêng
 cho Admin, giáo viên chính và học sinh để chuyển vai trò ngay.
 
@@ -84,7 +84,7 @@ Mở trình duyệt bằng `http://localhost:13000`. Script kết nối qua IP v
 & $python -B $script --web-url $web --origin $origin --compose-project $project --db-name dev_rag_course
 ```
 
-Lưu kết quả từng nhóm, thời gian và số liệu min/p50/p95 của ba request Web.
+Lưu kết quả từng kịch bản, thời gian và số liệu min/p50/p95 của ba request Web.
 Các số đo là kết quả tuần tự trên Compose local. Bản chạy đầy đủ gồm lần giết
 worker, quan sát `attempt_count` và lần dừng Document API. Nếu chỉ chạy HTTP,
 thêm `--skip-docker-faults` và dùng hai mật khẩu giáo viên đã biết.
@@ -102,12 +102,12 @@ upload rồi lỗi ở IDP. `revision.pdf` có nội dung mới để phân bi�
 | 2 | 0:30–1:05 | Thêm học sinh vào roster `Seed 9A`. Tại `/admin/classes/new`, tạo lớp khối 9 cho `SEED-MATH`, chọn `AUTO`, `Seed 9A`, giáo viên chính và phối hợp. Mở màn ghi danh để chỉ học sinh có trong lớp. |
 | 3 | 1:05–1:30 | Giáo viên mở bảng tin lớp mới và đăng bài ngắn. Học sinh mở bài, bình luận và kiểm tra thông báo của lớp. |
 | **4** | **1:30–3:10** | Giáo viên mở `/teacher/library`, chỉ hạn mức 20 MiB và 300 trang/slide. Tải `lesson.pdf`, mở `/teacher/library/{documentId}`, quan sát trạng thái xử lý rồi sẵn sàng (`SUCCESS` ở API). Tải `review.docx`, mở phiên bản **Cần rà soát** rồi bấm **Chấp nhận**. Chia sẻ vào lớp đang hoạt động. Học sinh vào `/student/classes/{classId}/documents/{documentId}`, xem nội dung Canonical, lưu ghi chú, đánh dấu trang và tải tệp gốc. |
-| 5 | 3:10–3:40 | Khi có môi trường AI, học sinh hỏi nhanh rồi hỏi theo từng bước, mở trích dẫn đúng trang và thử câu ngoài tài liệu. Với Compose trong runbook, mở lại trang tương ứng trong Reader và dùng video mẫu cho phần hỏi đáp. |
-| 6 | 3:40–4:10 | Khi có môi trường sinh câu hỏi, giáo viên mở ma trận đề, sinh, duyệt và xuất câu hỏi. Học sinh làm luyện tập và xem giải thích. Dùng video mẫu của Mục 5.7 nếu chức năng này chưa bật. |
-| **7** | **4:10–5:00** | Giáo viên chọn **Thu hồi chia sẻ** cho lớp demo. Học sinh tải lại Reader đã mở và kiểm tra nguồn/tải tệp bị chặn, trong khi chữ tự viết vẫn xem và sửa được tại `/student/notes`. Dùng kết quả nhóm 08 để chỉ `source_quote = null` vì trình soạn ghi chú Web hiện gửi chữ tự viết. Nếu có AI, hỏi lại và kiểm tra nguồn đã thu hồi không còn được truy hồi. Mở hộp xác nhận xóa của **một tài liệu khác** đã chia sẻ ở hai lớp để chỉ cảnh báo B6. |
+| 5 | 3:10–3:40 | Khi chạy stack đầy đủ (`compose.full.yaml` bật `ai` và `ai-worker`), học sinh hỏi nhanh rồi hỏi theo từng bước, mở trích dẫn đúng trang và thử câu ngoài tài liệu. Khi chỉ bật `core` + `document` theo `compose.yaml`, mở lại trang tương ứng trong Reader. |
+| 6 | 3:40–4:10 | Khi chạy `compose.full.yaml` (bật `ai` và `learning`), giáo viên mở ma trận đề trong trình soạn hoạt động, sinh, duyệt và xuất câu hỏi sang Learning; học sinh làm luyện tập và xem giải thích lỗi sai. |
+| **7** | **4:10–5:00** | Giáo viên chọn **Thu hồi chia sẻ** cho lớp demo. Học sinh tải lại Reader đã mở và kiểm tra nguồn/tải tệp bị chặn, trong khi chữ tự viết vẫn xem và sửa được tại `/student/notes`. Dùng kết quả kịch bản 08 để chỉ `source_quote = null` vì trình soạn ghi chú Web hiện gửi chữ tự viết. Nếu có AI, hỏi lại và kiểm tra nguồn đã thu hồi không còn được truy hồi. Mở hộp xác nhận xóa của **một tài liệu khác** đã chia sẻ ở hai lớp để chỉ cảnh báo B6. |
 
 Chuẩn bị sẵn một PDF đã xử lý và chia sẻ hai lớp, cùng một DOCX đang **Cần rà
-soát** để chuyển sang bản chuẩn bị nếu worker đang bận. Giữ video đầy đủ Mục 5.7
+soát** để chuyển sang bản chuẩn bị nếu worker đang bận. Giữ bản quay màn hình dự phòng đầy đủ 7 bước
 để dùng khi máy chủ mô hình hoặc mạng chậm.
 
 ## Hỏi sâu 3 phút
@@ -118,11 +118,11 @@ soát** để chuyển sang bản chuẩn bị nếu worker đang bận. Giữ v
    vẫn ở v1. Bấm **Thử lại** cho v2. Tải `revision.pdf` làm v3, đợi sẵn sàng
    rồi chỉ v1 mang nhãn **Bản lưu** và v3 đang phục vụ.
 2. **0:55–1:35 · Duyệt phiên bản.** Mở bản `review.docx` đang **Cần rà soát**.
-   Chỉ kết quả nhóm 04 về quyền giáo viên phối hợp, rồi dùng tài khoản chủ sở
+   Chỉ kết quả kịch bản 04 về quyền giáo viên phối hợp, rồi dùng tài khoản chủ sở
    hữu bấm **Chấp nhận** để phiên bản thành `SUCCESS` với `OWNER_ACCEPTED`.
    Chia sẻ và mở Reader từ phiên học sinh.
 3. **1:35–2:15 · Xóa đa lớp.** Mở hộp cảnh báo trên tài liệu đã chia sẻ hai lớp.
-   Kết quả nhóm 09 cho thấy API trả `409` kèm hai ID lớp khi thiếu xác nhận.
+   Kết quả kịch bản 09 cho thấy API trả `409` kèm hai ID lớp khi thiếu xác nhận.
    Xác nhận trong giao diện và tải lại Reader học sinh để thấy nguồn bị chặn.
 4. **2:15–3:00 · Cô lập dịch vụ.** Mở sẵn hai tab Network. Sau lệnh dừng, tải
    lại danh sách lớp và thư viện. Chỉ `GET /api/v1/classes` trả `200` và

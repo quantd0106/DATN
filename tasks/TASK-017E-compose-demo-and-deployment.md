@@ -15,7 +15,7 @@
 
 ## 1. Mục tiêu
 
-Hoàn thiện cấu hình đóng gói Docker và `compose.yaml` để chạy toàn bộ hệ thống demo bảo vệ đồ án (Web + Core + Core Worker + Document API + Document Worker + PostgreSQL 16 + volume lưu tệp cục bộ) trên môi trường sạch, cho phép upload mượt mà tệp mẫu `10 MB` của `TP-01` và tới trần `20 MB` mà không bị giới hạn payload serverless của Vercel. Đồng thời ghi nhận rõ hợp đồng/ràng buộc hoãn sang P2 cho upload trực tiếp qua GCS signed URL.
+Hoàn thiện cấu hình đóng gói Docker và `compose.yaml` để chạy toàn bộ hệ thống kiểm thử tích hợp (Web + Core + Core Worker + Document API + Document Worker + PostgreSQL 16 + volume lưu tệp cục bộ) trên môi trường sạch, cho phép upload mượt mà tệp mẫu `10 MB` của `TP-01` và tới trần `20 MB` mà không bị giới hạn payload serverless của Vercel. Đồng thời ghi nhận rõ hợp đồng/ràng buộc hoãn sang P2 cho upload trực tiếp qua GCS signed URL.
 
 ---
 

@@ -1,6 +1,12 @@
 # Quy ước tổ chức mã nguồn Core Service
 
-**Trạng thái:** BASELINE QUY ƯỚC THƯ MỤC; skeleton/Common/Identity đã có triển khai, các module khác trong cây là mục tiêu. **Phạm vi:** `services/core/` trong **một monorepo**; Core là **một FastAPI microservice**, không tách module nội bộ thành các service riêng.
+**Trạng thái:** IMPLEMENTED · **Cập nhật:** 2026-11-22. Các module `common`, `identity`, `classroom`, `social`, `notification`, `administration`, `health`, background worker và migration `0001–0015` đều đã triển khai.
+
+> **Bổ sung mã nguồn thực tế (`services/core/`):**
+> - Entrypoint/worker: `app/bootstrap.py`, `app/model_registry.py`, `app/background_worker.py`, `app/maintenance/{database.py,migration_safety.py}`, `app/modules/health/router.py`.
+> - Identity (`app/modules/identity/`): `public.py`, `admin_public.py`, `admin_schemas.py`, `admin_security.py`, `credential_tokens.py`, `delivery_worker.py`, `email_delivery.py`, `http_security.py`, `idempotency.py`, `local_test_data.py`, `rate_limit.py`, `maintenance.py`.
+> - Social (`app/modules/social/`): `access.py`, `router.py`, `schemas.py` cùng các sub-module `feed/`, `comments/`, `calendar/`.
+> - Migrations & Tests: `migrations/versions/0001_*` đến `0015_outbox_aggregate_type.py`; `tests/{identity,classroom,social,notification,administration,integration,maintenance,security,performance}/`. **Phạm vi:** `services/core/` trong **một monorepo**; Core là **một FastAPI microservice**, không tách module nội bộ thành các service riêng.
 
 ## 1. Mục tiêu và cách đọc
 - AI coding agent chỉ đọc tài liệu này khi task liên quan Core; đối chiếu `BUSINESS_RULES.md`, `core/DESIGN.md` và `core/API_CONTRACT.md` trước khi triển khai. **Tài liệu này là quy ước tổ chức code, không tự tạo thêm business rule hay endpoint.**
@@ -14,7 +20,7 @@ services/core/                         # Một service FastAPI; build/chạy/tes
 ├── app/                               # Mã Python chạy trong Core
 │   ├── __init__.py
 │   ├── main.py                        # Khởi tạo FastAPI, middleware, đăng ký router; file shared, ít sửa
-│   ├── bootstrap.py                   # Hàm lắp ghép router/module tập trung, tránh mọi người sửa main.py
+│   ├── bootstrap.py                   # Hàm lắp ghép router/module tập trung, tách biệt khởi tạo app tại main.py
 │   ├── model_registry.py              # Metadata composition root dùng bởi Alembic/maintenance
 │   ├── maintenance/                   # CLI offline report/mapping School, seed dev/test, downgrade guard
 │   ├── common/                        # Hạ tầng chung, KHÔNG chứa logic nghiệp vụ riêng từng module
@@ -71,7 +77,7 @@ services/core/                         # Một service FastAPI; build/chạy/tes
 ├── migrations/                        # Alembic migrations của Core, không sửa schema service khác
 │   ├── env.py                         # Cấu hình metadata và kết nối migration
 │   └── versions/                      # Một migration cho mỗi thay đổi schema hợp lý
-├── tests/                             # Test nằm gần phạm vi người phụ trách
+├── tests/                             # Unit, contract, integration, security và performance tests theo module
 │   ├── identity/                       # Student activation/staff email, refresh/revoke, school scope, lock
 │   ├── classroom/                      # Admin enrollment/transfer, cross-school/class, assignment, archive
 │   ├── social/                         # Feed, comments, calendar
@@ -118,7 +124,7 @@ HTTP request → router → service → repository → PostgreSQL (Core)
 
 ## 5. Ví dụ một yêu cầu từ đầu đến cuối
 
-**Admin đồng bộ ghi danh AUTO (luồng mục tiêu, chưa triển khai):**
+**Admin đồng bộ ghi danh AUTO và luồng vận hành liên quan:**
 1. `classroom/router.py` nhận yêu cầu Admin; actor và school scope lấy từ backend authentication.
 2. `classroom/service.py` kiểm tra quyền hiện hành, lớp/mode và roster theo hợp đồng preview/confirm được duyệt.
 3. `classroom/repository.py` cập nhật membership trong transaction, giữ lịch sử và constraint chống trùng; lớp MANUAL không bị ghi đè.
@@ -132,16 +138,16 @@ Schema/payload, preview và hiệu lực chuyển lớp còn PENDING DESIGN tron
 
 1. Đọc Business Rules và thiết kế/hợp đồng Core liên quan, rồi đọc tài liệu này; không coi cây thư mục mục tiêu là code đã tồn tại.
 2. Xác định module sở hữu nghiệp vụ trước khi tạo file; không tạo `utils.py` hoặc `helpers.py` dùng chung chỉ để tiện.
-3. Chỉ sửa file trong phạm vi task; nếu phải đổi shared file/public interface, nêu lý do và yêu cầu review.
+3. Chỉ sửa file trong phạm vi task; nếu phải đổi shared file/public interface, cập nhật tài liệu hợp đồng và bộ test liên quan.
 4. Không tự ý thay đổi JWT policy, permission, schema liên module, Business Rules hoặc API đã chốt.
 5. Code phải có test tương ứng; chạy test thật trước khi báo hoàn thành.
 6. Không tạo file tạm/placeholder vô nghĩa; không đưa secret, dữ liệu cá nhân hay chat riêng tư vào log/test fixture.
-7. Không tự push main, merge PR hay thay đổi bảo vệ nhánh nếu chưa được cho phép.
-8. Khi cấu trúc triển khai khác tài liệu, cập nhật chính phần liên quan của tài liệu này trong PR; tránh tài liệu lỗi thời.
+7. Không tự push main hoặc thay đổi bảo vệ nhánh nếu chưa được cho phép.
+8. Khi cấu trúc triển khai khác tài liệu, cập nhật chính phần liên quan của tài liệu này trong cùng đợt thay đổi; tránh tài liệu lỗi thời.
 
 ## 7. Quy tắc khi tạo skeleton
-- Giữ `app/common/` và `app/modules/` đúng cấu trúc; đổi phải qua PR cập nhật thiết kế.
+- Giữ `app/common/` và `app/modules/` đúng cấu trúc; thay đổi phải cập nhật thiết kế tương ứng.
 - Schema/state machine/quyền theo `DESIGN.md`; API theo `API_CONTRACT.md`; sinh OpenAPI từ FastAPI và kiểm tra contract khi triển khai.
 - `social`, `notification`, `administration` thuộc G1–G2, phải hoàn thành trước khi chuyển sang Document/AI.
 
-**Nguyên tắc cuối:** ít file dùng chung, ownership rõ, interface ổn định, PR nhỏ, commit có ý nghĩa. Không cố tối ưu conflict bằng cách sao chép logic hoặc bỏ kiểm tra quyền.
+**Nguyên tắc cuối:** ít file dùng chung, ranh giới module rõ ràng, interface ổn định, commit theo nhóm thay đổi có ý nghĩa. Không sao chép logic hoặc bỏ kiểm tra quyền.

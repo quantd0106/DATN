@@ -181,7 +181,7 @@ Mỗi chức năng có: actor, tiền điều kiện, đầu vào, UI/action, x�
 
 ## 18. Tiêu chí không được tự coi là hoàn thành
 
-- Tài liệu `FRONTEND_COMPLETION` ghi pass mock không chứng minh API live.
+- Trạng thái tích hợp Web live (2026-11-22) được tổng hợp tại [13_UIUX.md](13_UIUX.md) và [apps/web/docs/UI_UX_DESIGN.md](../../../apps/web/docs/UI_UX_DESIGN.md); dữ liệu mock không thay thế bằng chứng kiểm thử API live.
 - Kết quả frontend route smoke không chứng minh dữ liệu post/notification/role isolation.
 - Chưa có API Document/Learning/Intelligence → các page tương ứng chỉ hiển thị trạng thái chưa khả dụng.
 - Không tự lập API AI khi thiếu contract; không dùng feature flag frontend thay quyền ở server.

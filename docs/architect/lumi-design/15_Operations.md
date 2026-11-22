@@ -1,6 +1,6 @@
 # DEPLOYMENT, OPERATIONS & RECOVERY DESIGN
 
-**Mã:** LUMI-OPS-001 · **Trạng thái:** Cấu hình Core/Web đã triển khai; hướng dẫn future services/production hardening là PROPOSED.
+**Mã:** LUMI-OPS-001 · **Trạng thái:** Cấu hình Core/Document/AI/Learning và Web đã triển khai cho local/Compose; production hardening đa dịch vụ và Learner Intelligence là PROPOSED.
 
 ## 1. Môi trường và nguồn cấu hình
 
@@ -67,11 +67,11 @@ Giá trị default, bắt buộc/tùy chọn và tên đầy đủ phải đư�
 | Deployment | Image digest/source SHA, env revision, health/readiness và rollback plan |
 | Security | Secret scan, auth/permission regression, no PII in logs/evidence |
 
-Bằng chứng PR #33–#38 trong repo là lịch sử riêng của từng revision; không dùng để tuyên bố commit bất kỳ tương lai đã chạy test.
+Bằng chứng kiểm thử lịch sử trong repo chỉ gắn với từng revision/commit cụ thể; không dùng để tuyên bố commit bất kỳ tương lai đã chạy test.
 
 ## 6. Deploy runtime hiện tại và drift
 
-PR #38 đã hợp nhất Core/Web; theo cập nhật trên `main` ngày 31/10, mẫu thư mời/khôi phục nhân sự đã được triển khai trên Cloud Run Production mock từ `a01985e`, đồng thời API và tác vụ nền được cấu hình `PUBLIC_WEB_URL`. Nội dung thư mới chưa được xác minh bằng một lần gửi thực tế sau triển khai. Một image production trước đó từng được xây dựng từ mã nguồn chưa đồng bộ; vì vậy mỗi lần phát hành phải xác nhận:
+Theo cập nhật trên `main` ngày 31/10, mẫu thư mời/khôi phục nhân sự đã được triển khai trên Cloud Run Production mock từ `a01985e`, đồng thời API và tác vụ nền được cấu hình `PUBLIC_WEB_URL`. Nội dung thư mới chưa được xác minh bằng một lần gửi thực tế sau triển khai. Một image production trước đó từng được xây dựng từ mã nguồn chưa đồng bộ; vì vậy mỗi lần phát hành phải xác nhận:
 
 - Git source SHA = CI source SHA = container image provenance = runtime revision.
 - `PUBLIC_WEB_URL`, `WEB_ORIGIN`, `CORE_API_URL`, `CORS_ORIGINS`, cookie flags khớp domain/HTTPS.
@@ -81,7 +81,7 @@ PR #38 đã hợp nhất Core/Web; theo cập nhật trên `main` ngày 31/10, m
 
 ## 7. Monitoring và alerting — đề xuất
 
-| Nhóm | Số đo tối thiểu | Alert candidate / owner decision |
+| Nhóm | Số đo tối thiểu | Alert candidate / quyết định vận hành |
 |---|---|---|
 | API | request counts/status/p95 by route, 401/403/409/5xx | Ngưỡng alert cần operator duyệt |
 | DB | connection usage, pool timeout, migration mismatch, slow query | Cần thống nhất capacity/runbook |
@@ -89,14 +89,15 @@ PR #38 đã hợp nhất Core/Web; theo cập nhật trên `main` ngày 31/10, m
 | SMTP | delivery pending/expired/reissue, provider errors | Không ghi mail token |
 | Security | unexpected cross-school denies, last-admin attempts, rate limit | Không log PII payload |
 | Browser | route crashes, API availability, failed refresh/submit | Không thu thập raw student data |
-| Future Document | processing queue age, failed revisions, blob checks | Chỉ sau design approved |
-| Future Learning | save ACK latency, overdue auto-submit, duplicate suppressions | Chỉ sau design approved |
-| Future LI | evidence lag, stale grade correction, suppression counters | Chỉ sau design approved |
+| Document (`IMPLEMENTED P0/P1`) | processing queue age, failed revisions, blob/storage checks | Ngưỡng cảnh báo worker lease / retry |
+| AI + RAG (`IMPLEMENTED`) | vector index lag, SSE tutor latency, LLM timeout/stop rate | Ngưỡng cảnh báo model/retrieval fallback |
+| Learning (`IMPLEMENTED`) | save ACK latency, overdue auto-submit, duplicate suppressions | Ngưỡng cảnh báo deadlock/reconcile/blob |
+| Future LI (`PROPOSED`) | evidence lag, stale grade correction, suppression counters | Chỉ sau khi thiết kế & triển khai |
 
 ## 8. Backup/recovery
 
 - **Chưa có RPO/RTO production được duyệt** trong nguồn chuẩn. Không tự điền “RPO 5 phút/RTO 1 giờ”.
-- Cần định nghĩa scope backup: DB Core, future file blobs, future Learning grades, service keys, config, logs; loại bỏ secrets khi xuất evidence.
+- Cần định nghĩa scope backup: DB PostgreSQL 4 schemas (`core`, `document`, `ai`, `learning`), file blobs (`document`, `learning`), service keys, config, logs; loại bỏ secrets khi xuất evidence.
 - Khôi phục DB phải kiểm tra schema migration, user/session revocation state, audit/outbox/notification watermark, import batch consistency.
 - Khôi phục Document cần đối chiếu file checksum/version/grants, tránh mở lại nguồn đã bị revoke.
 - Khôi phục Learning cần kiểm tra submission/grade version và events phát lại idempotent.

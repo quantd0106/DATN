@@ -1,6 +1,6 @@
 # FRS-DOCUMENT — THƯ VIỆN TÀI LIỆU, VERSION, GRANT, NOTES
 
-**Mã:** LUMI-FRS-DOC-001 · **Trạng thái:** **P0/P1 IMPLEMENTED — VERIFIED** (backend, worker, Web UI và Compose demo theo [ADR-002](../microservices-v1/ADR-002-document-service.md), [Document DESIGN](../microservices-v1/document/DESIGN.md), [Document API Contract](../microservices-v1/document/API_CONTRACT.md), [CODEX_ORCHESTRATION](../microservices-v1/document/CODEX_ORCHESTRATION.md) và [TASK-017](../../../tasks/TASK-017-document-service-design-impl.md); CI/E2E hoàn tất thêm ở `TASK-017G`/`H`; P2 mở rộng ở `TASK-017I`).
+**Mã:** LUMI-FRS-DOC-001 · **Trạng thái:** **P0/P1 IMPLEMENTED — VERIFIED** (backend, worker, Web UI và Compose demo theo [ADR-002](../microservices-v1/ADR-002-document-service.md), [Document DESIGN](../microservices-v1/document/DESIGN.md), [Document API Contract](../microservices-v1/document/API_CONTRACT.md) và [TASK-017](../../../tasks/TASK-017-document-service-design-impl.md); CI/E2E hoàn tất thêm ở `TASK-017G`/`H`; P2 mở rộng ở `TASK-017I`).
 
 ## 1. Mục tiêu và nguồn quy tắc
 
@@ -73,4 +73,4 @@ Service Document sở hữu tệp nguồn, phiên bản, chia sẻ theo lớp v�
   - Upload trực tiếp qua signed URL lên GCS (để vượt trần kích thước body của Vercel Functions khi chạy cloud).
   - Encryption at rest key management, quét mã độc chuyên sâu (malware scanning), và chính sách lưu giữ pháp lý (retention) trước xóa vĩnh viễn tệp/phiên bản.
 
-Chi tiết cấu trúc dữ liệu và hợp đồng API nằm tại [Document DESIGN](../microservices-v1/document/DESIGN.md) và [Document API Contract](../microservices-v1/document/API_CONTRACT.md). Xem thêm [LLD Future](10_LLD_Future.md).
+Chi tiết cấu trúc dữ liệu và hợp đồng API nằm tại [Document DESIGN](../microservices-v1/document/DESIGN.md) và [Document API Contract](../microservices-v1/document/API_CONTRACT.md).
