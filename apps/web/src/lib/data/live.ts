@@ -36,7 +36,7 @@ export const adapter: DataAdapter = {
   classroom: createLiveClassroomAdminPort(session),
   practiceAuthoring,
   accounts,
-  assignment: createLiveAssignment(session, core),
+  assignment: createLiveAssignment(session, core, { listClassDocuments: document.listClassDocuments }),
   assessment: createLiveAssessment(session, core, liveAi),
   identity: core.identity,
   social: core.social,

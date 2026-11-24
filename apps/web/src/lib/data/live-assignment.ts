@@ -1,6 +1,7 @@
 import { routeHref } from '@/config/routes';
 import { ApiError } from '../api/errors';
-import type { AssignmentDefinition, AssignmentDraftInput, AssignmentGrade, AssignmentPolicy, AssignmentPort, AssignmentSource, AssignmentSubmission, SubmissionFile } from '../assignment';
+import { inferPreviewMimeType, type AssignmentDefinition, type AssignmentDraftInput, type AssignmentGrade, type AssignmentPolicy, type AssignmentPort, type AssignmentSource, type AssignmentSubmission, type SubmissionFile } from '../assignment';
+import type { DocumentItem } from '../domain';
 import { decodeResult } from './assessment-wire';
 import { boolean, enumeration, integer, invalid, learningReader, list, nullable, number, optional, readHistoryClass, record, requireLearningSession, text, timestamp, uuid, type LearningCore } from './learning-wire';
 import { createAssessmentGradingReader } from './live-assessment';
@@ -14,9 +15,13 @@ function source(value: unknown, teacher: boolean): AssignmentSource | undefined 
   const row = record(value);
   const accessible = row.isAccessible === true || row.accessible === true;
   if (!teacher && !accessible) return undefined;
+  const id = uuid(row.id ?? row.document_id ?? row.documentId);
   return {
     ...row,
-    id: uuid(row.id ?? row.document_id ?? row.documentId),
+    id,
+    documentId: optional(row.document_id ?? row.documentId, uuid) ?? id,
+    documentVersionId: optional(row.document_version_id ?? row.documentVersionId, uuid),
+    sourceId: optional(row.source_id ?? row.sourceId, text),
     title: text(row.title ?? row.documentTitle ?? ''),
     version: integer(row.version ?? row.versionNumber ?? row.version_number ?? 1, 1),
     accessible: teacher || accessible,
@@ -53,10 +58,18 @@ function definition(value: unknown, teacher: boolean, historical = false): Assig
       },
     };
   }
+  const parsedSource = row.source == null ? undefined : source(row.source, teacher);
+  const readerPath = !teacher && !historical && parsedSource?.accessible
+    ? routeHref('s.reader', { classId, documentId: parsedSource.id })
+    : null;
+  const sourceHref = readerPath
+    ? `${readerPath}?${new URLSearchParams({ version: String(parsedSource!.version) }).toString()}`
+    : undefined;
   return {
     id, classId, status, revision, title: text(row.title), topic: text(row.topic),
     instructions: text(row.instructions), dueAt: timestamp(row.due_at), policy: policy(row.policy),
-    source: row.source == null ? undefined : source(row.source, teacher),
+    source: parsedSource,
+    ...(sourceHref ? { sourceHref } : {}),
     publishedRevision: status === 'PUBLISHED' ? revision : undefined,
     appealWindowDays: optional(row.appeal_window_days, value => integer(value, 1)),
   };
@@ -135,7 +148,11 @@ const submitReasons: Record<string, string> = {
   RESUBMISSION_CLOSED: 'Đã quá thời hạn nộp lại bài tập.',
 };
 
-export function createLiveAssignment(session: LiveIdentitySession, core: LearningCore): AssignmentPort {
+export function createLiveAssignment(
+  session: LiveIdentitySession,
+  core: LearningCore,
+  documentContext?: { listClassDocuments(classId: string, signal?: AbortSignal): Promise<DocumentItem[]> },
+): AssignmentPort {
   const read = learningReader(session);
   const activities = createTeacherActivityReader(session);
   const grading = createGradingReader(session);
@@ -166,8 +183,12 @@ export function createLiveAssignment(session: LiveIdentitySession, core: Learnin
     read('assignment', { pathParams: input, signal }, value => {
       const row = record(value);
       const item = definition(row.assignment, teacher);
+      const availableSources = row.available_sources === undefined
+        ? []
+        : list(row.available_sources, entry => source(entry, true)).filter((entry): entry is AssignmentSource => Boolean(entry));
       return {
         assignment: inScope(item, item.id, input),
+        availableSources,
         submissions: list(row.submissions, value => {
           const item = submission(value);
           return inScope(item, item.assignmentId, input);
@@ -313,8 +334,12 @@ export function createLiveAssignment(session: LiveIdentitySession, core: Learnin
       }
       if (routeId === 't.assignmentEditor') {
         const input = { classId, assignmentId };
-        const [classSummary, snapshot, recipientState, roster] = await Promise.all([
-          core.readClass(classId, signal), detail(input, true, signal), recipients(input, signal), currentRoster(classId, signal),
+        const [classSummary, snapshot, recipientState, roster, classDocs] = await Promise.all([
+          core.readClass(classId, signal),
+          detail(input, true, signal),
+          recipients(input, signal),
+          currentRoster(classId, signal),
+          documentContext?.listClassDocuments(classId, signal).catch(() => [] as DocumentItem[]) ?? Promise.resolve([] as DocumentItem[]),
         ]);
         const { assignment } = snapshot;
         if (assignment.revision !== recipientState.revision) {
@@ -328,8 +353,21 @@ export function createLiveAssignment(session: LiveIdentitySession, core: Learnin
         for (const entry of recipientState.audience) {
           audience.set(entry.userId, { ...audience.get(entry.userId), ...entry });
         }
+        const sourceMap = new Map<string, AssignmentSource>();
+        const registerSource = (entry: AssignmentSource | undefined) => {
+          if (!entry) return;
+          const key = `${entry.id}@${entry.version}`;
+          if (!sourceMap.has(key)) sourceMap.set(key, entry);
+        };
+        snapshot.availableSources.forEach(registerSource);
+        for (const doc of classDocs) {
+          if (doc.processingStatus === 'READY') {
+            registerSource({ id: doc.id, documentId: doc.id, title: doc.title, version: doc.currentVersion, accessible: true });
+          }
+        }
+        registerSource(assignment.source);
         return {
-          kind: 'editor', classSummary, assignment, sources: assignment.source ? [assignment.source] : [],
+          kind: 'editor', classSummary, assignment, sources: [...sourceMap.values()],
           audience: [...audience.values()], audienceRosterAvailable: roster !== undefined,
         };
       }
@@ -380,7 +418,9 @@ export function createLiveAssignment(session: LiveIdentitySession, core: Learnin
         pathParams: input, onResponse: response => { received = response; },
       }, value => value instanceof Uint8Array ? value : invalid());
       if (!received) return invalid();
-      return { name: attachmentName(received.headers), type: 'application/octet-stream', bytes };
+      const name = attachmentName(received.headers);
+      const headerType = received.headers.get('content-type') ?? '';
+      return { name, type: inferPreviewMimeType(name, headerType, bytes), bytes };
     },
     saveDraft: input => read('saveAssignmentDraft', { pathParams: input, body: encodeDraft(input) }, value => {
       const item = definition(value, true);

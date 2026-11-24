@@ -100,6 +100,17 @@ function practiceResult(value: unknown): PracticeResultDetail {
   };
 }
 
+function formatActivityDueLabel(raw: string): string {
+  if (/^\d{4}-\d{2}-\d{2}T/.test(raw) && Number.isFinite(Date.parse(raw))) {
+    return `Hạn: ${new Intl.DateTimeFormat('vi-VN', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+      timeZone: 'Asia/Ho_Chi_Minh',
+    }).format(new Date(raw))}`;
+  }
+  return raw;
+}
+
 export function createTeacherActivityReader(session: LiveIdentitySession) {
   const read = learningReader(session);
   return (classId: string, kind?: TeacherActivityItem['type'], signal?: AbortSignal) =>
@@ -115,7 +126,9 @@ export function createTeacherActivityReader(session: LiveIdentitySession) {
           : routeHref(status === 'PENDING_APPROVAL' ? 't.assessmentApproval' : 't.assessmentEditor', { classId, assessmentId: resourceId });
         return {
           id: uuid(row.id), resourceId, classId, type, status, title: text(row.title),
-          topic: text(row.topic), dueOrTimeLabel: text(row.dueOrTimeLabel), editHref: editHref ?? undefined,
+          topic: text(row.topic), dueOrTimeLabel: formatActivityDueLabel(text(row.dueOrTimeLabel)), editHref: editHref ?? undefined,
+          pendingGradingCount: optional(row.pendingGradingCount, value => integer(value, 0)),
+          canDeleteDraft: optional(row.canDeleteDraft, boolean),
           submissionsHref: type !== 'PRACTICE' && status === 'PUBLISHED'
             ? routeHref('t.gradingQueue', { classId }) ?? undefined : undefined,
         };
@@ -173,6 +186,7 @@ export function createLiveLearning(session: LiveIdentitySession, core: LearningC
       const { editor } = await authoring.review({ ...input, expectedRevision });
       return { reviewedCount: editor.reviewedCount, canPublish: editor.canPublish };
     },
+    deleteDraftActivity: input => read('deleteActivity', { pathParams: input }, () => undefined),
   };
   const load: DataAdapter['workspace']['load'] = async (routeId, params, signal) => {
     const { classId, practiceId, attemptId } = params;

@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ApiError } from '../src/lib/api/errors';
 import { createCoreProxy, createLearningProxy } from '../src/lib/api/proxy';
+import { detectSubmissionPreviewKind, inferPreviewMimeType } from '../src/lib/assignment';
 import { createLiveAi } from '../src/lib/data/live-ai';
 import { createLiveAssessment } from '../src/lib/data/live-assessment';
 import { createLiveAssignment } from '../src/lib/data/live-assignment';
-import { createLiveCore } from '../src/lib/data/live-core';
+import { createLiveCore, decodeCoreNotification } from '../src/lib/data/live-core';
 import { createLiveIdentitySession } from '../src/lib/data/live-identity';
 import { createLiveLearning } from '../src/lib/data/live-learning';
 import { createLivePracticeAuthoring } from '../src/lib/data/live-practice-authoring';
@@ -447,7 +448,7 @@ test('live Assignment sends multipart and idempotency keys, handles 204 and read
   assert.equal(await h.assignment.reconcile({ ...assignmentScope, operationId: id(19) }), null);
   assert.equal((await h.assignment.reconcile({ ...assignmentScope, operationId }))?.id, submissionId);
   const file = await h.assignment.readFile({ submissionId, fileId: uploadId });
-  assert.deepEqual(file, { name: 'bài.txt', type: 'application/octet-stream', bytes: new TextEncoder().encode('abc') });
+  assert.deepEqual(file, { name: 'bài.txt', type: 'text/plain', bytes: new TextEncoder().encode('abc') });
   await h.assignment.setRecipients({ ...assignmentScope, expectedRevision: 2, studentIds: [actorId] });
 });
 
@@ -639,4 +640,41 @@ test('live assignment editor merges recipient state with Core enrollment and wor
   const fallback = await openEditor();
   assert.equal(fallback.audienceRosterAvailable, false);
   assert.deepEqual(fallback.audience, [{ userId: actorId, assigned: true }, { userId: retained, assigned: true }]);
+});
+
+test('submission preview detection handles PDF magic bytes, images, markdown and download fallback', () => {
+  const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37]);
+  assert.equal(inferPreviewMimeType('bai.bin', 'application/octet-stream', pdfBytes), 'application/pdf');
+  assert.equal(detectSubmissionPreviewKind('bai.pdf', 'application/octet-stream', pdfBytes), 'pdf');
+  assert.equal(inferPreviewMimeType('hinh.png', 'application/octet-stream'), 'image/png');
+  assert.equal(detectSubmissionPreviewKind('hinh.png', 'application/octet-stream'), 'image');
+  assert.equal(inferPreviewMimeType('ghi-chu.md', 'application/octet-stream'), 'text/markdown');
+  assert.equal(detectSubmissionPreviewKind('ghi-chu.md', 'application/octet-stream'), 'text');
+  assert.equal(detectSubmissionPreviewKind('bai.docx', 'application/octet-stream'), 'download');
+});
+
+test('deleteDraftActivity uses DELETE proxy allowlist and ASSIGNMENT_GRADED decodes deep link', async () => {
+  const h = harness({
+    [`DELETE ${cls}/activities/${assignmentId}`]: () => new Response(null, { status: 204 }),
+  });
+  await h.learning.deleteDraftActivity!({ classId, activityId: assignmentId });
+  assert.ok(h.calls.includes(`DELETE /api/learning/v1${cls}/activities/${assignmentId}`));
+
+  const studentNotification = decodeCoreNotification(
+    {
+      id: id(90),
+      type: 'ASSIGNMENT_GRADED',
+      read: false,
+      created_at: now,
+      payload_json: {
+        class_id: classId,
+        resource_type: 'assignment_submission',
+        resource_id: submissionId,
+      },
+    },
+    { id: actorId, roles: ['STUDENT'], status: 'ACTIVE', username: 'hs', display_name: 'Học sinh', email: null, school_id: id(21) },
+    new Map([[classId, 'Toán 9']]),
+  );
+  assert.equal(studentNotification.category, 'ASSIGNMENT');
+  assert.equal(studentNotification.targetHref, `/student/history/results/${submissionId}`);
 });

@@ -472,7 +472,13 @@ def grade_assessment(
 
 
 def release_results(
-    session: Session, scope: tuple, actor: CurrentUser, reason: str, correlation: str
+    session: Session,
+    scope: tuple,
+    actor: CurrentUser,
+    reason: str,
+    correlation: str,
+    *,
+    release_now: bool = False,
 ) -> dict:
     with write_transaction(session):
         act = activities.get_activity(session, *scope, ActivityKind.ASSESSMENT, lock=True)
@@ -485,9 +491,11 @@ def release_results(
             release_at = (
                 version.settings_json.get("results_at") or version.settings_json["closes_at"]
             )
-            if assessment.parse_time(release_at) > now:
+            if not release_now and assessment.parse_time(release_at) > now:
                 continue
             assessment.close_when_expired(session, attempt, now)
+            if attempt.receipt_json is None:
+                continue
             grade = find_target_grade(
                 session, GradeTargetType.ASSESSMENT_ATTEMPT, attempt.id, lock=True
             )
@@ -797,7 +805,19 @@ def adjustment_view(row: ScoringAdjustment) -> dict:
         "payload": row.payload_json,
         "reason": row.reason,
         "decision_reason": row.decision_reason,
+        "proposed_by": row.proposed_by,
+        "created_at": ensure_utc(row.created_at),
+        "decided_at": ensure_utc(row.decided_at) if row.decided_at else None,
     }
+
+
+def list_version_adjustments(session: Session, version_id: UUID) -> list[dict]:
+    rows = session.scalars(
+        select(ScoringAdjustment)
+        .where(ScoringAdjustment.activity_version_id == version_id)
+        .order_by(ScoringAdjustment.created_at.desc(), ScoringAdjustment.id)
+    )
+    return [adjustment_view(row) for row in rows]
 
 
 def propose_adjustment(
@@ -1002,6 +1022,21 @@ def grading_queue(session: Session, school_id: UUID, class_id: UUID) -> dict:
         "appeals": class_appeals,
         "proposals": [revision_view(grade, rev) for grade, rev in proposals],
     }
+
+
+def pending_counts_by_activity(session: Session, school_id: UUID, class_id: UUID) -> dict[UUID, int]:
+    counts: dict[UUID, int] = {}
+    for attempt in assessment.submitted_attempts(session, school_id, class_id):
+        grade = find_target_grade(session, GradeTargetType.ASSESSMENT_ATTEMPT, attempt.id)
+        if grade is None or not grade.is_released:
+            counts[attempt.activity_id] = counts.get(attempt.activity_id, 0) + 1
+    for submission in assignment.class_submissions(session, school_id, class_id):
+        if not submission.is_graded_version:
+            continue
+        grade = find_target_grade(session, GradeTargetType.ASSIGNMENT_SUBMISSION, submission.id)
+        if grade is None:
+            counts[submission.activity_id] = counts.get(submission.activity_id, 0) + 1
+    return counts
 
 
 def confirmed_grades(

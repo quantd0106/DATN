@@ -326,3 +326,53 @@ def test_historical_appeal_admin_audit_and_tenant_boundaries(world, monkeypatch)
         assert audit.target_id == proposal["id"] and audit.action == "GRADE_REVISION_PROPOSED"
     monkeypatch.setattr(appeals, "utcnow", lambda: utcnow() + timedelta(days=4))
     world.call("POST", appeal_path, world.student, expected=403, json=body)
+
+
+def test_release_now_overrides_future_results_at_and_draft_lists_adjustments(world, monkeypatch):
+    now = utcnow()
+    path, published = publish_assessment(
+        world,
+        settings=assessment_settings(
+            closes_at=(now + timedelta(minutes=30)).isoformat(),
+            results_at=(now + timedelta(hours=2)).isoformat(),
+        ),
+    )
+    attempt, _ = start_attempt(world, path)
+    submit_attempt(world, attempt, "a")
+
+    adjust = world.call(
+        "POST",
+        f"{world.base}/activity-versions/{published['version_id']}/scoring-adjustments",
+        world.assisting,
+        expected=201,
+        json={
+            "question_id": "q1",
+            "action": "GRANT_FULL_CREDIT",
+            "payload": {},
+            "reason": "Ambiguous wording",
+        },
+    ).json()
+    draft_before_decision = world.call("GET", path + "/draft", world.primary).json()
+    assert len(draft_before_decision["scoring_adjustments"]) == 1
+    assert draft_before_decision["scoring_adjustments"][0]["id"] == adjust["id"]
+    assert draft_before_decision["scoring_adjustments"][0]["status"] == "PROPOSED"
+
+    world.call(
+        "POST",
+        f"/api/v1/scoring-adjustments/{adjust['id']}/decision",
+        world.primary,
+        json={"decision": "APPROVE", "reason": "Confirmed"},
+    )
+    draft_after_decision = world.call("GET", path + "/draft", world.primary).json()
+    assert draft_after_decision["scoring_adjustments"][0]["status"] == "APPROVED"
+
+    monkeypatch.setattr(grading, "utcnow", lambda: now + timedelta(minutes=45))
+    assert world.call("POST", path + "/release-results", world.primary, json={}).json() == {
+        "released_count": 0,
+    }
+    assert world.call(
+        "POST", path + "/release-results", world.primary, json={"release_now": True}
+    ).json() == {"released_count": 1}
+    result = world.call("GET", attempt + "/result", world.student).json()
+    assert result["released"] is True
+    assert result["effective_grade"]["score"] == 5

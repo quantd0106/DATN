@@ -597,6 +597,7 @@ export type TeacherActivityItem = {
   status: 'PUBLISHED' | 'PENDING_APPROVAL' | 'DRAFT';
   dueOrTimeLabel: string;
   pendingGradingCount?: number;
+  canDeleteDraft?: boolean;
   editHref?: string;
   submissionsHref?: string;
   notes?: string;

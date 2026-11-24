@@ -2,7 +2,7 @@ from datetime import UTC
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import desc, select
+from sqlalchemy import delete, desc, select
 from sqlalchemy.orm import Session
 
 from app.common.db import ensure_utc, transaction, utcnow
@@ -21,8 +21,10 @@ from app.modules.bank.grading_engine import (
 )
 from app.modules.bank.models import (
     Activity,
+    ActivityAudience,
     ActivityKind,
     ActivityVersion,
+    DueOverride,
     QuestionItem,
     VersionStatus,
 )
@@ -153,7 +155,12 @@ def _editor_snapshot(
 
 
 def list_class_activities(
-    session: Session, school_id: UUID, class_id: UUID, *, kind: str | None = None
+    session: Session,
+    school_id: UUID,
+    class_id: UUID,
+    *,
+    kind: str | None = None,
+    pending_counts: dict[UUID, int] | None = None,
 ) -> list[dict[str, Any]]:
     stmt = (
         select(Activity)
@@ -183,6 +190,11 @@ def list_class_activities(
             if act.kind == ActivityKind.ASSESSMENT
             else f"/teacher/classes/{class_id}/assignments/{act.id}/edit"
         )
+        pending_count = (
+            int((pending_counts or {}).get(act.id, 0))
+            if act.kind != ActivityKind.PRACTICE and act.current_version_id is not None
+            else 0
+        )
         items.append(
             {
                 "id": str(act.id),
@@ -193,10 +205,62 @@ def list_class_activities(
                 "topic": act.topic,
                 "status": status,
                 "dueOrTimeLabel": due_label or "Không giới hạn",
+                "pendingGradingCount": pending_count,
+                "canDeleteDraft": act.current_version_id is None and status == "DRAFT",
                 "editHref": edit_href,
             }
         )
     return items
+
+
+def delete_draft_activity(
+    session: Session,
+    *,
+    school_id: UUID,
+    class_id: UUID,
+    activity_id: UUID,
+    has_attempts: bool = False,
+    has_submissions: bool = False,
+) -> None:
+    with transaction(session):
+        activity = session.scalar(
+            select(Activity)
+            .where(
+                Activity.id == activity_id,
+                Activity.class_id == class_id,
+                Activity.school_id == school_id,
+            )
+            .with_for_update()
+        )
+        if activity is None:
+            raise AppError(404)
+        if activity.current_version_id is not None:
+            raise AppError(409, "ACTIVITY_ALREADY_PUBLISHED")
+        non_draft_version = session.scalar(
+            select(ActivityVersion.id)
+            .where(
+                ActivityVersion.activity_id == activity_id,
+                ActivityVersion.status != VersionStatus.DRAFT,
+            )
+            .limit(1)
+        )
+        if non_draft_version is not None:
+            raise AppError(409, "ACTIVITY_ALREADY_PUBLISHED")
+        has_practice_attempts = (
+            session.scalar(
+                select(PracticeAttempt.id).where(PracticeAttempt.activity_id == activity_id).limit(1)
+            )
+            is not None
+        )
+        if has_attempts or has_submissions or has_practice_attempts:
+            raise AppError(409, "ACTIVITY_ALREADY_PUBLISHED")
+        activity.draft_version_id = None
+        session.flush()
+        session.execute(delete(ActivityAudience).where(ActivityAudience.activity_id == activity_id))
+        session.execute(delete(DueOverride).where(DueOverride.activity_id == activity_id))
+        session.execute(delete(ActivityVersion).where(ActivityVersion.activity_id == activity_id))
+        session.flush()
+        session.delete(activity)
 
 
 def list_question_bank(

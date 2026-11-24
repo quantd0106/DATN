@@ -101,7 +101,218 @@ def test_openai_compatible_generator_pipeline_roundtrip():
     assert captured["url"] == "https://api.deepseek.com/chat/completions"
     assert captured["auth"] == "Bearer sk-test-123"
     assert captured["body"]["response_format"] == {"type": "json_object"}
+    assert "reasoning" not in captured["body"]
     assert "JSON Schema" in captured["body"]["messages"][0]["content"]
+    assert gen.counter.count("Một đoạn văn bản tiếng Việt để đếm token") >= 1
+
+
+def test_openrouter_generator_disables_reasoning_and_snaps_quotes():
+    from rag.generation.openai_compatible import _normalize_response_json
+
+    captured: dict = {}
+
+    class FakeResponse(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    class FakeOpener:
+        def open(self, request, timeout=None):
+            captured["url"] = request.full_url
+            captured["body"] = json.loads(request.data.decode("utf-8"))
+            body = json.dumps(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "stop",
+                            "message": {"content": json.dumps({"ok": True})},
+                        }
+                    ]
+                }
+            ).encode("utf-8")
+            return FakeResponse(body)
+
+    gen = OpenAICompatibleGenerator(
+        "https://openrouter.ai/api/v1",
+        "sk-or-test",
+        model="tencent/hy4-flash",
+        context_tokens=16384,
+        max_new_tokens=1024,
+        output_ceiling=1536,
+    )
+    gen.opener = FakeOpener()
+    gen.generate(
+        [{"role": "system", "content": "Only JSON."}, {"role": "user", "content": "Hi"}],
+        {"type": "object", "required": ["ok"], "properties": {"ok": {"type": "boolean"}}},
+    )
+    assert captured["url"] == "https://openrouter.ai/api/v1/chat/completions"
+    assert captured["body"]["reasoning"] == {"enabled": False}
+    assert captured["body"]["model"] == "tencent/hy4-flash"
+
+    # Also verifies duplicate quotes in quiz fact_extract output get deduplicated cleanly
+    schema = {
+        "type": "object",
+        "properties": {
+            "facts": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "quotes": {
+                            "type": "array",
+                            "items": {
+                                "oneOf": [
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"const": "S1"},
+                                            "quote": {"type": "string", "enum": ["Phương trình bậc hai ax^2 + bx + c = 0"]},
+                                        },
+                                    }
+                                ]
+                            },
+                        }
+                    },
+                },
+            }
+        },
+    }
+    raw = json.dumps(
+        {
+            "facts": [
+                {
+                    "quotes": [
+                        {"id": "S1", "quote": "Phương trình bậc hai"},
+                        {"id": "S1", "quote": "ax^2 + bx + c = 0"},
+                    ]
+                }
+            ]
+        },
+        ensure_ascii=False,
+    )
+    normalized = json.loads(_normalize_response_json(raw, schema))
+    assert normalized["facts"][0]["quotes"] == [
+        {"id": "S1", "quote": "Phương trình bậc hai ax^2 + bx + c = 0"}
+    ]
+
+
+@pytest.mark.anyio
+async def test_quiz_canonical_fallback_loads_units_and_caches_facts(sqlite_db, monkeypatch):
+    from rag.generation.tasks.quiz.blueprint import parse_quiz_spec
+    from app.integrations.document_client import GrantSnapshot
+    from app.modules.quiz.service import load_quiz_units, propose_quiz
+
+    doc_id = uuid4()
+    ver_id = uuid4()
+    class_id = uuid4()
+    school_id = uuid4()
+    grant = ActiveGrant(document_id=doc_id, document_version_id=ver_id, source_id=str(ver_id))
+    snapshot = GrantSnapshot(class_id=class_id, school_id=school_id, grants=(grant,))
+
+    class _FakeDoc:
+        async def active_grants(self, cid, sid, corr):
+            return snapshot
+
+        def document_name(self, vid):
+            return "Chuyên đề Toán 10"
+
+        async def canonical_artifact(self, g, corr):
+            return {
+                "schema_version": "idp-canonical-1",
+                "pages": [
+                    {
+                        "page_number": 1,
+                        "blocks": [
+                            {
+                                "type": "Paragraph",
+                                "text": "Hàm số bậc hai có dạng y = ax^2 + bx + c với a khác 0. Đỉnh parabol có hoành độ x = -b/(2a).",
+                            }
+                        ],
+                    }
+                ],
+            }
+
+    class _FakeCore:
+        async def check_access(self, cid, user, action, corr):
+            from app.integrations.core_client import AccessDecision
+
+            return AccessDecision(
+                allowed=True,
+                class_id=cid,
+                user_id=user.id,
+                action=action,
+                school_id=school_id,
+                class_status="ACTIVE",
+                teaching_role="PRIMARY",
+            )
+
+    settings = _base_settings(
+        llama_mode="openai_compatible",
+        llm_api_base="https://openrouter.ai/api/v1",
+        llm_api_key="sk-or-test",
+        llm_model="tencent/hy4-flash",
+    )
+    runtime = RagRuntime(settings)
+    gen = runtime.pipeline().generator
+
+    fact_calls = 0
+
+    def fake_generate(messages, schema, *, profile=None, max_new_tokens=None, seed=None):
+        nonlocal fact_calls
+        fact_calls += 1
+        return {
+            "text": json.dumps(
+                {
+                    "facts": [
+                        {
+                            "statement": "Hàm số bậc hai có dạng y = ax^2 + bx + c với a khác 0.",
+                            "kind": "definition",
+                            "level_hint": "biet",
+                            "quotes": [
+                                {
+                                    "id": "S1",
+                                    "quote": "Hàm số bậc hai có dạng y = ax^2 + bx + c với a khác 0.",
+                                }
+                            ],
+                        }
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+            "finish_reason": "stop",
+            "usage": {"prompt_tokens": 10, "completion_tokens": 20},
+        }
+
+    monkeypatch.setattr(gen, "generate", fake_generate)
+
+    db = sqlite_db
+    spec = parse_quiz_spec(
+        {
+            "class_id": str(class_id),
+            "purpose": "PRACTICE",
+            "grade": 10,
+            "subject": "Toán",
+            "language": "vi",
+            "scope": [{"document_version_id": str(ver_id)}],
+        }
+    )
+    user = type("U", (), {"id": uuid4(), "school_id": school_id, "roles": ("LECTURER",)})()
+    proposal = await propose_quiz(
+        runtime, db, _FakeCore(), _FakeDoc(), user, class_id, spec, 1, "corr-1"
+    )
+    assert len(proposal) == 1
+    assert fact_calls == 1
+    assert runtime.fact_cache_for([str(ver_id)])
+    units = load_quiz_units(db, runtime, snapshot, spec)
+    assert len(units) == 1 and "Hàm số bậc hai" in units[0].text
+    # Second call hits cached facts and avoids redundant LLM call
+    await propose_quiz(
+        runtime, db, _FakeCore(), _FakeDoc(), user, class_id, spec, 1, "corr-2"
+    )
+    assert fact_calls == 1
+    await runtime.close()
 
 
 @pytest.mark.anyio

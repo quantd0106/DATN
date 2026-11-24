@@ -2,7 +2,15 @@ import type { AssessmentGrading, AssessmentResult } from './assessment';
 import type { CalendarEvent, ClassSummary, RouteParams, TeacherActivityItem } from './domain';
 
 // Frontend read models for assignments.
-export type AssignmentSource = { id: string; title: string; version: number; accessible?: boolean };
+export type AssignmentSource = {
+  id: string;
+  title: string;
+  version: number;
+  accessible?: boolean;
+  documentVersionId?: string;
+  sourceId?: string;
+  documentId?: string;
+};
 export type AssignmentPolicy = { maxVersions: number; allowLate: boolean; lateUntil: string | null; resubmitUntil: string | null; gradedVersion: 'LATEST' | 'FIRST'; maxBytes: number | null; acceptedTypes: string[]; newEnrollment: 'REVIEW' | 'AUTO'; maxScore?: number; appealWindowDays?: number };
 export type AssignmentDefinition = { activityType?: 'ASSIGNMENT' | 'ASSESSMENT'; publishedRevision?: number; id: string; classId: string; title: string; topic: string; instructions: string; dueAt: string; status: 'DRAFT' | 'PUBLISHED'; revision: number; policy: AssignmentPolicy; source?: AssignmentSource; sourceHref?: string; appealWindowDays?: number };
 export type SubmissionFile = { id: string; name: string; size: number; type: string };
@@ -50,4 +58,58 @@ export function submissionResultHref(
 ): string {
   if (audience === 'teacher') return `/teacher/classes/${encodeURIComponent(submission.classId)}/assignments/${encodeURIComponent(submission.assignmentId)}/submissions/${encodeURIComponent(submission.id)}/grade`;
   return `/student/history/results/${encodeURIComponent(submission.resultId)}`;
+}
+
+const PREVIEW_MIME_BY_EXTENSION: Record<string, string> = {
+  pdf: 'application/pdf',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  txt: 'text/plain',
+  md: 'text/markdown',
+  markdown: 'text/markdown',
+};
+
+function detectMimeFromBytes(bytes?: Uint8Array): string | null {
+  if (!bytes || bytes.length < 4) return null;
+  if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return 'application/pdf';
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'image/png';
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) return 'image/gif';
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+    bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
+  ) {
+    return 'image/webp';
+  }
+  return null;
+}
+
+export function inferPreviewMimeType(fileName: string, declaredType: string, bytes?: Uint8Array): string {
+  const baseDeclared = (declaredType || '').split(';')[0]?.trim().toLowerCase() ?? '';
+  if (baseDeclared && baseDeclared !== 'application/octet-stream') {
+    return baseDeclared;
+  }
+  const byBytes = detectMimeFromBytes(bytes);
+  if (byBytes) return byBytes;
+  const dot = fileName.lastIndexOf('.');
+  const ext = dot >= 0 ? fileName.slice(dot + 1).toLowerCase() : '';
+  return PREVIEW_MIME_BY_EXTENSION[ext] ?? 'application/octet-stream';
+}
+
+export type SubmissionPreviewKind = 'pdf' | 'image' | 'text' | 'download';
+
+export function detectSubmissionPreviewKind(
+  fileName: string,
+  declaredType: string,
+  bytes?: Uint8Array,
+): SubmissionPreviewKind {
+  const mime = inferPreviewMimeType(fileName, declaredType, bytes);
+  if (mime === 'application/pdf') return 'pdf';
+  if (/^image\/(jpeg|png|webp|gif)$/.test(mime)) return 'image';
+  if (mime === 'text/plain' || mime === 'text/markdown') return 'text';
+  return 'download';
 }

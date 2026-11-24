@@ -288,7 +288,7 @@ export async function generateQuizDrafts(
     return uuid(row.id);
   });
 
-  const deadline = AbortSignal.timeout(60_000);
+  const deadline = AbortSignal.timeout(120_000);
   const pollSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
   const jobParams = { classId, jobId };
   try {

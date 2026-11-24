@@ -94,9 +94,10 @@ def test_primary_publication_and_pinned_version(world):
         },
     )
 
-    attempt, started = start_attempt(world, path)
-    server_now = datetime.fromisoformat(started["server_now"])
-    assert datetime.fromisoformat(started["ends_at"]) == server_now + timedelta(minutes=15)
+    draft_before = world.call("GET", path + "/draft", world.assisting).json()
+    assert draft_before["attempt_count"] == 0
+    assert draft_before["can_create_version"] is True
+    assert draft_before["scoring_adjustments"] == []
     with world.database.SessionLocal() as session:
         frozen = session.get(ActivityVersion, UUID(first["version_id"]))
         original = frozen.content_snapshot_json, frozen.content_sha256
@@ -132,9 +133,18 @@ def test_primary_publication_and_pinned_version(world):
         },
     ).json()
     assert published["version_number"] == 2
+
+    attempt, started = start_attempt(world, path)
+    server_now = datetime.fromisoformat(started["server_now"])
+    assert datetime.fromisoformat(started["ends_at"]) == server_now + timedelta(minutes=15)
+    draft_after = world.call("GET", path + "/draft", world.assisting).json()
+    assert draft_after["attempt_count"] == 1
+    assert draft_after["can_create_version"] is False
+    world.call("POST", path + "/versions", world.assisting, expected=409, json={})
+
     detail = world.call("GET", attempt, world.student).json()
-    assert detail["version_id"] == first["version_id"]
-    assert detail["questions"][0]["prompt"] == standard_question()["prompt"]
+    assert detail["version_id"] == published["version_id"]
+    assert detail["questions"][0]["prompt"] == "A revised prompt"
     assert "key" not in detail["questions"][0]
     assert "explanation" not in detail["questions"][0]
     with world.database.SessionLocal() as session:

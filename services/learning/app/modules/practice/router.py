@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from app.common.access import (
@@ -13,6 +13,9 @@ from app.common.access import (
 from app.common.auth import AuthenticatedActor, get_authenticated_actor
 from app.common.db import get_db
 from app.common.errors import ErrorEnvelope
+from app.modules.assessment import service as assessment_service
+from app.modules.assignment import service as assignment_service
+from app.modules.grading import service as grading_service
 from app.modules.practice import service
 from app.modules.practice.schemas import (
     AttachBankItemsRequest,
@@ -57,8 +60,39 @@ async def list_activities(
     decision = await require_class_teacher_read(
         request.app.state.core, actor.user, class_id, request.state.correlation_id
     )
-    items = service.list_class_activities(session, decision.school_id, class_id, kind=kind)
+    pending_counts = grading_service.pending_counts_by_activity(
+        session, decision.school_id, class_id
+    )
+    items = service.list_class_activities(
+        session,
+        decision.school_id,
+        class_id,
+        kind=kind,
+        pending_counts=pending_counts,
+    )
     return {"items": items, "next_cursor": None}
+
+
+@router.delete("/classes/{class_id}/activities/{activity_id}", status_code=204)
+async def delete_draft_activity(
+    class_id: UUID,
+    activity_id: UUID,
+    request: Request,
+    actor: Actor,
+    session: DbSession,
+) -> Response:
+    decision = await require_active_teacher(
+        request.app.state.core, actor.user, class_id, request.state.correlation_id
+    )
+    service.delete_draft_activity(
+        session,
+        school_id=decision.school_id,
+        class_id=class_id,
+        activity_id=activity_id,
+        has_attempts=assessment_service.activity_has_attempts(session, activity_id),
+        has_submissions=assignment_service.activity_has_submissions(session, activity_id),
+    )
+    return Response(status_code=204)
 
 
 @router.get("/classes/{class_id}/question-bank")

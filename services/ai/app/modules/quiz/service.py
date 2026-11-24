@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -29,8 +30,25 @@ from app.integrations.document_client import DocumentPort, GrantSnapshot
 from app.integrations.learning_client import LearningPort, QuizExportReceipt
 from app.modules.indexing.corpora import active_corpora
 from app.modules.quiz.models import DraftStatus, JobStatus, QuizItemDraft, QuizJob
+from app.modules.tutor.canonical_fallback import ensure_canonical_cache
 from app.runtime.provenance import save_provenance
 from app.runtime.rag_runtime import RagRuntime
+
+logger = logging.getLogger(__name__)
+
+
+def _scoped_grants(scope: GrantSnapshot, spec: QuizSpec) -> GrantSnapshot:
+    versions = {entry["document_version_id"] for entry in spec.scope}
+    allowed = {str(grant.document_version_id) for grant in scope.grants}
+    if not versions <= allowed:
+        raise AppError(403)
+    return scope.model_copy(
+        update={
+            "grants": tuple(
+                grant for grant in scope.grants if str(grant.document_version_id) in versions
+            )
+        }
+    )
 
 
 def load_quiz_units(
@@ -39,19 +57,12 @@ def load_quiz_units(
     scope: GrantSnapshot,
     spec: QuizSpec,
 ) -> list[KnowledgeUnit]:
-    versions = {entry["document_version_id"] for entry in spec.scope}
-    allowed = {str(grant.document_version_id) for grant in scope.grants}
-    if not versions <= allowed:
-        raise AppError(403)
-    scoped = scope.model_copy(
-        update={
-            "grants": tuple(
-                grant for grant in scope.grants if str(grant.document_version_id) in versions
-            )
-        }
-    )
-    units = []
+    scoped = _scoped_grants(scope, spec)
+    count_tokens = runtime.pipeline().generator.counter.count
+    units: list[KnowledgeUnit] = []
+    indexed_versions: set[UUID] = set()
     for grant, retriever in active_corpora(database, runtime, scoped):
+        indexed_versions.add(grant.document_version_id)
         records = [
             {
                 **child,
@@ -64,7 +75,29 @@ def load_quiz_units(
         units.extend(
             build_knowledge_units(
                 records,
-                count_tokens=runtime.pipeline().generator.counter.count,
+                count_tokens=count_tokens,
+                document_version_of=lambda _record, version=str(grant.document_version_id): version,
+                is_exercise=lambda record: record.get("unit_kind") in {"exercise", "activity"},
+            )
+        )
+    for grant in scoped.grants:
+        if grant.document_version_id in indexed_versions:
+            continue
+        cached = runtime.canonical_records(grant.document_version_id)
+        if not cached:
+            continue
+        records = [
+            {
+                **record,
+                "section_path": record.get("section_path") or ["Nội dung tài liệu"],
+                "source_quality_warnings": record.get("source_quality_warnings", []),
+            }
+            for record in cached
+        ]
+        units.extend(
+            build_knowledge_units(
+                records,
+                count_tokens=count_tokens,
                 document_version_of=lambda _record, version=str(grant.document_version_id): version,
                 is_exercise=lambda record: record.get("unit_kind") in {"exercise", "activity"},
             )
@@ -106,16 +139,34 @@ async def propose_quiz(
     ):
         raise AppError(422)
     scope = await _teacher_grants(core, document, user, class_id, correlation_id)
+    await ensure_canonical_cache(database, runtime, document, _scoped_grants(scope, spec), correlation_id)
+    version_ids = [entry["document_version_id"] for entry in spec.scope]
+    initial_cache = runtime.fact_cache_for(version_ids)
 
     def generate_proposal():
         scoped = load_quiz_units(database, runtime, scope, spec)
         pipeline = runtime.pipeline()
-        results = {
-            unit.id: extract_facts(
-                pipeline, unit, grade=spec.grade, subject=spec.subject, priority=P1_TEACHER
+        fact_cache = dict(initial_cache)
+        results: dict[str, dict] = {}
+        new_by_version: dict[str, dict[str, list[dict]]] = {}
+        for unit in scoped:
+            res = extract_facts(
+                pipeline,
+                unit,
+                grade=spec.grade,
+                subject=spec.subject,
+                cache=fact_cache,
+                priority=P1_TEACHER,
             )
-            for unit in scoped
-        }
+            results[unit.id] = res
+        for unit in scoped:
+            from rag.generation.tasks.quiz.facts import cache_key
+
+            ckey = cache_key(unit)
+            if ckey in fact_cache:
+                new_by_version.setdefault(unit.document_version_id, {})[ckey] = fact_cache[ckey]
+        for vid, entries in new_by_version.items():
+            runtime.store_fact_cache(vid, entries)
         with database.SessionLocal.begin() as session:
             for result in results.values():
                 save_provenance(session, result["provenance"])
@@ -140,6 +191,8 @@ async def enqueue_job(
     class_id: UUID,
     spec_json: dict,
     correlation_id: str,
+    *,
+    fact_cache: dict[str, list[dict]] | None = None,
 ) -> UUID:
     try:
         spec = parse_quiz_spec(spec_json)
@@ -160,6 +213,7 @@ async def enqueue_job(
                 class_id=class_id,
                 requested_by=user.id,
                 spec_json=spec_json,
+                fact_cache=dict(fact_cache or {}),
                 total_items=sum(row.count for row in spec.matrix),
             )
             session.add(job)
@@ -231,7 +285,10 @@ async def run_queued_job(
 
     def generate(scope: GrantSnapshot, spec: QuizSpec) -> tuple[list[KnowledgeUnit], dict]:
         scoped = load_quiz_units(database, runtime, scope, spec)
-        return scoped, run_job(
+        version_ids = [entry["document_version_id"] for entry in spec.scope]
+        merged_cache = {**runtime.fact_cache_for(version_ids), **(job.fact_cache or {})}
+        job.fact_cache = merged_cache
+        result = run_job(
             runtime.pipeline(),
             spec,
             scoped,
@@ -240,6 +297,16 @@ async def run_queued_job(
             completed=completed,
             progress=progress,
         )
+        from rag.generation.tasks.quiz.facts import cache_key
+
+        by_version: dict[str, dict[str, list[dict]]] = {}
+        for unit in scoped:
+            ckey = cache_key(unit)
+            if ckey in job.fact_cache:
+                by_version.setdefault(unit.document_version_id, {})[ckey] = job.fact_cache[ckey]
+        for vid, entries in by_version.items():
+            runtime.store_fact_cache(vid, entries)
+        return scoped, result
 
     def finish(result: dict | None) -> None:
         with database.SessionLocal.begin() as session:
@@ -289,14 +356,25 @@ async def run_queued_job(
     try:
         scope = await _teacher_grants(core, document, user, class_id, correlation_id)
         spec = parse_quiz_spec(job.spec_json)
+        await ensure_canonical_cache(
+            database, runtime, document, _scoped_grants(scope, spec), correlation_id
+        )
         scoped, result = await runtime.executor.run(generate, scope, spec)
         current = await _teacher_grants(core, document, user, class_id, correlation_id)
         _verify_grants_still_current(scoped, current)
         await run_in_threadpool(finish, result)
     except (GenerationUnavailable, SchedulerBusy):
+        logger.warning(
+            "quiz_job_generation_unavailable",
+            extra={"job_id": str(job_id), "class_id": str(class_id)},
+        )
         await run_in_threadpool(finish, None)
         raise AppError(503) from None
     except (Exception, asyncio.CancelledError):
+        logger.exception(
+            "quiz_job_failed",
+            extra={"job_id": str(job_id), "class_id": str(class_id)},
+        )
         await run_in_threadpool(finish, None)
         raise
 
@@ -622,6 +700,9 @@ async def regenerate_draft(
         spec = parse_quiz_spec(target["spec_json"])
     except ValueError:
         raise AppError(422) from None
+    await ensure_canonical_cache(
+        database, runtime, document, _scoped_grants(scope, spec), correlation_id
+    )
     meta = target["slot_meta_json"]
     item_type = (
         meta.get("type")

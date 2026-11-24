@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.common.db import ensure_utc, utcnow, write_transaction
 from app.common.errors import AppError
+from app.common.outbox import record_learning_notification
 from app.integrations.core_client import CurrentUser, TeachingRole
 from app.integrations.document_client import GrantSnapshot
 from app.modules.appeals import service as appeals
@@ -60,12 +61,72 @@ def _snapshot(act: Activity, ver: ActivityVersion) -> dict:
     }
 
 
-def save_draft(session: Session, scope: tuple, actor: CurrentUser, body: SaveDraftRequest) -> dict:
+def _available_sources(grants: GrantSnapshot | None) -> list[dict]:
+    if grants is None:
+        return []
+    return [
+        {
+            "id": str(grant.document_id),
+            "document_id": str(grant.document_id),
+            "document_version_id": str(grant.document_version_id),
+            "source_id": grant.source_id,
+            "title": grant.title or f"Tài liệu {str(grant.document_id)[:8]}",
+            "version": int(grant.version_number or 1),
+            "locator": "",
+            "accessible": True,
+        }
+        for grant in grants.grants
+    ]
+
+
+def _resolve_granted_source(source: dict | None, grants: GrantSnapshot | None) -> dict | None:
+    if not source:
+        return None
+    if grants is None:
+        raise AppError(403, "SOURCE_ACCESS_DENIED")
+    raw_doc_id = source.get("document_id") or source.get("documentId") or source.get("id")
+    raw_ver = source.get("version_number") or source.get("versionNumber") or source.get("version")
+    raw_ver_id = source.get("document_version_id") or source.get("documentVersionId")
+    raw_source_id = source.get("source_id") or source.get("sourceId")
+    if not raw_doc_id:
+        raise AppError(403, "SOURCE_ACCESS_DENIED")
+    for grant in grants.grants:
+        if str(grant.document_id).lower() != str(raw_doc_id).lower():
+            continue
+        if raw_ver is not None and int(grant.version_number or 1) != int(raw_ver):
+            continue
+        if raw_ver_id is not None and str(grant.document_version_id).lower() != str(raw_ver_id).lower():
+            continue
+        if raw_source_id is not None and str(grant.source_id) != str(raw_source_id):
+            continue
+        return {
+            "id": str(grant.document_id),
+            "document_id": str(grant.document_id),
+            "document_version_id": str(grant.document_version_id),
+            "source_id": grant.source_id,
+            "title": grant.title
+            or str(source.get("title") or f"Tài liệu {str(grant.document_id)[:8]}"),
+            "version": int(grant.version_number or 1),
+            "locator": str(source.get("locator") or ""),
+            "accessible": True,
+        }
+    raise AppError(403, "SOURCE_ACCESS_DENIED")
+
+
+def save_draft(
+    session: Session,
+    scope: tuple,
+    actor: CurrentUser,
+    body: SaveDraftRequest,
+    *,
+    grants: GrantSnapshot | None = None,
+) -> dict:
     with write_transaction(session):
         act = activities.get_activity(session, *scope, KIND, lock=True)
         ver = _editor(session, act)
         if ver.revision != body.expected_revision:
             raise AppError(409, "REVISION_CONFLICT")
+        normalized_source = _resolve_granted_source(body.source, grants) if body.source else None
         previous = (
             activities.get_version(session, act, act.current_version_id)
             if act.current_version_id
@@ -88,6 +149,7 @@ def save_draft(session: Session, scope: tuple, actor: CurrentUser, body: SaveDra
         ver.settings_json = {
             **ver.settings_json,
             **body.model_dump(mode="json", exclude={"expected_revision", "publish"}),
+            "source": normalized_source,
         }
         ver.revision += 1
         if body.publish or previous is None:
@@ -329,6 +391,7 @@ def detail(
     if student_id is None:
         return {
             "assignment": _snapshot(act, _editor(session, act)),
+            "available_sources": _available_sources(grants),
             "submissions": [],
             "can_submit": False,
         }
@@ -613,6 +676,17 @@ def class_submissions(
     )
 
 
+def activity_has_submissions(session: Session, activity_id: UUID) -> bool:
+    return (
+        session.scalar(
+            select(AssignmentSubmission.id)
+            .where(AssignmentSubmission.activity_id == activity_id)
+            .limit(1)
+        )
+        is not None
+    )
+
+
 def grade_submission(
     session: Session, school_id: UUID, submission_id: UUID, actor: CurrentUser, body
 ) -> dict:
@@ -636,6 +710,15 @@ def grade_submission(
             actor_id=actor.id,
             actor_name=actor.display_name or "",
             teacher=True,
+        )
+        record_learning_notification(
+            session,
+            event_type="ASSIGNMENT_GRADED",
+            school_id=row.school_id,
+            class_id=row.class_id,
+            resource_type="assignment_submission",
+            resource_id=row.id,
+            student_id=row.student_id,
         )
         return grading.grade_view(grade, grading.effective_revision(session, grade))
 

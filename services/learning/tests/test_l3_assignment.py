@@ -40,6 +40,24 @@ def test_audience_and_blob_validation(world):
     upload = upload_pdf(world, path, revision)
     assert upload["preview_only"] is True
     assert upload["file"]["type"] == "application/pdf"
+    fallback_pdf = world.call(
+        "POST",
+        path + "/uploads",
+        world.student,
+        expected=201,
+        files={"file": ("fallback.pdf", b"%PDF-1.7\nFallback", "application/octet-stream")},
+        data={"expected_revision": revision},
+    ).json()
+    assert fallback_pdf["file"]["type"] == "application/pdf"
+    fallback_md = world.call(
+        "POST",
+        path + "/uploads",
+        world.student,
+        expected=201,
+        files={"file": ("notes.md", b"# Heading\nSolution", "application/octet-stream")},
+        data={"expected_revision": revision},
+    ).json()
+    assert fallback_md["file"]["type"] == "text/markdown"
     row = submit_assignment(world, path, revision, upload["upload_id"])
     assert row["is_late"] is False
     download = f"/api/v1/submissions/{row['id']}/files/{upload['upload_id']}"
@@ -160,6 +178,17 @@ def test_deadlines_count_and_grading_version(world, graded_policy):
             )
         )
         assert events[0].payload_json["student_id"] == str(world.student.id)
+        graded_notices = list(
+            session.scalars(
+                select(OutboxEvent).where(OutboxEvent.event_type == "ASSIGNMENT_GRADED")
+            )
+        )
+        assert any(
+            evt.payload_json.get("resource_type") == "assignment_submission"
+            and evt.payload_json.get("resource_id") == first["id"]
+            and evt.payload_json.get("student_id") == str(world.student.id)
+            for evt in graded_notices
+        )
     override = world.call(
         "POST",
         url,
@@ -217,3 +246,91 @@ def test_late_and_resubmission_cutoffs_and_unused_upload_cleanup(world):
         assert discard_expired_uploads(session, world.client.app.state.blob_store) == 1
         assert session.get(AssignmentUpload, UUID(used["upload_id"])) is not None
         assert session.get(AssignmentUpload, UUID(unused["upload_id"])) is None
+
+
+def test_assignment_document_attachment_masking_and_draft_delete(world):
+    entry = world.call("POST", world.base + "/assignments", world.primary, expected=201, json={}).json()
+    draft_path = f"{world.base}/assignments/{entry['assignment_id']}"
+    detail = world.call("GET", draft_path, world.primary).json()
+    assert len(detail["available_sources"]) == 1
+    assert detail["available_sources"][0]["id"] == str(world.document.grant.document_id)
+
+    world.call(
+        "PUT",
+        draft_path + "/draft",
+        world.primary,
+        expected=403,
+        json={
+            "expected_revision": entry["revision"],
+            "title": "Homework",
+            "topic": "Algebra",
+            "instructions": "Read attached PDF",
+            "due_at": (utcnow() + timedelta(hours=3)).isoformat(),
+            "policy": {},
+            "source": {"id": str(uuid4()), "title": "Unauthorized", "version": 1},
+            "publish": False,
+        },
+    )
+
+    saved = world.call(
+        "PUT",
+        draft_path + "/draft",
+        world.primary,
+        json={
+            "expected_revision": entry["revision"],
+            "title": "Draft only",
+            "topic": "Algebra",
+            "instructions": "Read doc",
+            "due_at": (utcnow() + timedelta(hours=3)).isoformat(),
+            "policy": {},
+            "source": {
+                "id": str(world.document.grant.document_id),
+                "title": "Override",
+                "version": world.document.grant.version_number,
+            },
+            "publish": False,
+        },
+    ).json()
+    assert saved["source"]["source_id"] == world.document.grant.source_id
+    world.call(
+        "DELETE",
+        f"{world.base}/activities/{entry['assignment_id']}",
+        world.primary,
+        expected=204,
+    )
+    world.call("GET", draft_path, world.primary, expected=404)
+
+    pub_entry = world.call("POST", world.base + "/assignments", world.primary, expected=201, json={}).json()
+    pub_path = f"{world.base}/assignments/{pub_entry['assignment_id']}"
+    world.call(
+        "PUT",
+        pub_path + "/draft",
+        world.primary,
+        json={
+            "expected_revision": pub_entry["revision"],
+            "title": "Published HW",
+            "topic": "Geometry",
+            "instructions": "Read source doc",
+            "due_at": (utcnow() + timedelta(hours=4)).isoformat(),
+            "policy": {},
+            "source": {
+                "id": str(world.document.grant.document_id),
+                "title": world.document.grant.title,
+                "version": world.document.grant.version_number,
+            },
+            "publish": True,
+        },
+    )
+    world.call(
+        "DELETE",
+        f"{world.base}/activities/{pub_entry['assignment_id']}",
+        world.primary,
+        expected=409,
+    )
+    student_view = world.call("GET", pub_path, world.student).json()
+    assert student_view["assignment"]["source"]["isAccessible"] is True
+    assert student_view["assignment"]["source"]["documentId"] == str(world.document.grant.document_id)
+
+    world.document.revoked = True
+    masked_view = world.call("GET", pub_path, world.student).json()
+    assert masked_view["assignment"]["source"]["isAccessible"] is False

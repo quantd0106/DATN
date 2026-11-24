@@ -136,10 +136,16 @@ def support_verifier(item, ctx) -> Verdict:
     elif kind == "true_false_4":
         for statement in item["statements"]:
             verdict = judge(statement["text"], item["context"])
-            if statement["truth"] and verdict not in ("entailed", None):
-                return Verdict(item, flags, reject="true_statement_not_entailed")
-            if not statement["truth"] and verdict not in ("contradicted", None):
-                return Verdict(item, flags, reject="false_statement_not_contradicted")
+            if statement["truth"]:
+                if verdict == "contradicted":
+                    return Verdict(item, flags, reject="true_statement_not_entailed")
+                if verdict == "not_mentioned":
+                    flags.append("true_statement_not_entailed")
+            else:
+                if verdict == "entailed":
+                    return Verdict(item, flags, reject="false_statement_not_contradicted")
+                if verdict == "not_mentioned":
+                    flags.append("false_statement_not_contradicted")
     else:
         key = item["answer"]["value"] + (" " + item["answer"]["unit"] if item["answer"].get("unit") else "")
         if judge(key, item["stem"]) not in ("entailed", None):

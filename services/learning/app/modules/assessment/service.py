@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -37,7 +37,30 @@ def create(session: Session, school_id: UUID, class_id: UUID, actor: CurrentUser
         }
 
 
-def draft_view(activity: Activity, version: ActivityVersion) -> dict:
+def _attempt_count(session: Session, activity_id: UUID) -> int:
+    return int(
+        session.scalar(
+            select(func.count())
+            .select_from(AssessmentAttempt)
+            .where(AssessmentAttempt.activity_id == activity_id)
+        )
+        or 0
+    )
+
+
+def activity_has_attempts(session: Session, activity_id: UUID) -> bool:
+    return _attempt_count(session, activity_id) > 0
+
+
+def draft_view(
+    activity: Activity, version: ActivityVersion, *, session: Session | None = None
+) -> dict:
+    attempt_count = _attempt_count(session, activity.id) if session is not None else 0
+    scoring_adjustments = (
+        grading.list_version_adjustments(session, version.id)
+        if session is not None and version.status != VersionStatus.DRAFT
+        else []
+    )
     return {
         "class_id": activity.class_id,
         "assessment_id": activity.id,
@@ -48,13 +71,20 @@ def draft_view(activity: Activity, version: ActivityVersion) -> dict:
         "questions": version.content_snapshot_json,
         "status": version.status,
         "rejection_reason": version.rejection_reason,
+        "attempt_count": attempt_count,
+        "can_create_version": bool(
+            version.status == VersionStatus.PUBLISHED
+            and activity.draft_version_id is None
+            and attempt_count == 0
+        ),
+        "scoring_adjustments": scoring_adjustments,
     }
 
 
 def get_draft(session: Session, scope: tuple) -> dict:
     act = activities.get_activity(session, *scope, KIND)
     ver = activities.get_version(session, act, act.draft_version_id or act.current_version_id)
-    return draft_view(act, ver)
+    return draft_view(act, ver, session=session)
 
 
 def _check_revision(version: ActivityVersion, expected: int, status: VersionStatus) -> None:
@@ -85,7 +115,7 @@ def save_draft(session: Session, scope: tuple, body: SaveDraftRequest) -> dict:
                 body.settings.code,
             )
         ver.revision += 1
-        return draft_view(act, ver)
+        return draft_view(act, ver, session=session)
 
 
 def review(session: Session, scope: tuple, expected: int, question_id: str) -> dict:
@@ -102,7 +132,7 @@ def review(session: Session, scope: tuple, expected: int, question_id: str) -> d
             for q in ver.content_snapshot_json
         ]
         ver.revision += 1
-        return draft_view(act, ver)
+        return draft_view(act, ver, session=session)
 
 
 def validate_question_key(question: dict) -> None:
@@ -150,7 +180,7 @@ def propose(session: Session, scope: tuple, actor: CurrentUser, expected: int) -
         ver.proposed_by, ver.proposed_at = actor.id, utcnow()
         ver.rejection_reason = None
         ver.revision += 1
-        return draft_view(act, ver)
+        return draft_view(act, ver, session=session)
 
 
 def decide(session: Session, scope: tuple, actor: CurrentUser, body) -> dict:
@@ -162,7 +192,7 @@ def decide(session: Session, scope: tuple, actor: CurrentUser, body) -> dict:
         if body.decision == "REJECT":
             ver.status = VersionStatus.DRAFT
             ver.rejection_reason = body.reason
-            return draft_view(act, ver)
+            return draft_view(act, ver, session=session)
 
         previous = (
             activities.get_version(session, act, act.current_version_id)
@@ -193,7 +223,7 @@ def decide(session: Session, scope: tuple, actor: CurrentUser, body) -> dict:
             parse_time(settings["opens_at"]),
             parse_time(settings["closes_at"]),
         )
-        return draft_view(act, ver)
+        return draft_view(act, ver, session=session)
 
 
 def next_version(session: Session, scope: tuple, actor: CurrentUser) -> dict:
@@ -201,6 +231,8 @@ def next_version(session: Session, scope: tuple, actor: CurrentUser) -> dict:
         act = activities.get_activity(session, *scope, KIND, lock=True)
         if act.current_version_id is None or act.draft_version_id is not None:
             raise AppError(409)
+        if _attempt_count(session, act.id) > 0:
+            raise AppError(409, "ASSESSMENT_HAS_ATTEMPTS")
         current = activities.get_version(session, act, act.current_version_id)
         ver = ActivityVersion(
             activity_id=act.id,
@@ -212,7 +244,7 @@ def next_version(session: Session, scope: tuple, actor: CurrentUser) -> dict:
         session.add(ver)
         session.flush()
         act.draft_version_id = ver.id
-        return draft_view(act, ver)
+        return draft_view(act, ver, session=session)
 
 
 def parse_time(value: str) -> datetime:

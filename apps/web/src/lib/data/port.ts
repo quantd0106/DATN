@@ -163,6 +163,7 @@ export interface DataAdapter {
       approved: boolean;
       expectedRevision?: string;
     }): Promise<{ reviewedCount: number; canPublish: boolean }>;
+    deleteDraftActivity?(input: { classId: string; activityId: string }): Promise<void>;
   };
   // Future domain extension ports:
   classroom: ClassroomAdminPort;

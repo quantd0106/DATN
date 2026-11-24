@@ -179,6 +179,7 @@ async def submit_job(
     api: ApiServices,
 ) -> JobCreated:
     spec = await _spec_data(class_id, body, user, credentials, api)
+    version_ids = [str(entry.document_version_id) for entry in body.scope]
     job_id = await enqueue_job(
         api.require_db(),
         api.core,
@@ -187,6 +188,7 @@ async def submit_job(
         class_id,
         spec,
         api.correlation_id,
+        fact_cache=api.runtime.fact_cache_for(version_ids),
     )
     background.add_task(_run_job, api, user, class_id, job_id)
     return JobCreated(id=job_id)

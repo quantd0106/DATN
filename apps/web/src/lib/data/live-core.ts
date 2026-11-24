@@ -163,6 +163,7 @@ const notificationCopy: Record<
   ASSESSMENT_RESULT_RELEASED: { title: 'Đã công bố kết quả kiểm tra', content: 'Bạn có thể xem kết quả trong danh sách bài kiểm tra.', category: 'EXAM', target: 'assessments' },
   GRADE_PROPOSAL_PENDING: { title: 'Đề xuất điều chỉnh điểm đang chờ duyệt', content: 'Mở hàng chờ chấm để xem đề xuất.', category: 'EXAM', target: 'gradingQueue' },
   APPEAL_RESOLVED: { title: 'Yêu cầu phúc khảo đã được giải quyết', content: 'Bạn có thể xem kết quả phúc khảo trong danh sách bài kiểm tra.', category: 'EXAM', target: 'assessments' },
+  ASSIGNMENT_GRADED: { title: 'Bài tập đã được chấm điểm', content: 'Giáo viên đã chấm và nhận xét bài tập bạn nộp.', category: 'ASSIGNMENT', target: 'assignments' },
 };
 
 const notificationTargetLabels: Record<NotificationTarget, string> = {
@@ -233,6 +234,15 @@ export function decodeCoreNotification(value: unknown, actor: User, classNames: 
   const className = classId ? classNames.get(classId) : undefined;
   const rolePrefix = actor.roles.includes('LECTURER') ? '/teacher' : actor.roles.includes('STUDENT') ? '/student' : null;
   let targetHref: string | undefined;
+  let targetLabel: string | undefined;
+  if (type === 'ASSIGNMENT_GRADED' && actor.roles.includes('STUDENT')) {
+    const resourceId = uuidOrUndefined(payload.resource_id);
+    if (resourceId) {
+      targetHref = routeHref('s.historyResult', { resultId: resourceId }) ?? undefined;
+      if (targetHref) targetLabel = 'Xem điểm bài tập';
+    }
+  }
+  if (!targetHref) {
   if (rolePrefix && classId && spec.target === 'feed') targetHref = routeHref(rolePrefix === '/teacher' ? 't.feed' : 's.feed', { classId }) ?? `${rolePrefix}/classes/${classId}/feed`;
   else if (rolePrefix && classId && spec.target === 'calendar') targetHref = routeHref(rolePrefix === '/teacher' ? 't.calendar' : 's.calendar', { classId }) ?? `${rolePrefix}/classes/${classId}/calendar`;
   else if (rolePrefix && spec.target === 'classes') targetHref = routeHref(rolePrefix === '/teacher' ? 't.classes' : 's.classes') ?? `${rolePrefix}/classes`;
@@ -241,6 +251,7 @@ export function decodeCoreNotification(value: unknown, actor: User, classNames: 
   else if (classId && spec.target === 'assessments' && actor.roles.includes('STUDENT')) targetHref = routeHref('s.assessments', { classId }) ?? undefined;
   else if (classId && spec.target === 'activities' && actor.roles.includes('LECTURER')) targetHref = routeHref('t.activities', { classId }) ?? undefined;
   else if (classId && spec.target === 'gradingQueue' && actor.roles.includes('LECTURER')) targetHref = routeHref('t.gradingQueue', { classId }) ?? undefined;
+  }
   return {
     id: string(source.id),
     userId: actor.id,
@@ -251,7 +262,7 @@ export function decodeCoreNotification(value: unknown, actor: User, classNames: 
     isRead: source.read,
     ...(classId ? { classId } : {}),
     ...(className ? { className } : {}),
-    ...(targetHref && spec.target ? { targetHref, targetLabel: notificationTargetLabels[spec.target] } : {}),
+    ...(targetHref && (targetLabel || spec.target) ? { targetHref, targetLabel: targetLabel ?? notificationTargetLabels[spec.target!] } : {}),
   };
 }
 

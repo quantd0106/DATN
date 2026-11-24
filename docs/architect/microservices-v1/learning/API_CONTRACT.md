@@ -17,11 +17,12 @@
 
 ## 2. Public Endpoints (`/api/v1`)
 
-### 2.1. Hoạt động chung, Ngân hàng câu hỏi & Luyện tập (Practice — L1, 17 endpoints)
+### 2.1. Hoạt động chung, Ngân hàng câu hỏi & Luyện tập (Practice — L1, 18 endpoints)
 
 | Method | Endpoint | Quyền / Input → Kết quả |
 |---|---|---|
-| `GET` | `/classes/{class_id}/activities` | Giáo viên phân công (`read_class_content`); `?kind=` → `200 {items, next_cursor: null}` |
+| `GET` | `/classes/{class_id}/activities` | Giáo viên phân công (`read_class_content`); `?kind=` → `200 {items, next_cursor: null}` (kèm `pendingGradingCount`, `canDeleteDraft`) |
+| `DELETE` | `/classes/{class_id}/activities/{activity_id}` | Giáo viên lớp `ACTIVE`; chỉ xóa bản nháp chưa công bố và chưa có lượt làm/bài nộp (`DRAFT`) → `204` (`409 ACTIVITY_ALREADY_PUBLISHED` nếu đã công bố/chờ duyệt/có dữ liệu) |
 | `GET` | `/classes/{class_id}/question-bank` | Giáo viên phân công (`read_class_content`); `?origin=&type=&topic=` → `200 {items, next_cursor: null}` |
 | `POST` | `/classes/{class_id}/practices` | Giáo viên lớp `ACTIVE` (`participate_current_class`); `{title, topic?}` → `201` |
 | `GET` | `/classes/{class_id}/practices/{practice_id}/editor` | Giáo viên phân công → `200` (kèm danh sách nguồn tài liệu khả dụng của lớp) |
@@ -44,12 +45,12 @@
 | Method | Endpoint | Quyền / Input → Kết quả |
 |---|---|---|
 | `POST` | `/classes/{class_id}/assessments` | Giáo viên lớp `ACTIVE` → `201` (nháp mới) |
-| `GET` | `/classes/{class_id}/assessments/{assessment_id}/draft` | Giáo viên phân công → `200` (kèm `can_approve` theo vai trò `PRIMARY` và `available_sources`) |
+| `GET` | `/classes/{class_id}/assessments/{assessment_id}/draft` | Giáo viên phân công → `200` (kèm `can_approve` theo vai trò `PRIMARY`, `available_sources`, `attempt_count`, `can_create_version`, `scoring_adjustments`) |
 | `PUT` | `/classes/{class_id}/assessments/{assessment_id}/draft` | Giáo viên lớp `ACTIVE`; `{expected_revision, settings, questions}` → `200` |
 | `POST` | `/classes/{class_id}/assessments/{assessment_id}/questions/{question_id}/review` | Giáo viên lớp `ACTIVE`; `{expected_revision}` → `200` |
 | `POST` | `/classes/{class_id}/assessments/{assessment_id}/propose` | Giáo viên lớp `ACTIVE`; `{expected_revision}` → `200` (chuyển `PENDING_APPROVAL`) |
 | `POST` | `/classes/{class_id}/assessments/{assessment_id}/decision` | **Chỉ `PRIMARY`** lớp `ACTIVE`; `{expected_revision, decision: "APPROVE"\|"REJECT", reason?}` → `200` (công bố đề bất biến & phát outbox deadline kèm `activity_kind="ASSESSMENT"`) |
-| `POST` | `/classes/{class_id}/assessments/{assessment_id}/versions` | Giáo viên lớp `ACTIVE` → `201` phiên bản nháp mới (`O3`) |
+| `POST` | `/classes/{class_id}/assessments/{assessment_id}/versions` | Giáo viên lớp `ACTIVE` → `201` phiên bản nháp mới (`O3`; chỉ khi chưa có lượt làm bài nào, ngược lại `409 ASSESSMENT_HAS_ATTEMPTS` và dùng `M4`) |
 | `GET` | `/classes/{class_id}/assessments` | Học sinh lớp `ACTIVE` → `200` |
 | `GET` | `/classes/{class_id}/assessments/{assessment_id}` | Học sinh lớp `ACTIVE` → `200` |
 | `POST` | `/classes/{class_id}/assessments/{assessment_id}/attempts` | Học sinh lớp `ACTIVE` → `201` (ghim `activity_version_id`, tạo đồng hồ `ends_at`) |
@@ -64,18 +65,18 @@
 | Method | Endpoint | Quyền / Input → Kết quả |
 |---|---|---|
 | `POST` | `/classes/{class_id}/assignments` | Giáo viên lớp `ACTIVE` → `201` |
-| `PUT` | `/classes/{class_id}/assignments/{assignment_id}/draft` | Giáo viên lớp `ACTIVE`; `{expected_revision, title, topic?, instructions?, due_at, policy, source?, publish?}` → `200` (đẩy outbox deadline kèm `activity_kind="ASSIGNMENT"` khi công bố/đổi hạn) |
+| `PUT` | `/classes/{class_id}/assignments/{assignment_id}/draft` | Giáo viên lớp `ACTIVE`; `{expected_revision, title, topic?, instructions?, due_at, policy, source?, publish?}` → `200` (xác thực & chuẩn hóa `source` theo Document grant đang hiệu lực `403 SOURCE_ACCESS_DENIED`, đẩy outbox deadline kèm `activity_kind="ASSIGNMENT"` khi công bố/đổi hạn) |
 | `PUT` | `/classes/{class_id}/assignments/{assignment_id}/recipients` | Giáo viên lớp `ACTIVE`; `{expected_revision, student_ids}` → `204` |
 | `GET` | `/classes/{class_id}/assignments/{assignment_id}/recipients` | Giáo viên phân công → `200` |
 | `GET` | `/classes/{class_id}/assignments/{assignment_id}/submissions/{submission_id}/grading` | Giáo viên chấm bài (`grade_submitted_work`) → `200` |
 | `POST` | `/classes/{class_id}/assignments/{assignment_id}/due-overrides` | Giáo viên lớp `ACTIVE`; `{student_id?, new_due_at, reason}` → `201` |
 | `GET` | `/classes/{class_id}/assignments` | Học sinh/Giáo viên có quyền đọc lớp → `200` (lọc theo quyền nguồn & đối tượng giao) |
-| `GET` | `/classes/{class_id}/assignments/{assignment_id}` | Học sinh/Giáo viên có quyền đọc lớp → `200` |
+| `GET` | `/classes/{class_id}/assignments/{assignment_id}` | Học sinh/Giáo viên có quyền đọc lớp → `200` (giáo viên nhận thêm `available_sources` khả dụng) |
 | `POST` | `/classes/{class_id}/assignments/{assignment_id}/uploads` | Học sinh lớp `ACTIVE`; `multipart/form-data`: `file`, `expected_revision` → `201` |
 | `POST` | `/classes/{class_id}/assignments/{assignment_id}/submissions` | Học sinh lớp `ACTIVE` + header `Idempotency-Key`; `{expected_revision, upload_id, operation_id, note?}` → `201` |
 | `GET` | `/classes/{class_id}/assignments/{assignment_id}/submissions/reconcile` | Học sinh (`read_own_history`); `?operation_id=` → `200` |
-| `GET` | `/submissions/{submission_id}/files/{file_id}` | Chủ bài nộp (`read_own_history`) hoặc giáo viên chấm (`grade_submitted_work`) → `200 application/octet-stream` |
-| `POST` | `/submissions/{submission_id}/grade` | Giáo viên chấm (`grade_submitted_work`); `{expected_grade_version, score, feedback?}` → `200` |
+| `GET` | `/submissions/{submission_id}/files/{file_id}` | Chủ bài nộp (`read_own_history`) hoặc giáo viên chấm (`grade_submitted_work`) → `200` (MIME chuẩn hóa theo tệp đã kiểm tra, fallback `application/octet-stream`) |
+| `POST` | `/submissions/{submission_id}/grade` | Giáo viên chấm (`grade_submitted_work`); `{expected_grade_version, score, feedback?}` → `200` (ghi outbox `ASSIGNMENT_GRADED` sang Core) |
 | `POST` | `/submissions/{submission_id}/grade-hint` | Giáo viên chấm (`grade_submitted_work`) → `200 {feedback, limitations}` (tư vấn AI `D5`, `503 AI_HINT_UNAVAILABLE` nếu AI gián đoạn) |
 
 ### 2.4. Chấm điểm, Sửa điểm, Điều chỉnh đề lỗi & Phúc khảo (L4, 11 endpoints)
@@ -85,7 +86,7 @@
 | `GET` | `/classes/{class_id}/grading` | Giáo viên phân công (`read_class_content`) → `200` (hàng chờ chấm, đánh dấu `membership_ended` qua Core) |
 | `GET` | `/classes/{class_id}/assessments/{assessment_id}/attempts/{attempt_id}/grading` | Giáo viên phân công (`read_class_content`) → `200` |
 | `POST` | `/classes/{class_id}/assessments/{assessment_id}/attempts/{attempt_id}/grade` | Giáo viên chấm (`grade_submitted_work`); `{expected_grade_version, scores, feedback?}` → `200` |
-| `POST` | `/classes/{class_id}/assessments/{assessment_id}/release-results` | **Chỉ `PRIMARY`** lớp `ACTIVE`; `{reason?}` → `200` (công bố điểm & ghi outbox `ASSESSMENT_RESULT_RELEASED`) |
+| `POST` | `/classes/{class_id}/assessments/{assessment_id}/release-results` | **Chỉ `PRIMARY`** lớp `ACTIVE`; `{reason?, release_now?: bool}` → `200` (công bố điểm & ghi outbox `ASSESSMENT_RESULT_RELEASED`) |
 | `POST` | `/grades/{grade_id}/revisions` | Giáo viên (`grade_submitted_work`) hoặc `ADMIN` (bắt buộc `X-Admin-Reason`); `{expected_grade_version, scores?, total_score?, feedback?, reason, appeal_id?}` → `201` |
 | `POST` | `/grade-revisions/{revision_id}/decision` | **Chỉ `PRIMARY`** (hoặc `ADMIN` kèm `X-Admin-Reason`, cấm tự duyệt đề xuất của mình); `{expected_grade_version, decision: "APPROVE"\|"REJECT", reason}` → `200` |
 | `POST` | `/classes/{class_id}/activity-versions/{version_id}/scoring-adjustments` | Giáo viên lớp `ACTIVE`; `{question_id, action: "VOID_QUESTION"\|"GRANT_FULL_CREDIT"\|"ACCEPT_ADDITIONAL_KEY", payload?, reason}` → `201` (`M4`) |
@@ -108,7 +109,7 @@
 
 ## 4. Hợp đồng Web Proxy Allowlist (`apps/web/src/lib/api/learning-operations.ts`)
 
-Proxy `/api/learning/v1/[...path]/route.ts` mở allowlist cho **57 thao tác public** (17 Practice, 16 Assessment gồm màn grading, 14 Assignment, 10 Grading/Corrections/Appeals/History):
+Proxy `/api/learning/v1/[...path]/route.ts` mở allowlist cho **58 thao tác public** (18 Practice, 16 Assessment gồm màn grading, 14 Assignment, 10 Grading/Corrections/Appeals/History):
 - Kiểm tra UUID chặt chẽ cho mọi ID đường dẫn (`questionId` là chuỗi an toàn 1..100 ký tự, cấm ký tự điều khiển và segment `.` / `..`).
 - Chỉ forward các query parameter được khai báo (`kind`, `origin`, `type`, `topic`, `operation_id`).
-- Chuyển tiếp header `Idempotency-Key`, `X-Admin-Reason`, `multipart/form-data` (upload bài tập), stream nhị phân tải tệp (`Content-Disposition`), và bắt buộc `Origin === WEB_ORIGIN` đối với mọi yêu cầu `POST`/`PUT`.
+- Chuyển tiếp header `Idempotency-Key`, `X-Admin-Reason`, `multipart/form-data` (upload bài tập), stream nhị phân tải tệp (`Content-Disposition`), và bắt buộc `Origin === WEB_ORIGIN` đối với mọi yêu cầu `POST`/`PUT`/`DELETE`.

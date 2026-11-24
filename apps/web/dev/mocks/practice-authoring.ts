@@ -5,7 +5,12 @@ import type { PracticeAuthoringPort, PracticeAuthoringScope, PracticeEditorSnaps
 import type { PreviewContext } from './context';
 import { initialTeacherPracticeEditors } from './fixtures';
 
-type Dependencies = { context: PreviewContext; learning(): DataAdapter['learning']; read(scope: PracticeAuthoringScope): Promise<TeacherPracticeEditorModel> };
+type Dependencies = {
+  context: PreviewContext;
+  learning(): DataAdapter['learning'];
+  read(scope: PracticeAuthoringScope): Promise<TeacherPracticeEditorModel>;
+  createNewVersion?(scope: PracticeAuthoringScope): Promise<void>;
+};
 function revision(editor: TeacherPracticeEditorModel): string {
   // Exact opaque snapshot equality, kept in memory; no hash collisions or wire headers.
   return JSON.stringify([editor.classId, editor.practiceId, editor.currentVersionNumber, editor.isDraft, editor.title, editor.topic, editor.questions]);
@@ -84,6 +89,14 @@ export function createPracticeAuthoringPort(deps: Dependencies): PracticeAuthori
       const id = crypto.randomUUID();
       const question = { ...structuredClone(template), id: crypto.randomUUID(), isReviewed: false };
       return { id, question, sourceId: source.id, sourceVersion: source.version };
+    },
+    async createNewVersion(scope) {
+      const actorId = authorize(scope).id;
+      await load(scope);
+      assertActor(scope, actorId);
+      await deps.createNewVersion?.(scope);
+      assertActor(scope, actorId, true);
+      return load(scope);
     },
   };
 }

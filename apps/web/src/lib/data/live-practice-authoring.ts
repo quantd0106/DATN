@@ -139,6 +139,12 @@ export function createLivePracticeAuthoring(session: LiveIdentitySession, core: 
         }, snapshot.defaultPoints),
       };
     },
+    async createNewVersion(scope) {
+      const generation = session.sessionGeneration();
+      await read('newPracticeVersion', { pathParams: scope }, () => undefined);
+      requireLearningSession(session, generation);
+      return port.load(scope);
+    },
   };
   return { ...port, readSnapshot, saveEditor: save };
 }

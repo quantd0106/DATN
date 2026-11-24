@@ -200,7 +200,15 @@ export function createAiHttpClient(getToken: () => string | null, fetcher: typeo
     for (const [name, value] of Object.entries(options.headers ?? {})) {
       if (name.toLowerCase() === 'x-correlation-id') headers.set(name, value);
     }
-    const timeout = AbortSignal.timeout(mode === 'sse' ? aiStreamTimeoutMs : id === 'proposeQuiz' ? 30_000 : 15_000);
+    const timeout = AbortSignal.timeout(
+      mode === 'sse'
+        ? aiStreamTimeoutMs
+        : id === 'proposeQuiz'
+          ? 90_000
+          : id === 'regenerateQuizItem'
+            ? 60_000
+            : 15_000,
+    );
     const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
     try {
       signal.throwIfAborted();

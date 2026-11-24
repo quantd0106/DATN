@@ -124,7 +124,7 @@ export function createLearningProxy(
     }
 
     try {
-      const body = operation.method === 'GET' ? undefined : await request.arrayBuffer();
+      const body = operation.method === 'GET' || operation.method === 'DELETE' ? undefined : await request.arrayBuffer();
       const upstream = await fetcher(target, {
         method: operation.method, headers, body, cache: 'no-store', redirect: 'manual',
         signal: AbortSignal.any([request.signal, AbortSignal.timeout(15000)]),
@@ -187,7 +187,14 @@ export function createAiProxy(
     if (mode === 'sse') headers.set('Accept', 'text/event-stream');
 
     try {
-      const timeout = mode === 'sse' ? aiStreamTimeoutMs : id === 'proposeQuiz' ? 30_000 : 15_000;
+      const timeout =
+        mode === 'sse'
+          ? aiStreamTimeoutMs
+          : id === 'proposeQuiz'
+            ? 90_000
+            : id === 'regenerateQuizItem'
+              ? 60_000
+              : 15_000;
       const upstream = await fetcher(target, {
         method, headers, body: method === 'GET' ? undefined : await request.arrayBuffer(),
         cache: 'no-store', redirect: 'manual',

@@ -1,5 +1,5 @@
 import type { PreviewContext } from './context';
-import type { AssessmentPort, AssessmentLoad, AssessmentQuestion, AssessmentSettings, AssessmentDraft, AssessmentAttempt, AssessmentAnswers, AssessmentReceipt, AssessmentResult, AssessmentGrading, AssessmentTarget, AssessmentAttemptTarget, AssessmentSummary, AssessmentGradeHistory, OfficialCorrectionTarget, AssessmentSubmission } from '../../src/lib/assessment';
+import type { AssessmentPort, AssessmentLoad, AssessmentQuestion, AssessmentSettings, AssessmentDraft, AssessmentAttempt, AssessmentAnswers, AssessmentReceipt, AssessmentResult, AssessmentGrading, AssessmentTarget, AssessmentAttemptTarget, AssessmentSummary, AssessmentGradeHistory, AssessmentScoringAdjustment, OfficialCorrectionTarget, AssessmentSubmission } from '../../src/lib/assessment';
 import { assessmentAttemptHref, publicAssessmentQuestion, hasAssessmentAnswer } from '../../src/lib/assessment';
 import { ApiError } from '../../src/lib/api/errors';
 import { setMockAssessmentLock } from './assessment-lock';
@@ -46,7 +46,8 @@ function objectiveScore(q:AssessmentQuestion,answers:AssessmentAnswers):number{
  return answer.value===q.key?q.points:0;
 }
 export function createAssessmentPort(context:PreviewContext,simulation:AssessmentSimulation={}):AssessmentPort{
- const exams=new Map<string,Exam>(); const attempts=new Map<string,Attempt>(); const operations=new Map<string,{ownerId:string;attemptId:string;receipt:AssessmentReceipt}>();
+ const exams=new Map<string,Exam>(); const attempts=new Map<string,Attempt>(); const operations=new Map<string,{ownerId:string;attemptId:string;receipt:AssessmentReceipt}>(); const adjustments=new Map<string,AssessmentScoringAdjustment>();
+ const examAttemptCount=(examId:string)=>[...attempts.values()].filter(a=>a.assessmentId===examId).length;
  const initialNow=context.now();
  const source=()=>context.sources(CLASS).find(s=>s.isReady);
  const settings:AssessmentSettings={title:'Kiểm tra 45 phút: Hàm số bậc hai',code:'TOAN10-B2',opensAt:'2026-10-20T01:00:00.000Z',closesAt:'2026-10-20T01:45:00.000Z',durationMinutes:45,maxAttempts:1,gradingPolicy:'BEST',resultsAt:'2026-10-21T09:00:00.000Z'};
@@ -74,7 +75,7 @@ export function createAssessmentPort(context:PreviewContext,simulation:Assessmen
  function own(t:AssessmentAttemptTarget,history=false){const u=actor();const a=attempts.get(t.attemptId);if(!u.roles.includes('STUDENT')||!a||a.ownerId!==u.id||a.classId!==t.classId||a.assessmentId!==t.assessmentId)deny();if(!history||!a.receipt)student(t.classId);return a;}
  function assigned(t:AssessmentAttemptTarget){teacher(t.classId,false,true);const a=attempts.get(t.attemptId);if(!a||a.classId!==t.classId||a.assessmentId!==t.assessmentId||!a.receipt)deny();return a;}
  function sourceRead(s:AssessmentQuestion['source'],classId:string,userId:string){const u=actor();const c=context.classSummary(classId);const currentAccess=c?.status==='ACTIVE'&&(u.roles.includes('STUDENT')?context.studentMembership(userId,classId)==='ACTIVE':u.roles.includes('LECTURER')&&context.teachingRole(userId,classId)!==null);return s&&currentAccess&&context.sourceAccessible(userId,classId,s.documentId,s.version)?{...s,accessible:true}:undefined;}
- function draftRead(e:Exam){const d=clone(e.draft);const u=teacher(e.classId);d.canApprove=context.teachingRole(u.id,e.classId)==='PRIMARY';d.availableSources=context.sources(e.classId).filter(s=>s.isReady).map(s=>({documentId:s.id,title:s.title,version:s.version,locator:'',accessible:context.sourceAccessible(u.id,e.classId,s.id,s.version)}));d.questions=d.questions.map(q=>({...q,source:sourceRead(q.source,e.classId,u.id)}));return d;}
+ function draftRead(e:Exam){const d=clone(e.draft);const u=teacher(e.classId);const attemptCount=examAttemptCount(e.id);d.versionId=e.published?.id;d.attemptCount=attemptCount;d.canCreateVersion=d.status==='PUBLISHED'&&attemptCount===0;d.scoringAdjustments=e.published?[...adjustments.values()].filter(adj=>adj.versionId===e.published!.id).map(clone):[];d.canApprove=context.teachingRole(u.id,e.classId)==='PRIMARY';d.availableSources=context.sources(e.classId).filter(s=>s.isReady).map(s=>({documentId:s.id,title:s.title,version:s.version,locator:'',accessible:context.sourceAccessible(u.id,e.classId,s.id,s.version)}));d.questions=d.questions.map(q=>({...q,source:sourceRead(q.source,e.classId,u.id)}));return d;}
  function revision(e:Exam,n:number){if(e.draft.revision!==n)conflict('Bản nháp đã thay đổi. Hãy tải bản mới trước khi tiếp tục.');}
  function lock(a:Attempt,locked:boolean){setMockAssessmentLock({userId:a.ownerId,classId:a.classId,attemptId:a.id,title:a.version.settings.title,locked,isActive:()=>{authority(a);return !a.receipt;}});}
  function complete(a:Attempt,reason:'MANUAL'|'TIMEOUT'){
@@ -113,14 +114,14 @@ export function createAssessmentPort(context:PreviewContext,simulation:Assessmen
    return result.kind==='ready'?{...result,classSummary:clone(context.classSummary(params.classId))}:result;
   },
   async listCalendarEvents(classId){const u=actor();const c=context.classSummary(classId);if(!c||c.status!=='ACTIVE')deny();const isTeacher=u.roles.includes('LECTURER')&&context.teachingRole(u.id,classId)!==null;if(!isTeacher)student(classId);return [...exams.values()].filter(e=>e.classId===classId&&e.published).map(e=>{const v=e.published!;const dateParts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(v.settings.opensAt));const part=(type:string)=>dateParts.find(p=>p.type===type)!.value;const time=(value:string)=>new Intl.DateTimeFormat('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(value));return {id:`assessment:${e.id}`,classId,className:c.name,title:v.settings.title,description:`${v.settings.code} - v${v.number}`,category:'EXAM',readOnly:true,start:v.settings.opensAt,end:v.settings.closesAt,date:`${part('year')}-${part('month')}-${part('day')}`,timeRange:`${time(v.settings.opensAt)} - ${time(v.settings.closesAt)}`,href:isTeacher?`/teacher/classes/${classId}/assessments/${e.id}/edit`:`/student/classes/${classId}/assessments/${e.id}`};});},
-  async listTeacherActivities(classId){teacher(classId);return [...exams.values()].filter(e=>e.classId===classId).map(e=>({id:e.id,classId,resourceId:e.id,title:e.draft.settings.title,type:'ASSESSMENT',topic:e.draft.settings.code,status:e.draft.status,dueOrTimeLabel:`${e.draft.settings.opensAt} — ${e.draft.settings.closesAt}`,editHref:`/teacher/classes/${classId}/assessments/${e.id}/edit`,submissionsHref:[...attempts.values()].find(a=>a.assessmentId===e.id&&!!a.receipt)?`/teacher/classes/${classId}/assessments/${e.id}/attempts/${[...attempts.values()].find(a=>a.assessmentId===e.id&&!!a.receipt)!.id}/grade`:undefined,pendingGradingCount:[...attempts.values()].filter(a=>a.assessmentId===e.id&&!!a.receipt&&!a.released).length}));},
+  async listTeacherActivities(classId){teacher(classId);return [...exams.values()].filter(e=>e.classId===classId).map(e=>({id:e.id,classId,resourceId:e.id,title:e.draft.settings.title,type:'ASSESSMENT',topic:e.draft.settings.code,status:e.draft.status,dueOrTimeLabel:`${e.draft.settings.opensAt} — ${e.draft.settings.closesAt}`,editHref:`/teacher/classes/${classId}/assessments/${e.id}/edit`,canDeleteDraft:!e.published&&e.draft.status==='DRAFT'&&examAttemptCount(e.id)===0,submissionsHref:[...attempts.values()].find(a=>a.assessmentId===e.id&&!!a.receipt)?`/teacher/classes/${classId}/assessments/${e.id}/attempts/${[...attempts.values()].find(a=>a.assessmentId===e.id&&!!a.receipt)!.id}/grade`:undefined,pendingGradingCount:[...attempts.values()].filter(a=>a.assessmentId===e.id&&!!a.receipt&&!a.released).length}));},
   async createDraft(classId){const u=teacher(classId);const id=crypto.randomUUID();const now=context.now();const config:AssessmentSettings={title:'',code:'',opensAt:iso(now),closesAt:iso(now+60*60*1000),durationMinutes:45,maxAttempts:1,gradingPolicy:'BEST',resultsAt:iso(now+2*60*60*1000)};const d:AssessmentDraft={classId,assessmentId:id,revision:1,versionNumber:1,settings:config,questions:[],status:'DRAFT',authorName:u.display_name??'Giáo viên',rejectionReason:null,availableSources:[],canApprove:false};exams.set(id,{id,classId,draft:d,published:null,versions:[]});return {assessmentId:id,href:`/teacher/classes/${classId}/assessments/${id}/edit`};},
   async saveDraft(input){teacher(input.classId);const e=exam(input);revision(e,input.expectedRevision);if(e.draft.status!=='DRAFT')conflict('Tạo phiên bản mới hoặc chờ quyết định trước khi chỉnh sửa.');const s=input.settings;if(!s.title.trim()||!s.code.trim()||!Number.isFinite(s.durationMinutes)||s.durationMinutes<=0||!Number.isInteger(s.maxAttempts)||s.maxAttempts<1||!['BEST','LATEST','AVERAGE'].includes(s.gradingPolicy)||!Number.isFinite(Date.parse(s.opensAt))||!Number.isFinite(Date.parse(s.closesAt))||!Number.isFinite(Date.parse(s.resultsAt))||Date.parse(s.closesAt)<=Date.parse(s.opensAt)||Date.parse(s.resultsAt)<Date.parse(s.closesAt))invalid('Kiểm tra tên, mã đề, thời gian, thời lượng và số lượt.');if(new Set(input.questions.map(q=>q.id)).size!==input.questions.length)invalid('Mỗi câu hỏi cần mã riêng.');
    e.draft.settings=clone(s);e.draft.questions=clone(input.questions).map(q=>{const old=e.draft.questions.find(x=>x.id===q.id);const unchanged=old&&JSON.stringify({...old,reviewed:false})===JSON.stringify({...q,reviewed:false});return {...q,reviewed:!!(unchanged&&old.reviewed)};});e.draft.revision++;e.draft.rejectionReason=null;return draftRead(e);},
   async reviewQuestion(input){teacher(input.classId);const e=exam(input);revision(e,input.expectedRevision);if(e.draft.status!=='DRAFT')conflict('Chỉ duyệt câu hỏi trong bản nháp đang sửa.');const q=e.draft.questions.find(q=>q.id===input.questionId);if(!q||!validQuestion(q))invalid('Câu hỏi cần nội dung, phương án, đáp án và hướng dẫn chấm hợp lệ.');if(q.source&&!context.sourceAccessible(actor().id,e.classId,q.source.documentId,q.source.version))deny('Nguồn câu hỏi không còn truy cập được.');q.reviewed=true;e.draft.revision++;return draftRead(e);},
   async propose(input){teacher(input.classId);const e=exam(input);revision(e,input.expectedRevision);if(e.draft.status!=='DRAFT'||!e.draft.questions.length||e.draft.questions.some(q=>!q.reviewed||!validQuestion(q)))invalid('Lưu và duyệt đầy đủ từng câu trước khi gửi.');e.draft.status='PENDING_APPROVAL';e.draft.revision++;return draftRead(e);},
   async decide(input){teacher(input.classId,true);const e=exam(input);revision(e,input.expectedRevision);if(e.draft.status!=='PENDING_APPROVAL')conflict('Đề không ở trạng thái chờ duyệt.');if(!input.reason.trim())invalid('Nhập ý kiến thẩm định.');if(input.decision==='REJECT'){e.draft.status='DRAFT';e.draft.rejectionReason=input.reason.trim();}else{if(e.draft.questions.some(q=>!q.reviewed||!validQuestion(q)))invalid('Câu hỏi chưa hoàn tất thẩm định.');for(const q of e.draft.questions)if(q.source&&!context.sourceAccessible(actor().id,e.classId,q.source.documentId,q.source.version))deny('Nguồn đã thay đổi quyền. Hãy rà soát lại bản nháp.');const v:Version={id:crypto.randomUUID(),number:e.draft.versionNumber,settings:clone(e.draft.settings),questions:clone(e.draft.questions)};e.versions.push(v);e.published=v;e.draft.status='PUBLISHED';}e.draft.revision++;return draftRead(e);},
-  async newVersion(input){teacher(input.classId);const e=exam(input);if(e.draft.status!=='PUBLISHED')conflict('Bản nháp hiện tại chưa kết thúc.');e.draft={...clone(e.draft),revision:e.draft.revision+1,versionNumber:(e.published?.number??0)+1,status:'DRAFT',questions:e.draft.questions.map(q=>({...clone(q),reviewed:false})),rejectionReason:null};return draftRead(e);},
+  async newVersion(input){teacher(input.classId);const e=exam(input);if(e.draft.status!=='PUBLISHED')conflict('Bản nháp hiện tại chưa kết thúc.');if(examAttemptCount(e.id)>0)conflict('Đề kiểm tra đã có học sinh làm bài, không thể tạo phiên bản mới. Vui lòng dùng điều chỉnh chấm điểm (M4).');e.draft={...clone(e.draft),revision:e.draft.revision+1,versionNumber:(e.published?.number??0)+1,status:'DRAFT',questions:e.draft.questions.map(q=>({...clone(q),reviewed:false})),rejectionReason:null};return draftRead(e);},
   async generateQuestions(input){teacher(input.classId);const e=exam(input);if(e.draft.status!=='DRAFT')conflict('Chỉ tạo gợi ý trong bản nháp.');const s=context.sources(input.classId).find(s=>s.id===input.documentId&&s.version===input.version&&s.isReady);if(!s||!context.sourceAccessible(actor().id,input.classId,s.id,s.version))deny('Nguồn không còn khả dụng.');if(!input.instructions.trim())invalid('Nhập yêu cầu tạo câu hỏi.');const base=seedQuestions().find(q=>q.type===input.type);if(!base)invalid('Loại câu hỏi không hợp lệ.');return [{...clone(base),id:crypto.randomUUID(),reviewed:false,aiProposed:true,source:{documentId:s.id,title:s.title,version:s.version,locator:'Trang 4',accessible:true}}];},
   async start(input){const u=student(input.classId);const e=exam(input);if(!e.published)deny();const s=summary(e);if(s.activeAttemptId)return {attemptId:s.activeAttemptId,href:assessmentAttemptHref({...input,attemptId:s.activeAttemptId})};if(!s.canStart)conflict(s.unavailableReason??'Chưa thể bắt đầu.');const v=clone(e.published);const now=context.now();const a:Attempt={id:crypto.randomUUID(),ownerId:u.id,ownerName:u.display_name??u.username??'Học sinh',classId:input.classId,assessmentId:e.id,version:v,number:s.usedAttempts+1,startedAt:iso(now),endsAt:iso(Math.min(Date.parse(v.settings.closesAt),now+v.settings.durationMinutes*60*1000)),saved:{},revision:0,savedAt:iso(now),receipt:null,grade:[],released:false,appealQuestionId:null,releaseAt:v.settings.resultsAt,appeal:{allowed:false,reason:'Kết quả chưa công bố.',status:'NONE',submittedReason:null},proposal:null,scores:{}};attempts.set(a.id,a);lock(a,true);return {attemptId:a.id,href:assessmentAttemptHref({...input,attemptId:a.id})};},
   async saveAnswers(input){const a=own(input);authority(a);if(a.receipt)conflict('Lượt làm đã kết thúc.');if(a.revision!==input.expectedRevision)conflict('Bản lưu đã thay đổi. Kiểm tra trạng thái trước khi lưu lại.');const snapshot=clone(input.answers);for(const [id,ans]of Object.entries(snapshot)){const q=a.version.questions.find(q=>q.id===id);if(!q||ans.questionId!==id||!validAnswer(q,ans.value))invalid('Câu trả lời chưa hợp lệ.');}await simulation.beforeSave?.();own(input);authority(a);if(a.receipt)conflict('Đã hết giờ; thay đổi này chưa được lưu.');if(a.revision!==input.expectedRevision)conflict('Bản lưu đã thay đổi.');a.saved=snapshot;a.revision++;a.savedAt=iso(context.now());return attemptRead(a);},
@@ -132,7 +133,76 @@ export function createAssessmentPort(context:PreviewContext,simulation:Assessmen
   async listSubmittedAttempts(classId){teacher(classId,false,true);return [...attempts.values()].filter(a=>a.classId===classId&&!!a.receipt).map(a=>({classId,assessmentId:a.assessmentId,attemptId:a.id,title:a.version.settings.title,studentName:a.ownerName,submittedAt:a.receipt!.submittedAt,released:a.released,effectiveScore:a.grade.at(-1)?.score??null,href:`/teacher/classes/${classId}/assessments/${a.assessmentId}/attempts/${a.id}/grade`}));},
   async listGrading(classId){teacher(classId,false,true);return [...attempts.values()].filter(a=>a.classId===classId&&a.released&&a.grade.length).map(correction);},
   async getCorrectionTarget(input){return correction(assigned(input));},
-  async applyGradeCorrection(input){const u=teacher(input.classId,true,true);const a=assigned(input);const before=correction(a);if(before.gradeVersion!==input.expectedVersion)conflict('Điểm đã được thay đổi; cần tải và thẩm định lại.');if(!Number.isFinite(input.score)||input.score<0||input.score>10||!input.reason.trim()||!input.feedback.trim())invalid('Điểm, lý do và nhận xét chưa hợp lệ.');a.proposal=null;a.grade.push({version:before.gradeVersion+1,score:input.score,feedback:input.feedback,reason:input.reason,at:iso(context.now()),approvedBy:u.display_name??'Giáo viên chính'});a.appeal.status=a.appeal.status==='PENDING'?'RESOLVED':a.appeal.status;recordEvidence(a);return correction(a);}
+  async applyGradeCorrection(input){const u=teacher(input.classId,true,true);const a=assigned(input);const before=correction(a);if(before.gradeVersion!==input.expectedVersion)conflict('Điểm đã được thay đổi; cần tải và thẩm định lại.');if(!Number.isFinite(input.score)||input.score<0||input.score>10||!input.reason.trim()||!input.feedback.trim())invalid('Điểm, lý do và nhận xét chưa hợp lệ.');a.proposal=null;a.grade.push({version:before.gradeVersion+1,score:input.score,feedback:input.feedback,reason:input.reason,at:iso(context.now()),approvedBy:u.display_name??'Giáo viên chính'});a.appeal.status=a.appeal.status==='PENDING'?'RESOLVED':a.appeal.status;recordEvidence(a);return correction(a);},
+  async releaseResults(input){
+   const u=teacher(input.classId,true,true);
+   exam(input);
+   let releasedCount=0;
+   for(const a of attempts.values()){
+    if(a.assessmentId!==input.assessmentId||a.classId!==input.classId||!a.receipt||a.released)continue;
+    if(!(input.releaseNow??true)&&a.releaseAt&&context.now()<Date.parse(a.releaseAt))continue;
+    if(a.version.questions.some(q=>q.manualGradingRequired)&&!a.grade.length)continue;
+    if(!a.grade.length){
+     const maxPts=a.version.questions.reduce((sum,q)=>sum+q.points,0)||1;
+     const raw=a.version.questions.reduce((sum,q)=>sum+(a.scores[q.id]??0),0);
+     const scaled=Math.round((raw*10/maxPts)*100)/100;
+     a.grade.push({version:1,score:scaled,feedback:input.reason?.trim()||'Công bố kết quả tự động',reason:input.reason?.trim()||'Công bố kết quả',at:iso(context.now()),approvedBy:u.display_name??'Giáo viên chính'});
+    }
+    a.released=true;a.appeal.allowed=a.appeal.status==='NONE';a.appeal.reason=null;a.receipt.resultReleased=true;recordEvidence(a);releasedCount++;
+   }
+   return {releasedCount};
+  },
+  async proposeScoringAdjustment(input){
+   const u=teacher(input.classId,false,true);
+   if(!input.reason.trim())invalid('Vui lòng nhập lý do điều chỉnh chấm điểm.');
+   const found=[...exams.values()].find(e=>e.classId===input.classId&&e.versions.some(v=>v.id===input.versionId));
+   const ver=found?.versions.find(v=>v.id===input.versionId);
+   if(!found||!ver)deny('Không tìm thấy phiên bản đề kiểm tra.');
+   const q=ver.questions.find(x=>x.id===input.questionId);
+   if(!q)invalid('Không tìm thấy câu hỏi cần điều chỉnh.');
+   if(input.action==='ACCEPT_ADDITIONAL_KEY'&&(!input.payload||input.payload.key===undefined))invalid('Vui lòng nhập đáp án bổ sung hợp lệ.');
+   const adj:AssessmentScoringAdjustment={id:crypto.randomUUID(),versionId:ver.id,classId:input.classId,questionId:input.questionId,action:input.action,status:'PROPOSED',payload:clone(input.payload??{}),reason:input.reason.trim(),decisionReason:null,proposedBy:u.id,createdAt:iso(context.now()),decidedAt:null};
+   adjustments.set(adj.id,adj);
+   return clone(adj);
+  },
+  async decideScoringAdjustment(input){
+   const adj=adjustments.get(input.adjustmentId);
+   if(!adj)deny('Không tìm thấy đề xuất điều chỉnh chấm điểm.');
+   const u=teacher(adj.classId,true,true);
+   if(adj.status!=='PROPOSED')conflict('Đề xuất điều chỉnh đã được xử lý trước đó.');
+   if(!input.reason.trim())invalid('Vui lòng nhập lý do quyết định.');
+   adj.status=input.decision==='APPROVE'?'APPROVED':'REJECTED';
+   adj.decisionReason=input.reason.trim();
+   adj.decidedAt=iso(context.now());
+   let regradedCount=0;
+   if(adj.status==='APPROVED'){
+    const approved=[...adjustments.values()].filter(x=>x.versionId===adj.versionId&&x.status==='APPROVED');
+    const voided=new Set(approved.filter(x=>x.action==='VOID_QUESTION').map(x=>x.questionId));
+    for(const a of attempts.values()){
+     if(a.version.id!==adj.versionId||!a.receipt)continue;
+     for(const item of approved){
+      const q=a.version.questions.find(x=>x.id===item.questionId);
+      if(!q)continue;
+      if(item.action==='VOID_QUESTION')a.scores[q.id]=0;
+      else if(item.action==='GRANT_FULL_CREDIT')a.scores[q.id]=q.points;
+      else if(item.action==='ACCEPT_ADDITIONAL_KEY'){
+       const alt={...q,key:item.payload.key as AssessmentQuestion['key']};
+       a.scores[q.id]=Math.max(a.scores[q.id]??0,objectiveScore(alt,a.saved));
+      }
+     }
+     const maximum=a.version.questions.reduce((sum,q)=>sum+(voided.has(q.id)?0:q.points),0)||1;
+     if(a.grade.length){
+      const raw=a.version.questions.reduce((sum,q)=>sum+(voided.has(q.id)?0:(a.scores[q.id]??0)),0);
+      const nextScore=Math.round((raw*10/maximum)*100)/100;
+      const prev=a.grade.at(-1)!;
+      a.grade.push({version:prev.version+1,score:nextScore,maxScore:10,feedback:prev.feedback,reason:adj.reason,at:iso(context.now()),approvedBy:u.display_name??'Giáo viên chính'});
+      recordEvidence(a);
+     }
+     regradedCount++;
+    }
+   }
+   return {...clone(adj),regradedCount};
+  }
  };
  return port;
 }

@@ -137,6 +137,7 @@ async def release(
         actor.user,
         body.reason if body else "",
         request.state.correlation_id,
+        release_now=body.release_now if body else False,
     )
 
 

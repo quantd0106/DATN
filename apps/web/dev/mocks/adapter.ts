@@ -552,6 +552,20 @@ export const adapter: DataAdapter = {
       if (data.kind !== 'ready' || !data.teacherPracticeEditor) throw new ApiError('UNAVAILABLE', data.kind === 'ready' ? 'Không tìm thấy bài luyện tập.' : data.message, 403);
       return data.teacherPracticeEditor;
     },
+    async createNewVersion(scope) {
+      const editor = teacherPracticeEditors[scope.practiceId];
+      if (!editor || editor.classId !== scope.classId) throw new ApiError('NOT_FOUND', 'Không tìm thấy bài luyện tập.', 404);
+      if (editor.isDraft) return;
+      const nextVersion = editor.currentVersionNumber + 1;
+      editor.currentVersionNumber = nextVersion;
+      editor.isDraft = true;
+      editor.versionLabel = `Bản nháp v${nextVersion}`;
+      editor.questions = editor.questions.map(q => ({ ...structuredClone(q), isReviewed: false }));
+      editor.reviewedCount = 0;
+      editor.canPublish = false;
+      const act = teacherActivities.find(a => a.type === 'PRACTICE' && a.classId === scope.classId && a.resourceId === scope.practiceId);
+      if (act) act.status = 'DRAFT';
+    },
   }),
   classroom: createClassroomAdminPort(previewContext),
   intelligence: intelligencePort,
@@ -2169,6 +2183,22 @@ export const adapter: DataAdapter = {
         publishedVersionId: publishedVerId,
       };
     },
+
+    async deleteDraftActivity(input) {
+      const user = signedIn();
+      requireClassInteraction(input.classId, user, true);
+      if (user.status !== 'ACTIVE' || !user.roles.includes('LECTURER') || !getTeacherAssignedClassIds(user.id).includes(input.classId)) {
+        throw new ApiError('FORBIDDEN', 'Bạn không có quyền xóa bản nháp hoạt động trong lớp này.', 403);
+      }
+      const index = teacherActivities.findIndex(a => a.classId === input.classId && (a.id === input.activityId || a.resourceId === input.activityId));
+      if (index < 0) throw new ApiError('NOT_FOUND', 'Không tìm thấy bản nháp hoạt động.', 404);
+      if (teacherActivities[index].status !== 'DRAFT') {
+        throw new ApiError('CONFLICT', 'Chỉ được xóa hoạt động ở trạng thái bản nháp chưa công bố.', 409);
+      }
+      const resourceId = teacherActivities[index].resourceId;
+      teacherActivities.splice(index, 1);
+      delete teacherPracticeEditors[resourceId];
+    },
   },
   workspace: {
     async load(routeId, params) {
@@ -2834,7 +2864,7 @@ export function resetStage3aMockStores(): void {
 
 
 // These wrappers observe acknowledged writes; they do not introduce retries.
-adapter.learning = auditedPort(adapter.learning, previewContext, 'practice', ['createPracticeDraft','savePracticeEditorDraft','reviewEditorQuestion','publishPractice']);
+adapter.learning = auditedPort(adapter.learning, previewContext, 'practice', ['createPracticeDraft','savePracticeEditorDraft','reviewEditorQuestion','publishPractice','deleteDraftActivity']);
 adapter.document = auditedPort(adapter.document, previewContext, 'document', ['uploadDocument','uploadVersion','retryProcessing','shareDocument','revokeShare','deleteDocument']);
 adapter.social = auditedPort(adapter.social, previewContext, 'social', ['createPost','updatePost','deletePost','createComment','deleteComment']);
 adapter.calendar = auditedPort(adapter.calendar, previewContext, 'calendar', ['createEvent','updateEvent','deleteEvent']);

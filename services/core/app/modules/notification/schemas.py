@@ -9,15 +9,17 @@ LearningEventType = Literal[
     "GRADE_PROPOSAL_PENDING",
     "APPEAL_RESOLVED",
     "PRACTICE_PUBLISHED",
+    "ASSIGNMENT_GRADED",
 ]
 LearningResourceType = Literal[
-    "assessment_attempt", "grade_revision", "appeal", "practice"
+    "assessment_attempt", "grade_revision", "appeal", "practice", "assignment_submission"
 ]
 LEARNING_RESOURCE_BY_EVENT = {
     "ASSESSMENT_RESULT_RELEASED": "assessment_attempt",
     "GRADE_PROPOSAL_PENDING": "grade_revision",
     "APPEAL_RESOLVED": "appeal",
     "PRACTICE_PUBLISHED": "practice",
+    "ASSIGNMENT_GRADED": "assignment_submission",
 }
 
 

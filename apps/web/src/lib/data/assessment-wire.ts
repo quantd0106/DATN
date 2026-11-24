@@ -1,5 +1,5 @@
 import { ApiError } from '../api/errors';
-import type { AssessmentAnswer, AssessmentAttempt, AssessmentDraft, AssessmentQuestion, AssessmentReceipt, AssessmentResult, AssessmentSettings, AssessmentSource, AssessmentSummary, PublicAssessmentQuestion } from '../assessment';
+import type { AssessmentAnswer, AssessmentAttempt, AssessmentDraft, AssessmentQuestion, AssessmentReceipt, AssessmentResult, AssessmentScoringAdjustment, AssessmentSettings, AssessmentSource, AssessmentSummary, PublicAssessmentQuestion } from '../assessment';
 import { boolean, dictionary, enumeration, integer, invalid, list, nullable, number, optional, questionType, record, text, timestamp, uuid } from './learning-wire';
 import { decodeAppeal, gradeHistory } from './live-grading';
 
@@ -88,6 +88,25 @@ export function encodeQuestion(question: AssessmentQuestion) {
   };
 }
 
+export function decodeScoringAdjustment(value: unknown): AssessmentScoringAdjustment {
+  const row = record(value);
+  return {
+    id: uuid(row.id),
+    versionId: uuid(row.version_id ?? row.activity_version_id),
+    classId: uuid(row.class_id),
+    questionId: text(row.question_id),
+    action: enumeration(row.action, 'VOID_QUESTION', 'GRANT_FULL_CREDIT', 'ACCEPT_ADDITIONAL_KEY'),
+    status: enumeration(row.status, 'PROPOSED', 'APPROVED', 'REJECTED'),
+    payload: row.payload == null ? {} : record(row.payload),
+    reason: text(row.reason),
+    decisionReason: nullable(row.decision_reason, text),
+    proposedBy: optional(row.proposed_by, uuid),
+    createdAt: optional(row.created_at, timestamp),
+    decidedAt: nullable(row.decided_at, timestamp),
+    regradedCount: optional(row.regraded_count, value => integer(value, 0)),
+  };
+}
+
 function settings(row: Record<string, unknown>): AssessmentSettings {
   return {
     title: text(row.title), code: text(row.code), topic: text(row.topic),
@@ -104,6 +123,7 @@ export function decodeDraft(value: unknown): AssessmentDraft {
   const status = enumeration(row.status, 'DRAFT', 'PENDING_APPROVAL', 'PUBLISHED');
   return {
     classId: uuid(row.class_id), assessmentId: uuid(row.assessment_id), revision, status,
+    versionId: optional(row.version_id, uuid),
     versionNumber: integer(row.version_number, 1),
     settings: Object.keys(config).length === 0 && status === 'DRAFT'
       ? { title: '', code: '', opensAt: '', closesAt: '', durationMinutes: 0, maxAttempts: 1, gradingPolicy: 'BEST', resultsAt: '' }
@@ -113,6 +133,9 @@ export function decodeDraft(value: unknown): AssessmentDraft {
     authorName: '',
     availableSources: list(row.available_sources ?? [], value => assessmentSource(value, true) ?? invalid()),
     canApprove: optional(row.can_approve, boolean) ?? false,
+    attemptCount: optional(row.attempt_count, value => integer(value, 0)),
+    canCreateVersion: optional(row.can_create_version, boolean),
+    scoringAdjustments: row.scoring_adjustments === undefined ? [] : list(row.scoring_adjustments, decodeScoringAdjustment),
   };
 }
 export function decodeSummary(value: unknown): AssessmentSummary {

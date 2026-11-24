@@ -10,7 +10,7 @@ const assignment = assignments + '/:assignmentId';
 const submission = '/submissions/:submissionId';
 
 type LearningOperation = {
-  method: 'GET' | 'POST' | 'PUT';
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   template: string;
   statuses: readonly number[];
   query: readonly string[];
@@ -24,6 +24,7 @@ function operation(method: LearningOperation['method'], template: string, status
 
 export const learningOperations = {
   activities: operation('GET', classes + '/activities', [200], ['kind']),
+  deleteActivity: operation('DELETE', classes + '/activities/:activityId', [204], [], 'empty'),
   questionBank: operation('GET', classes + '/question-bank', [200], ['origin', 'type', 'topic']),
   createPractice: operation('POST', practices, [201]),
   practiceEditor: operation('GET', practice + '/editor'),

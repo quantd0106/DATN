@@ -64,6 +64,8 @@ def test_learning_notification_requires_service_key_and_structured_payload(monke
             {"chat": "synthetic private content"},
             {"resource_type": "appeal"},
             {"event_type": "GRADE_PROPOSAL_PENDING", "resource_type": "grade_revision"},
+            {"event_type": "ASSIGNMENT_GRADED", "resource_type": "assignment_submission", "student_id": None},
+            {"event_type": "ASSIGNMENT_GRADED", "resource_type": "practice"},
             {
                 "event_type": "PRACTICE_PUBLISHED",
                 "resource_type": "practice",

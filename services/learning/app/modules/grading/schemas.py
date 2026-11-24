@@ -30,6 +30,7 @@ class AssessmentGradeRequest(ExpectedGrade):
 
 class ReleaseRequest(RequestModel):
     reason: str = Field(default="", max_length=4000)
+    release_now: bool = False
 
 
 class RevisionRequest(ExpectedGrade):

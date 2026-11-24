@@ -29,6 +29,18 @@ ALLOWED_EXTENSIONS: dict[str, set[str]] = {
     ".md": {"text/markdown", "text/plain"},
 }
 
+CANONICAL_MIME_BY_EXTENSION: dict[str, str] = {
+    ".pdf": "application/pdf",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".zip": "application/zip",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".txt": "text/plain",
+    ".md": "text/markdown",
+}
+
 
 @dataclass(frozen=True)
 class StoredBlob:
@@ -78,7 +90,9 @@ def validate_upload(
     if not allowed_mimes:
         raise AppError(422, "INVALID_UPLOAD_FILE")
     normalized_mime = (mime_type or "").split(";")[0].strip().lower()
-    if normalized_mime == "application/x-zip-compressed" and ext == ".zip":
+    if normalized_mime in {"", "application/octet-stream"}:
+        normalized_mime = CANONICAL_MIME_BY_EXTENSION[ext]
+    elif normalized_mime == "application/x-zip-compressed" and ext == ".zip":
         normalized_mime = "application/zip"
     if normalized_mime not in allowed_mimes and not (ext == ".md" and normalized_mime == "text/plain"):
         raise AppError(422, "INVALID_UPLOAD_FILE")

@@ -65,7 +65,9 @@ async def draft(
     session: DbSession,
 ) -> dict:
     await require_active_teacher(*access_args(request, actor, class_id))
-    return service.save_draft(session, _scope(actor, class_id, assignment_id), actor.user, body)
+    ids = _scope(actor, class_id, assignment_id)
+    grants = await get_grants(request, class_id, ids[0]) if body.source is not None else None
+    return service.save_draft(session, ids, actor.user, body, grants=grants)
 
 
 @router.put(ASSIGNMENT + "/recipients", status_code=204)
@@ -144,7 +146,7 @@ async def assignment(
 ) -> dict:
     decision, student_id = await _reader(request, actor, class_id)
     ids = _scope(actor, class_id, assignment_id)
-    grants = await get_grants(request, class_id, ids[0]) if student_id is not None else None
+    grants = await get_grants(request, class_id, ids[0])
     return service.detail(
         session, ids, student_id, grants, active=decision.class_status == "ACTIVE"
     )

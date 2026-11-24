@@ -1,8 +1,8 @@
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from threading import Event, Lock
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 import httpx
@@ -64,6 +64,8 @@ class RagRuntime:
         self._retriever_lock = Lock()
         self._canonical_records: dict[UUID, list[dict]] = {}
         self._canonical_lock = Lock()
+        self._fact_cache: dict[str, dict[str, list[dict[str, Any]]]] = {}
+        self._fact_cache_lock = Lock()
 
     def has_canonical_records(self, document_version_id: UUID) -> bool:
         with self._canonical_lock:
@@ -77,6 +79,24 @@ class RagRuntime:
         with self._canonical_lock:
             self._canonical_records[document_version_id] = list(records)
 
+    def fact_cache_for(self, version_ids: Iterable[str]) -> dict[str, list[dict[str, Any]]]:
+        merged: dict[str, list[dict[str, Any]]] = {}
+        with self._fact_cache_lock:
+            for vid in version_ids:
+                for key, facts in self._fact_cache.get(str(vid), {}).items():
+                    merged[key] = list(facts)
+        return merged
+
+    def store_fact_cache(
+        self, version_id: str, entries: dict[str, list[dict[str, Any]]]
+    ) -> None:
+        if not entries:
+            return
+        with self._fact_cache_lock:
+            bucket = self._fact_cache.setdefault(str(version_id), {})
+            for key, facts in entries.items():
+                bucket[key] = list(facts)
+
     def pipeline(self) -> GroundedTaskPipeline:
         settings = self.settings
         if settings.llama_mode == "disabled":
@@ -87,7 +107,7 @@ class RagRuntime:
                     if settings.llama_mode == "openai_compatible":
                         if settings.llm_api_base is None or settings.llm_api_key is None:
                             raise ValueError("LLM_API_BASE and LLM_API_KEY are required")
-                        output_ceiling = max(settings.llama_output_ceiling, 1024)
+                        output_ceiling = max(settings.llama_output_ceiling, 2048)
                         generator = OpenAICompatibleGenerator(
                             str(settings.llm_api_base),
                             settings.llm_api_key.get_secret_value(),

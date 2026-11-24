@@ -87,7 +87,7 @@ def _snap_quote_enums(node: Any, enums_by_id: dict[str, list[str]]) -> Any:
             return node
         for key, value in node.items():
             snapped = _snap_quote_enums(value, enums_by_id)
-            if key == "evidence" and isinstance(snapped, list):
+            if key in {"evidence", "quotes"} and isinstance(snapped, list):
                 deduped = []
                 seen: set[tuple[str, str]] = set()
                 for item in snapped:
@@ -154,6 +154,11 @@ def _inject_schema_prompt(
     return [{"role": "system", "content": instruction}, *copied]
 
 
+class _ApproxTokenCounter:
+    def count(self, text: str) -> int:
+        return max(1, (len(text) + 1) // 2)
+
+
 class OpenAICompatibleGenerator:
     """Adapter matching LlamaGenerator's contract against an OpenAI-compatible HTTP API."""
 
@@ -205,6 +210,7 @@ class OpenAICompatibleGenerator:
         self.max_new_tokens = max_new_tokens
         self.output_ceiling = output_ceiling
         self.timeout = float(timeout)
+        self.counter = _ApproxTokenCounter()
         self.opener = urllib.request.build_opener(_NoRedirect())
         self.identity = {
             "adapter": "openai-compatible-generator-1",
@@ -228,7 +234,7 @@ class OpenAICompatibleGenerator:
         messages: list[dict[str, str]],
         schema: dict[str, Any],
         *,
-        profile: dict[str, Any] | None = None,
+        profile: Any = None,
         max_new_tokens: int | None = None,
         seed: int | None = None,
     ) -> dict[str, Any]:
@@ -239,10 +245,11 @@ class OpenAICompatibleGenerator:
             raise ValueError("invalid seed")
 
         temperature = 0.2
-        if isinstance(profile, dict) and isinstance(
-            profile.get("temperature"), (int, float)
-        ):
-            temperature = float(profile["temperature"])
+        raw_temp = getattr(profile, "temperature", None)
+        if raw_temp is None and isinstance(profile, dict):
+            raw_temp = profile.get("temperature")
+        if isinstance(raw_temp, (int, float)) and not isinstance(raw_temp, bool):
+            temperature = float(raw_temp)
 
         payload: dict[str, Any] = {
             "model": self.model,
@@ -252,6 +259,8 @@ class OpenAICompatibleGenerator:
             "response_format": {"type": "json_object"},
             "stream": False,
         }
+        if "openrouter.ai" in self.base_url.lower():
+            payload["reasoning"] = {"enabled": False}
         data = json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8")
         request = urllib.request.Request(
             f"{self.base_url}/chat/completions",

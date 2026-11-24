@@ -1,7 +1,7 @@
 import { routeHref } from '@/config/routes';
 import { ApiError } from '../api/errors';
 import { assessmentAttemptHref, type AssessmentAttemptTarget, type AssessmentDraft, type AssessmentPort, type AssessmentSubmission, type OfficialCorrectionTarget } from '../assessment';
-import { answer, decodeAttempt, decodeDraft, decodeResult, decodeSummary, editorQuestion, encodeQuestion, encodeSettings, receipt } from './assessment-wire';
+import { answer, decodeAttempt, decodeDraft, decodeResult, decodeScoringAdjustment, decodeSummary, editorQuestion, encodeQuestion, encodeSettings, receipt } from './assessment-wire';
 import { quizSourceUnavailable, type LiveQuizGenerator } from './live-ai';
 import type { LiveIdentitySession } from './live-identity';
 import { createTeacherActivityReader } from './live-learning';
@@ -237,7 +237,7 @@ export function createLiveAssessment(session: LiveIdentitySession, core: Learnin
         pathParams: input, body: { expected_grade_version: input.expectedGradeVersion, scores: input.scores, feedback: input.feedback },
       }, value => decodeAssessmentGrading(value, input)),
     releaseResults: input => read('releaseAssessment', {
-      pathParams: input, body: { reason: input.reason },
+      pathParams: input, body: { reason: input.reason, release_now: input.releaseNow ?? true },
     }, value => ({ releasedCount: integer(record(value).released_count) })),
     async proposeGrade(input) {
       const generation = session.sessionGeneration();
@@ -293,5 +293,13 @@ export function createLiveAssessment(session: LiveIdentitySession, core: Learnin
     async applyGradeCorrection() {
       return unavailable('Điểm kiểm tra đã công bố phải được điều chỉnh qua đề xuất và phê duyệt.');
     },
+    proposeScoringAdjustment: input => read('proposeScoringAdjustment', {
+      pathParams: { classId: input.classId, versionId: input.versionId },
+      body: { question_id: input.questionId, action: input.action, payload: input.payload ?? {}, reason: input.reason },
+    }, decodeScoringAdjustment),
+    decideScoringAdjustment: input => read('decideScoringAdjustment', {
+      pathParams: { adjustmentId: input.adjustmentId },
+      body: { decision: input.decision, reason: input.reason },
+    }, decodeScoringAdjustment),
   };
 }

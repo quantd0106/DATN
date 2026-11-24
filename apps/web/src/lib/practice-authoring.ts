@@ -17,4 +17,5 @@ export interface PracticeAuthoringPort {
   review(input: PracticeAuthoringScope & { expectedRevision: string; questionId: string; approved: boolean }): Promise<PracticeEditorSnapshot>;
   publish(input: PracticeAuthoringScope & { expectedRevision: string }): Promise<{ publishedVersionId: string }>;
   propose(input: PracticeAuthoringScope & { expectedRevision: string; sourceId: string; sourceVersion: number; type: QuestionType }): Promise<PracticeAiProposal>;
+  createNewVersion?(scope: PracticeAuthoringScope): Promise<PracticeEditorSnapshot>;
 }
