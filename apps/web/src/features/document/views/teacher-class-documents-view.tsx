@@ -166,18 +166,17 @@ export function TeacherClassDocumentsView({ data, params, reload }: Props) {
                       </td>
                       <td className="class-docs-actions-col">
                         <div className="class-docs-row-actions">
-                          {doc.canManageSource ? (
+                          <button
+                            type="button"
+                            className="button small secondary"
+                            onClick={() => setSourcePreview({classId: params.classId, documentId: doc.id, version: doc.currentVersion})}
+                          >
+                            Xem trước
+                          </button>
+                          {doc.canManageSource && (
                             <Link href={libraryHref} className="button small secondary">
                               Quản lý nguồn
                             </Link>
-                          ) : (
-                            <button
-                              type="button"
-                              className="button small secondary"
-                              onClick={() => setSourcePreview({classId: params.classId, documentId: doc.id, version: doc.currentVersion})}
-                            >
-                              Đọc nguồn
-                            </button>
                           )}
 
                           <button

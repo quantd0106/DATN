@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from datetime import datetime
 from uuid import UUID
 
@@ -14,7 +15,7 @@ from app.common.class_access import require_active_teacher
 from app.common.db import Database
 from app.common.errors import AppError
 from app.integrations.core_client import ClassAction, CoreClient, CurrentUser
-from app.integrations.document_client import DocumentPort, GrantSnapshot
+from app.integrations.document_client import ActiveGrant, DocumentPort, GrantSnapshot
 from app.integrations.learning_client import LearningPort
 from app.modules.tutor.models import (
     Conversation,
@@ -190,6 +191,30 @@ async def require_history_owner(
         raise AppError(404)
 
 
+async def history_grant_snapshot(
+    core: CoreClient,
+    document: DocumentPort,
+    user: CurrentUser,
+    conversation: Conversation,
+    correlation_id: str,
+) -> GrantSnapshot | None:
+    await require_history_owner(core, user, conversation, correlation_id)
+    scope = await core.check_access(
+        conversation.class_id, user, ClassAction.READ_DOCUMENT_SOURCE, correlation_id
+    )
+    if not scope.allowed:
+        return None
+    try:
+        return await document.active_grants(
+            conversation.class_id, conversation.school_id, correlation_id
+        )
+    except AppError as exc:
+        if exc.status_code != 503:
+            raise
+        # The owner can still read their personal history with all sources hidden.
+        return None
+
+
 async def history_sources(
     core: CoreClient,
     document: DocumentPort,
@@ -197,25 +222,49 @@ async def history_sources(
     conversation: Conversation,
     correlation_id: str,
 ) -> frozenset[str]:
-    await require_history_owner(core, user, conversation, correlation_id)
-    scope = await core.check_access(
-        conversation.class_id, user, ClassAction.READ_DOCUMENT_SOURCE, correlation_id
-    )
-    if not scope.allowed:
-        return frozenset()
-    try:
-        snapshot = await document.active_grants(
-            conversation.class_id, conversation.school_id, correlation_id
+    snapshot = await history_grant_snapshot(core, document, user, conversation, correlation_id)
+    return snapshot.source_ids if snapshot is not None else frozenset()
+
+
+def attach_citation_source_metadata(
+    citation: dict, grant: ActiveGrant | None, document_port: object | None = None
+) -> None:
+    if citation.get("masked"):
+        return
+    if grant is not None:
+        citation.setdefault("document_id", str(grant.document_id))
+        if (
+            citation.get("version_number") is None
+            and document_port is not None
+            and hasattr(document_port, "version_number")
+        ):
+            version_num = document_port.version_number(grant.document_version_id)
+            if isinstance(version_num, int) and version_num >= 1:
+                citation["version_number"] = version_num
+    location = citation.get("location")
+    if isinstance(location, dict) and "page" not in location and "slide" not in location:
+        spans = citation.get("source_spans") or ()
+        page = next(
+            (
+                span.get("page")
+                for span in spans
+                if isinstance(span, dict)
+                and isinstance(span.get("page"), int)
+                and span["page"] >= 1
+            ),
+            None,
         )
-        return snapshot.source_ids
-    except AppError as exc:
-        if exc.status_code != 503:
-            raise
-        # The owner can still read their personal history with all sources hidden.
-        return frozenset()
+        if page is not None:
+            location["page"] = page
 
 
-def project_history_message(message: Message, source_ids: frozenset[str]) -> HistoryMessage:
+def project_history_message(
+    message: Message,
+    source_ids: frozenset[str],
+    *,
+    grants_by_source: Mapping[str, ActiveGrant] | None = None,
+    document_port: object | None = None,
+) -> HistoryMessage:
     rendered = None
     if message.role == MessageRole.ASSISTANT and message.rendered_payload_json is not None:
         rendered = mask_revoked(message.rendered_payload_json, source_ids)
@@ -236,6 +285,13 @@ def project_history_message(message: Message, source_ids: frozenset[str]) -> His
                 ):
                     claim["text"] = "Nội dung đã được ẩn do quyền truy cập nguồn thay đổi."
                     masked = True
+                elif grants_by_source:
+                    for citation in citations:
+                        attach_citation_source_metadata(
+                            citation,
+                            grants_by_source.get(citation.get("source_id")),
+                            document_port,
+                        )
             if masked:
                 rendered["missing_parts"] = []
     return HistoryMessage(
@@ -263,7 +319,11 @@ async def read_conversation_messages(
         raise AppError(422)
 
     conversation = await owned_conversation(database, user, conversation_id)
-    source_ids = await history_sources(core, document, user, conversation, correlation_id)
+    snapshot = await history_grant_snapshot(core, document, user, conversation, correlation_id)
+    source_ids = snapshot.source_ids if snapshot is not None else frozenset()
+    grants_by_source = (
+        {grant.source_id: grant for grant in snapshot.grants} if snapshot is not None else {}
+    )
 
     def read() -> list[HistoryMessage]:
         with database.SessionLocal() as session:
@@ -273,7 +333,15 @@ async def read_conversation_messages(
                 .order_by(Message.created_at.desc(), Message.id.desc())
                 .limit(limit)
             ).all()
-            return [project_history_message(message, source_ids) for message in reversed(messages)]
+            return [
+                project_history_message(
+                    message,
+                    source_ids,
+                    grants_by_source=grants_by_source,
+                    document_port=document,
+                )
+                for message in reversed(messages)
+            ]
 
     return await run_in_threadpool(read)
 

@@ -25,7 +25,7 @@ from ...grounding.judge import entailment
 from ...grounding.lexical import lexical_gaps
 from ...pipeline import GroundedTaskPipeline, TaskSpec, Verdict
 from ...policy.config import TutorConfig, as_config, style_instruction
-from ...runtime.budget import TRIM_DROP_TAIL
+from ...runtime.budget import TRIM_SENTENCES
 from ...runtime.sampling import GROUNDED_QA
 from ...runtime.scheduler import P0_INTERACTIVE
 
@@ -183,11 +183,11 @@ def judge_verifier(answer, ctx) -> Verdict:
 
 QUICK = TaskSpec(name="qa.quick", version=VERSION, profile=GROUNDED_QA, max_new_tokens=512,
                  build_messages=build_messages, build_schema=build_schema, validate=validate,
-                 verifiers=(lexical_verifier,), trim=TRIM_DROP_TAIL, min_evidence=0)
+                 verifiers=(lexical_verifier,), max_attempts=2, trim=TRIM_SENTENCES, min_evidence=0)
 QUICK_JUDGED = TaskSpec(name="qa.quick", version=VERSION + "+judge", profile=GROUNDED_QA,
                         max_new_tokens=512, build_messages=build_messages, build_schema=build_schema,
                         validate=validate, verifiers=(lexical_verifier, judge_verifier),
-                        trim=TRIM_DROP_TAIL, min_evidence=0)
+                        max_attempts=2, trim=TRIM_SENTENCES, min_evidence=0)
 
 
 def refusal(reason: str) -> dict:

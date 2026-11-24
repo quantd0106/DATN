@@ -10,6 +10,8 @@ import { StatePanel, Icon, Dialog, useUnsavedChanges } from '@/components/ui';
 import '../tutor.css';
 import { stopTutorStream } from '../stop-stream';
 import { errorMessage } from '@/lib/api/errors';
+import { formatDateTime } from '@/lib/format';
+import { RichMathText } from '@/features/document/reader-content';
 
 type Props = {
   route: RouteDefinition;
@@ -399,7 +401,7 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
                 >
                   <div className="conv-item-top">
                     <strong className="conv-title">{conv.title}</strong>
-                    <span className="conv-timestamp">{conv.updatedAt}</span>
+                    <span className="conv-timestamp">{formatDateTime(conv.updatedAt)}</span>
                   </div>
                   <p className="conv-preview">{conv.preview}</p>
                 </button>
@@ -481,7 +483,7 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
                   >
                     <div className="msg-header">
                       <strong>{isAssistant ? 'Trợ lý Lumi' : 'Bạn'}</strong>
-                      <span className="msg-header-time">{msg.timestamp}</span>
+                      <span className="msg-header-time">{formatDateTime(msg.timestamp)}</span>
                     </div>
 
                     <div className="msg-bubble">
@@ -491,7 +493,7 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
                         </div>
                       )}
 
-                      <div className="msg-content-text">{msg.content}</div>
+                      <div className="msg-content-text"><RichMathText text={msg.content} /></div>
 
                       {/* AI04 Incomplete stopped indicator */}
                       {msg.isIncomplete && (
@@ -504,7 +506,7 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
                       {msg.pedagogicalHint && (
                         <div className="pedagogical-hint-box">
                           <Icon name="book" />
-                          <span>{msg.pedagogicalHint}</span>
+                          <span><RichMathText text={msg.pedagogicalHint} /></span>
                         </div>
                       )}
 

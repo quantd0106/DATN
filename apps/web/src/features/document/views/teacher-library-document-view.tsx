@@ -12,6 +12,7 @@ import { errorMessage } from '@/lib/api/errors';
 import { documentVersionState } from '@/lib/document-versions';
 import { newShareTargets } from '@/lib/document-sharing';
 import { GrantMutationNotice } from '../components/grant-mutation-notice';
+import { ClassSourcePreviewDialog, type SourcePreviewRequest } from '../class-source-preview';
 import { SourceDocumentSummary, SourceFailureNotice, SourceGrantsPanel, SourceVersionHistory } from '../components/source-management-ui';
 
 type Props = {
@@ -31,6 +32,7 @@ export function TeacherLibraryDocumentView({ data, reload }: Props) {
   const [newVersionOpen, setNewVersionOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [previewRequest, setPreviewRequest] = useState<SourcePreviewRequest | null>(null);
   const [isOtherPending, startTransition] = useTransition();
   const isPending = isOtherPending || grantAction.busy;
   const mutationBlocked = isPending || Boolean(grantAction.unknown);
@@ -177,6 +179,14 @@ export function TeacherLibraryDocumentView({ data, reload }: Props) {
         busy={mutationBlocked}
         canShare={canShare}
         shareUnavailableReason="Cần một phiên bản xử lý thành công trước khi chia sẻ."
+        canPreview={doc.processingStatus === 'READY' || doc.processingStatus === 'NEEDS_REVIEW'}
+        onPreview={() =>
+          setPreviewRequest({
+            scope: 'library',
+            documentId: doc.id,
+            version: servingVersion?.versionNumber ?? doc.currentVersion,
+          })
+        }
         onShare={handleOpenShare}
         onUploadVersion={() => { setNewVersionOpen(true); setSelectedFile(null); setActionError(null); }}
         onDelete={() => { setDeleteOpen(true); setActionError(null); }}
@@ -203,7 +213,11 @@ export function TeacherLibraryDocumentView({ data, reload }: Props) {
         canManageSource={doc.canManageSource}
         onRetry={handleRetryProcessing}
         onAccept={handleAcceptVersion}
+        onPreview={(versionNumber) =>
+          setPreviewRequest({ scope: 'library', documentId: doc.id, version: versionNumber })
+        }
       />
+      <ClassSourcePreviewDialog request={previewRequest} onClose={() => setPreviewRequest(null)} />
 
       {/* D04: Class Share Dialog */}
       <Dialog

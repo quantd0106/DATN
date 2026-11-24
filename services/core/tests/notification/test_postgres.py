@@ -45,7 +45,11 @@ from app.modules.notification.public import snapshot_audience
 from app.modules.notification.repository import NotificationRepository
 from app.modules.notification.service import NotificationService
 from app.modules.notification.worker import drain_outbox
-from app.modules.social.calendar.service import upsert_learning_deadline
+from app.modules.social.calendar.schemas import (
+    CalendarEventCreateRequest,
+    CalendarEventUpdateRequest,
+)
+from app.modules.social.calendar.service import CalendarService, upsert_learning_deadline
 from app.modules.social.comments.schemas import CommentCreateRequest
 from app.modules.social.comments.service import CommentsService
 from app.modules.social.feed.models import ClassPost
@@ -758,3 +762,112 @@ def test_migration_roundtrip_preserves_legacy_outbox_and_refuses_inbox_data_loss
     with pytest.raises(RuntimeError, match="preserve inbox data"):
         command.downgrade(database.config, "0010")
     assert len(_rows(database)) == 1
+
+
+def test_calendar_event_lifecycle_notifications_scope_version_and_delete_suppression(system):
+    calendar = CalendarService(system.session)
+    teacher = system.users["teacher"]
+    student = system.users["student"]
+    student2 = system.users["student2"]
+    start = datetime(2026, 12, 5, 7, 0, tzinfo=UTC)
+
+    created = calendar.create_event(
+        system.class_id,
+        CalendarEventCreateRequest(
+            title="Buổi ôn tập hình học",
+            description="Nội dung bí mật không lộ qua payload thông báo",
+            starts_at=start,
+            ends_at=start + timedelta(hours=2),
+        ),
+        teacher,
+    )
+    assert drain_outbox(session_factory=system.factory) == 1
+    assert _rows(system, teacher.id) == []
+    assert _rows(system, system.users["admin"].id) == []
+    assert _rows(system, system.users["outsider"].id) == []
+    for recipient in (student.id, student2.id):
+        rows = _rows(system, recipient, "CALENDAR_EVENT_CREATED")
+        assert len(rows) == 1
+        assert rows[0].payload_json["calendar_event_id"] == str(created.id)
+        assert rows[0].payload_json["version"] == 1
+        assert not (
+            {"title", "description", "body", "actor_id", "recipient_ids", "school_id"}
+            & rows[0].payload_json.keys()
+        )
+
+    calendar.update_event(
+        system.class_id,
+        created.id,
+        CalendarEventUpdateRequest(title="Ôn tập cập nhật v2"),
+        teacher,
+    )
+    calendar.update_event(
+        system.class_id,
+        created.id,
+        CalendarEventUpdateRequest(
+            starts_at=start + timedelta(days=1),
+            ends_at=start + timedelta(days=1, hours=2),
+        ),
+        teacher,
+    )
+    assert drain_outbox(session_factory=system.factory) == 2
+    for recipient in (student.id, student2.id):
+        updated_rows = _rows(system, recipient, "CALENDAR_EVENT_UPDATED")
+        assert [row.payload_json["version"] for row in updated_rows] == [2, 3]
+        assert len({row.dedup_key for row in updated_rows}) == 2
+    assert _rows(system, teacher.id) == []
+
+    # Tạo rồi xóa trước khi worker chạy: chỉ giao DELETED, không giao CREATED.
+    ephemeral = calendar.create_event(
+        system.class_id,
+        CalendarEventCreateRequest(
+            title="Sự kiện tạm",
+            starts_at=start + timedelta(days=2),
+            ends_at=start + timedelta(days=2, hours=1),
+        ),
+        teacher,
+    )
+    calendar.delete_event(system.class_id, ephemeral.id, teacher)
+    assert drain_outbox(session_factory=system.factory) == 2
+    student_created = _rows(system, student.id, "CALENDAR_EVENT_CREATED")
+    student_deleted = _rows(system, student.id, "CALENDAR_EVENT_DELETED")
+    assert [row.payload_json["calendar_event_id"] for row in student_created] == [str(created.id)]
+    assert [row.payload_json["calendar_event_id"] for row in student_deleted] == [str(ephemeral.id)]
+
+
+def test_practice_published_notification_delivery_targets_only_class_students(system, monkeypatch):
+    key = "test-practice-ingest-key"
+    monkeypatch.setattr(settings, "internal_service_secret", SecretStr(key))
+    app = FastAPI()
+    register_error_handlers(app)
+    register_routers(app)
+
+    def db():
+        with system.factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = db
+    student = system.users["student"]
+    practice_id = uuid4()
+    payload = {
+        "source_event_id": str(uuid4()),
+        "event_type": "PRACTICE_PUBLISHED",
+        "school_id": str(student.school_id),
+        "class_id": str(system.class_id),
+        "resource_type": "practice",
+        "resource_id": str(practice_id),
+        "student_id": None,
+    }
+    with TestClient(app, headers={"X-Service-Key": key}) as client:
+        response = client.post("/internal/v1/notifications/learning-events", json=payload)
+        assert response.status_code == 202
+
+    assert drain_outbox(session_factory=system.factory) == 1
+    rows = _rows(system, event_type="PRACTICE_PUBLISHED")
+    assert {row.recipient_id for row in rows} == {
+        system.users["student"].id,
+        system.users["student2"].id,
+    }
+    assert _rows(system, system.users["teacher"].id, "PRACTICE_PUBLISHED") == []
+    assert _rows(system, system.users["outsider"].id, "PRACTICE_PUBLISHED") == []
+

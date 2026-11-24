@@ -165,8 +165,45 @@ test('live workspaces stitch Document DTOs to current Core classroom context', a
   await live.loadWorkspace('s.reader', { classId, documentId: id, version: '2.5' });
   const preview = await live.document.previewClassSource({ classId, documentId: id, version: 2 });
   assert.equal(preview.version, 2);
+  assert.equal(preview.format, 'MD');
   assert.deepEqual(readerQueries, ['2', null, '2']);
   assert.equal(live.loadWorkspace('t.feed', { classId }), undefined);
+});
+
+test('live library preview allows nullable serving_version for unshared or NEEDS_REVIEW owner documents', async () => {
+  const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
+  const live = liveFor(async (path, init) => {
+    const url = String(path);
+    if (url.endsWith(`/documents/${id}/reader`) || url.endsWith(`/documents/${id}/reader?version=1`)) {
+      return Response.json({
+        document: { ...document, format: 'PDF', processing_status: 'NEEDS_REVIEW', current_version: 1 },
+        is_source_accessible: true,
+        serving_version: null,
+        viewing_version: 1,
+        revoked_reason: null,
+        total_pages: 1,
+        outline: [],
+        pages: [{ page_number: 1, title: 'Trang 1', paragraphs: ['Nội dung cần rà soát'], formulas: ['x^2 = 4'] }],
+        notes: [],
+        is_bookmarked: false,
+      });
+    }
+    if (url.endsWith(`/documents/${id}/download?version=1`)) {
+      assert.equal(new Headers(init?.headers).get('accept'), '*/*');
+      return new Response(bytes, {
+        headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="library.pdf"' },
+      });
+    }
+    return new Response(null, { status: 404 });
+  });
+  await live.session.identity.restore();
+  const preview = await live.document.previewLibraryDocument({ documentId: id, version: 1 });
+  assert.equal(preview.version, 1);
+  assert.equal(preview.format, 'PDF');
+  assert.equal(preview.pages[0].paragraphs[0], 'Nội dung cần rà soát');
+  const downloaded = await live.document.downloadLibraryDocument(id, 1);
+  assert.equal(downloaded.filename, 'library.pdf');
+  assert.deepEqual(new Uint8Array(await downloaded.blob.arrayBuffer()), bytes);
 });
 
 test('live Document mutations use the contracted paths, confirm flags and narrow note edits', async () => {

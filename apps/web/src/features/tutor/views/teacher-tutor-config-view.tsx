@@ -8,6 +8,7 @@ import type { RouteParams, TeacherTutorInstructionConfig, TutorPolicyConfig, Wor
 import { adapter } from '@/lib/data';
 import { ApiError, errorMessage } from '@/lib/api/errors';
 import { StatePanel, Icon, useUnsavedChanges } from '@/components/ui';
+import { formatDateTime } from '@/lib/format';
 
 type Props = {
   route: RouteDefinition;
@@ -199,7 +200,7 @@ function TutorInstructionsForm({ data, params, reload }: Props) {
           <div>
             <h2 className="tutor-config-title">Chỉ dẫn sư phạm cho Trợ lý Lumi</h2>
             <p className="tutor-config-meta">
-              Lớp: <strong>{classSummary?.name ?? params.classId}</strong> · Cập nhật gần nhất: {config.updatedAt}
+              Lớp: <strong>{classSummary?.name ?? params.classId}</strong> · Cập nhật gần nhất: {formatDateTime(config.updatedAt)}
             </p>
           </div>
           <span className="tutor-config-badge">Cấu hình lớp</span>

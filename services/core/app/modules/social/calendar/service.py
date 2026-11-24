@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -74,6 +75,32 @@ class CalendarService:
             ),
         )
 
+    def _record_calendar_event_notification(
+        self,
+        *,
+        event_type: str,
+        class_id: UUID,
+        calendar_event_id: UUID,
+        actor_id: UUID,
+        version: int,
+        starts_at: datetime,
+        ends_at: datetime,
+    ) -> None:
+        record_outbox_event(
+            self.session,
+            event_type=event_type,
+            aggregate_id=calendar_event_id,
+            payload_json={
+                **snapshot_audience(self.session, class_id),
+                "class_id": str(class_id),
+                "calendar_event_id": str(calendar_event_id),
+                "actor_id": str(actor_id),
+                "version": version,
+                "starts_at": starts_at.isoformat(),
+                "ends_at": ends_at.isoformat(),
+            },
+        )
+
     def create_event(
         self,
         class_id: UUID,
@@ -98,6 +125,15 @@ class CalendarService:
                     external_ref=None,
                     version=1,
                 )
+            )
+            self._record_calendar_event_notification(
+                event_type="CALENDAR_EVENT_CREATED",
+                class_id=class_id,
+                calendar_event_id=event.id,
+                actor_id=current_user.id,
+                version=event.version,
+                starts_at=event.starts_at,
+                ends_at=event.ends_at,
             )
             return self._response(event)
 
@@ -126,7 +162,19 @@ class CalendarService:
             _validate_interval(starts_at, ends_at)
             for field, value in changes.items():
                 setattr(event, field, value)
+            if changes:
+                event.version = (event.version or 1) + 1
             self.session.flush()
+            if changes:
+                self._record_calendar_event_notification(
+                    event_type="CALENDAR_EVENT_UPDATED",
+                    class_id=class_id,
+                    calendar_event_id=event.id,
+                    actor_id=current_user.id,
+                    version=event.version,
+                    starts_at=event.starts_at,
+                    ends_at=event.ends_at,
+                )
             return self._response(event)
 
     def delete_event(
@@ -147,7 +195,20 @@ class CalendarService:
                 raise AppError(404)
             if event.origin == CalendarOrigin.LEARNING:
                 raise AppError(400, LEARNING_READ_ONLY)
+            deleted_id = event.id
+            next_version = (event.version or 1) + 1
+            starts_at = event.starts_at
+            ends_at = event.ends_at
             self.repository.delete(event)
+            self._record_calendar_event_notification(
+                event_type="CALENDAR_EVENT_DELETED",
+                class_id=class_id,
+                calendar_event_id=deleted_id,
+                actor_id=current_user.id,
+                version=next_version,
+                starts_at=starts_at,
+                ends_at=ends_at,
+            )
 
 
 def upsert_learning_deadline(
@@ -160,6 +221,7 @@ def upsert_learning_deadline(
     ends_at: datetime,
     version: int,
     school_id: UUID | None = None,
+    activity_kind: Literal["ASSIGNMENT", "ASSESSMENT"] | None = None,
 ) -> CalendarEvent:
     """Maintain the read-only Learning deadline projection."""
     if not external_ref or not title.strip() or len(title) > 200 or version < 1:
@@ -191,16 +253,19 @@ def upsert_learning_deadline(
             for field, value in values.items():
                 setattr(event, field, value)
             session.flush()
+        payload = {
+            **snapshot_audience(session, class_id),
+            "class_id": str(class_id),
+            "event_id": str(event.id),
+            "external_ref": external_ref,
+            "version": version,
+        }
+        if activity_kind is not None:
+            payload["activity_kind"] = activity_kind
         record_outbox_event(
             session,
             event_type="CALENDAR_DEADLINE_CHANGED",
             aggregate_id=event.id,
-            payload_json={
-                **snapshot_audience(session, class_id),
-                "class_id": str(class_id),
-                "event_id": str(event.id),
-                "external_ref": external_ref,
-                "version": version,
-            },
+            payload_json=payload,
         )
         return event

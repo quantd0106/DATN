@@ -2,14 +2,16 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi.responses import StreamingResponse
 
 from app.common.auth import Actor, Lecturer
 from app.common.config import Config
 from app.common.db import Db
 from app.common.errors import correlation_id
 from app.common.pagination import Page, PageRequest
-from app.common.storage import Storage
+from app.common.storage import Storage, safe_content_disposition, stream_chunks
 from app.common.types import DocumentFormat, ProcessingStatus
+from app.modules.grants.public import DocumentReaderDTO
 from app.modules.library.public import require_owned_document
 from app.modules.library.schemas import (
     Description,
@@ -23,6 +25,8 @@ from app.modules.library.service import (
     create_document,
     delete_document,
     document_detail_for,
+    library_document_download,
+    library_document_reader,
     list_library,
     update_document,
     upload_policy,
@@ -87,3 +91,35 @@ def remove_document(
     confirm_multi_class: bool = False,
 ) -> None:
     delete_document(session, actor, document_id, confirm_multi_class, request_id)
+
+
+@router.get("/{document_id}/reader")
+def library_reader(
+    document_id: UUID,
+    session: Db,
+    storage: Storage,
+    actor: Lecturer,
+    version: Annotated[int | None, Query(ge=1)] = None,
+) -> DocumentReaderDTO:
+    return library_document_reader(session, storage, actor, document_id, version)
+
+
+@router.get("/{document_id}/download", response_class=StreamingResponse)
+def library_download(
+    document_id: UUID,
+    session: Db,
+    storage: Storage,
+    actor: Lecturer,
+    version: Annotated[int | None, Query(ge=1)] = None,
+) -> StreamingResponse:
+    viewing, stream = library_document_download(session, storage, actor, document_id, version)
+    return StreamingResponse(
+        stream_chunks(stream),
+        media_type=viewing.mime_type,
+        headers={
+            "Content-Disposition": safe_content_disposition(viewing.original_filename),
+            "Content-Length": str(viewing.file_size_bytes),
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )

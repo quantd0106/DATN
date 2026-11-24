@@ -1,10 +1,9 @@
 from datetime import datetime
-from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-from app.common.types import DocumentFormat
+from app.common.types import DocumentFormat, ProcessingStatus
 from app.modules.notes.public import PersonalNoteDTO
 from app.modules.versions.public import ReaderOutlineEntry, ReaderPage
 
@@ -42,7 +41,7 @@ class ReaderDocumentDTO(BaseModel):
     updated_at: datetime
     current_version: int
     page_count: int | None
-    processing_status: Literal["SUCCESS"] = "SUCCESS"
+    processing_status: ProcessingStatus = "SUCCESS"
 
 
 class ClassDocumentSummaryDTO(ReaderDocumentDTO):

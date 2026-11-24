@@ -23,7 +23,7 @@ from ...contracts.evidence import prompt_view
 from ...grounding.safe_math import MathError, close, evaluate, parse_number
 from ...pipeline import GroundedTaskPipeline, TaskSpec
 from ...policy.config import GUIDANCE_TEXT, TutorConfig, as_config, style_instruction
-from ...runtime.budget import TRIM_DROP_TAIL, TRIM_NONE
+from ...runtime.budget import TRIM_NONE, TRIM_SENTENCES
 from ...runtime.sampling import GROUNDED_QA, JUDGE
 from ...runtime.scheduler import P0_INTERACTIVE
 
@@ -110,7 +110,7 @@ def _plan_validate(value, task_input, evidence):
 
 STEP_PLAN = TaskSpec(name="qa.step_plan", version=PLAN_VERSION, profile=GROUNDED_QA, max_new_tokens=640,
                      build_messages=_plan_messages, build_schema=_plan_schema, validate=_plan_validate,
-                     max_attempts=2, trim=TRIM_DROP_TAIL, min_evidence=0)
+                     max_attempts=2, trim=TRIM_SENTENCES, min_evidence=0)
 
 
 def _check_messages(task_input, _evidence):

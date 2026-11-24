@@ -64,6 +64,11 @@ def test_learning_notification_requires_service_key_and_structured_payload(monke
             {"chat": "synthetic private content"},
             {"resource_type": "appeal"},
             {"event_type": "GRADE_PROPOSAL_PENDING", "resource_type": "grade_revision"},
+            {
+                "event_type": "PRACTICE_PUBLISHED",
+                "resource_type": "practice",
+                "student_id": str(uuid4()),
+            },
         ):
             response = client.post(
                 path, json={**payload, **invalid}, headers={"X-Service-Key": key}
@@ -240,3 +245,79 @@ def test_aware_transfer_timestamp_required():
         ).effective_at.tzinfo
         is not None
     )
+
+
+def test_calendar_event_notification_delivery_excludes_actor_and_checks_visibility(monkeypatch):
+    school, klass, teacher, student = (uuid4() for _ in range(4))
+    cal_event_id = uuid4()
+    start = datetime(2026, 12, 1, 7, 0, tzinfo=UTC)
+    end = datetime(2026, 12, 1, 9, 0, tzinfo=UTC)
+    monkeypatch.setattr(
+        events,
+        "get_notification_audience",
+        lambda *args, **kwargs: NotificationAudienceDTO(
+            school_id=school, recipient_ids=[teacher, student]
+        ),
+    )
+    monkeypatch.setattr(
+        events,
+        "get_users_summaries",
+        lambda *args, **kwargs: {
+            teacher: SimpleNamespace(school_id=school),
+            student: SimpleNamespace(school_id=school),
+        },
+    )
+    monkeypatch.setattr(
+        events,
+        "check_class_action",
+        lambda *args, **kwargs: SimpleNamespace(allowed=True),
+    )
+    monkeypatch.setattr(
+        events,
+        "get_visible_calendar_event_ref",
+        lambda *args, **kwargs: SimpleNamespace(id=cal_event_id, class_id=klass),
+    )
+    created = OutboxEvent(
+        id=uuid4(),
+        event_type="CALENDAR_EVENT_CREATED",
+        aggregate_id=str(cal_event_id),
+        schema_version=2,
+        aggregate_version=1,
+        payload_json={
+            "class_id": str(klass),
+            "school_id": str(school),
+            "calendar_event_id": str(cal_event_id),
+            "actor_id": str(teacher),
+            "version": 1,
+            "starts_at": start.isoformat(),
+            "ends_at": end.isoformat(),
+        },
+    )
+    recipients, safe = events.prepare_delivery(MagicMock(), created)
+    assert recipients == [student]
+    assert "actor_id" not in safe
+    assert "school_id" not in safe
+    assert safe["calendar_event_id"] == str(cal_event_id)
+    assert safe["version"] == 1
+    assert "starts_at" in safe and "ends_at" in safe
+
+    monkeypatch.setattr(events, "get_visible_calendar_event_ref", lambda *args, **kwargs: None)
+    assert events.prepare_delivery(MagicMock(), created) == ([], {})
+
+    deleted = OutboxEvent(
+        id=uuid4(),
+        event_type="CALENDAR_EVENT_DELETED",
+        aggregate_id=str(cal_event_id),
+        schema_version=2,
+        aggregate_version=2,
+        payload_json={
+            "class_id": str(klass),
+            "calendar_event_id": str(cal_event_id),
+            "actor_id": str(teacher),
+            "version": 2,
+        },
+    )
+    del_recipients, del_safe = events.prepare_delivery(MagicMock(), deleted)
+    assert del_recipients == [student]
+    assert del_safe["version"] == 2
+

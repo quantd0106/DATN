@@ -110,16 +110,34 @@ def _snap_quote_enums(node: Any, enums_by_id: dict[str, list[str]]) -> Any:
     return node
 
 
+def _strip_markdown_fences(content: str) -> str:
+    stripped = content.strip()
+    if stripped.startswith("```"):
+        first_nl = stripped.find("\n")
+        if first_nl != -1:
+            stripped = stripped[first_nl + 1 :]
+        if stripped.endswith("```"):
+            stripped = stripped[:-3]
+        stripped = stripped.strip()
+    return stripped
+
+
 def _normalize_response_json(content: str, schema: dict[str, Any]) -> str:
+    cleaned = _strip_markdown_fences(content)
     enums_by_id: dict[str, list[str]] = {}
     _extract_quote_enums(schema, enums_by_id)
-    if not enums_by_id:
-        return content
     try:
-        parsed = json.loads(content)
+        parsed = json.loads(cleaned)
     except ValueError:
-        return content
-    snapped = _snap_quote_enums(parsed, enums_by_id)
+        return cleaned
+    if isinstance(parsed, dict):
+        if (
+            parsed.get("status") == "answered"
+            and "missing_parts" not in parsed
+            and "missing_parts" in json.dumps(schema, ensure_ascii=False)
+        ):
+            parsed["missing_parts"] = []
+    snapped = _snap_quote_enums(parsed, enums_by_id) if enums_by_id else parsed
     return json.dumps(snapped, ensure_ascii=False)
 
 

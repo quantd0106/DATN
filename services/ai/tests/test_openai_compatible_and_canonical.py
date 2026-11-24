@@ -213,3 +213,69 @@ def test_openai_compatible_snaps_partial_quote_to_schema_enum():
         normalized["claims"][0]["evidence"][0]["quote"]
         == "12\nChương 1. Các bài toán dẫn đến phương trình vi phân"
     )
+
+    fenced = '```json\n{"status": "answered", "claims": [{"text": "Chương 1", "basis": "source", "evidence": [{"id": "S1", "quote": "Chương 1. Các bài toán dẫn đến phương trình vi phân"}]}]}\n```'
+    normalized_fenced = json.loads(
+        _normalize_response_json(fenced, {**schema, "required": ["status", "claims", "missing_parts"]})
+    )
+    assert normalized_fenced["missing_parts"] == []
+
+
+def test_canonical_fallback_extracts_equations_and_attaches_citation_document_id():
+    from datetime import UTC, datetime
+    from app.modules.tutor.models import Message, MessageRole, MessageStatus, TutorMode
+    from app.modules.tutor.service import project_history_message
+
+    grant = ActiveGrant(
+        document_id=uuid4(),
+        document_version_id=uuid4(),
+        source_id="src-eq",
+    )
+    artifact = {
+        "schema_version": "idp-canonical-1",
+        "pages": [
+            {
+                "page_number": 3,
+                "blocks": [{"type": "Equation", "latex": [r"ax^2 + bx + c = 0"]}],
+            }
+        ],
+    }
+    records = parse_canonical_records(grant, artifact, document_name="Đại số 9")
+    assert len(records) == 1 and "ax^2 + bx + c = 0" in records[0]["text"]
+    ranked = rank_canonical_records(records, "giai phuong trinh dai so", limit=1)
+    assert ranked[0]["page"] == 3
+
+    msg = Message(
+        id=uuid4(),
+        conversation_id=uuid4(),
+        role=MessageRole.ASSISTANT,
+        mode=TutorMode.QUICK_QA,
+        status=MessageStatus.COMPLETED,
+        created_at=datetime.now(UTC),
+        rendered_payload_json={
+            "status": "answered",
+            "claims": [
+                {
+                    "text": "Phương trình bậc hai có dạng chuẩn.",
+                    "basis": "source",
+                    "citations": [
+                        {
+                            "source_id": "src-eq",
+                            "quote": "ax^2 + bx + c = 0",
+                            "source_spans": [{"start": 0, "end": 17, "page": 3}],
+                            "location": {"document_name": "Đại số 9"},
+                        }
+                    ],
+                }
+            ],
+            "missing_parts": [],
+        },
+    )
+    projected = project_history_message(
+        msg,
+        frozenset({"src-eq"}),
+        grants_by_source={"src-eq": grant},
+    )
+    cite = projected.rendered["claims"][0]["citations"][0]
+    assert cite["document_id"] == str(grant.document_id)
+    assert cite["location"]["page"] == 3

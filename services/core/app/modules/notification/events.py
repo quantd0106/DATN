@@ -17,6 +17,7 @@ from app.modules.classroom.public import (
 )
 from app.modules.identity.public import check_user_is_lecturer, get_users_summaries
 from app.modules.notification.schemas import LEARNING_RESOURCE_BY_EVENT, LearningResourceType
+from app.modules.social.calendar.public import get_visible_calendar_event_ref
 from app.modules.social.feed.public import get_visible_post_ref
 
 
@@ -59,6 +60,15 @@ class DeadlineChanged(EventPayload):
     event_id: UUID
     external_ref: str = Field(min_length=1, max_length=200)
     version: int = Field(ge=1)
+    activity_kind: Literal["ASSIGNMENT", "ASSESSMENT"] | None = None
+
+
+class CalendarEventChanged(EventPayload):
+    calendar_event_id: UUID
+    actor_id: UUID
+    version: int = Field(ge=1)
+    starts_at: AwareDatetime | None = None
+    ends_at: AwareDatetime | None = None
 
 
 class LearningEvent(EventPayload):
@@ -79,6 +89,9 @@ EVENT_SCHEMAS = {
     "SOCIAL_POST_CREATED": PostCreated,
     "SOCIAL_COMMENT_CREATED": CommentCreated,
     "CALENDAR_DEADLINE_CHANGED": DeadlineChanged,
+    "CALENDAR_EVENT_CREATED": CalendarEventChanged,
+    "CALENDAR_EVENT_UPDATED": CalendarEventChanged,
+    "CALENDAR_EVENT_DELETED": CalendarEventChanged,
     **dict.fromkeys(LEARNING_RESOURCE_BY_EVENT, LearningEvent),
 }
 
@@ -98,6 +111,8 @@ def prepare_delivery(session: Session, event: OutboxEvent) -> tuple[list[UUID], 
         if isinstance(payload, PostCreated)
         else payload.event_id
         if isinstance(payload, DeadlineChanged)
+        else payload.calendar_event_id
+        if isinstance(payload, CalendarEventChanged)
         else payload.resource_id
         if isinstance(payload, LearningEvent)
         else payload.class_id
@@ -127,6 +142,16 @@ def prepare_delivery(session: Session, event: OutboxEvent) -> tuple[list[UUID], 
         candidates.discard(payload.author_id)
         if get_visible_post_ref(payload.class_id, payload.post_id, session=session) is None:
             return [], {}
+    elif isinstance(payload, CalendarEventChanged):
+        candidates.discard(payload.actor_id)
+        if (
+            event.event_type != "CALENDAR_EVENT_DELETED"
+            and get_visible_calendar_event_ref(
+                payload.class_id, payload.calendar_event_id, session=session
+            )
+            is None
+        ):
+            return [], {}
     users = get_users_summaries(sorted(candidates), session=session)
     recipients = []
     for user_id in sorted(candidates):
@@ -134,7 +159,7 @@ def prepare_delivery(session: Session, event: OutboxEvent) -> tuple[list[UUID], 
         if user is None or user.school_id != audience.school_id:
             continue
         if (
-            isinstance(payload, (PostCreated, DeadlineChanged))
+            isinstance(payload, (PostCreated, DeadlineChanged, CalendarEventChanged))
             and not check_class_action(
                 payload.class_id, user_id, ClassAccessAction.READ_CLASS_CONTENT, session=session
             ).allowed
@@ -143,9 +168,15 @@ def prepare_delivery(session: Session, event: OutboxEvent) -> tuple[list[UUID], 
         recipients.append(user_id)
     # No free text, credentials, external_ref or recipient lists in inbox payloads.
     safe = {
-        key: str(value) if isinstance(value, (UUID, datetime)) else value
+        key: (
+            value.isoformat()
+            if isinstance(value, datetime)
+            else str(value)
+            if isinstance(value, UUID)
+            else value
+        )
         for key, value in payload.model_dump(exclude_none=True).items()
-        if key not in {"recipient_ids", "school_id", "post_author_id", "external_ref"}
+        if key not in {"recipient_ids", "school_id", "post_author_id", "external_ref", "actor_id"}
     }
     if homeroom:
         safe["homeroom_id"] = safe.pop("class_id")
@@ -157,17 +188,26 @@ def prepare_learning_delivery(
     session: Session, event: OutboxEvent, payload: LearningEvent
 ) -> tuple[list[UUID], dict]:
     teacher_event = event.event_type == "GRADE_PROPOSAL_PENDING"
+    class_student_event = event.event_type == "PRACTICE_PUBLISHED"
+    expects_no_student = teacher_event or class_student_event
     if (
         payload.resource_type != LEARNING_RESOURCE_BY_EVENT[event.event_type]
         or payload.resource_type != event.aggregate_type
-        or (payload.student_id is None) != teacher_event
+        or (payload.student_id is None) != expects_no_student
     ):
         raise InvalidEvent("Mismatched Learning resource or recipient")
-    candidates = (
-        set(get_class_lecturer_ids(payload.class_id, session=session))
-        if payload.student_id is None
-        else {payload.student_id}
-    )
+    if teacher_event:
+        candidates = set(get_class_lecturer_ids(payload.class_id, session=session))
+    elif class_student_event:
+        audience = get_notification_audience(payload.class_id, session=session)
+        if audience is None:
+            raise InvalidEvent("Missing source scope")
+        if audience.school_id != payload.school_id:
+            raise InvalidEvent("Mismatched school")
+        lecturer_ids = set(get_class_lecturer_ids(payload.class_id, session=session))
+        candidates = set(audience.recipient_ids) - lecturer_ids
+    else:
+        candidates = {payload.student_id}
     users = get_users_summaries(sorted(candidates), session=session)
     recipients = []
     for user_id, user in sorted(users.items()):
@@ -177,7 +217,12 @@ def prepare_learning_delivery(
             check_user_is_lecturer(user_id, session=session)
             if teacher_event
             else check_class_action(
-                payload.class_id, user_id, ClassAccessAction.READ_OWN_HISTORY, session=session
+                payload.class_id,
+                user_id,
+                ClassAccessAction.READ_CLASS_CONTENT
+                if class_student_event
+                else ClassAccessAction.READ_OWN_HISTORY,
+                session=session,
             ).allowed
         )
         if allowed:

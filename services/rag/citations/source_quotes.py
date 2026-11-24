@@ -108,28 +108,98 @@ def _record_text(item: Mapping) -> tuple[str, str]:
     return item_id, text
 
 
-def _snippets_for(text: str) -> list[str]:
-    snippets = []
-    seen = set()
-    for segment_start, segment_end in _sentence_and_clause_ranges(text):
-        if segment_end - segment_start <= MAX_QUOTE_CHARS:
-            slices = [(segment_start, segment_end)]
-        else:
-            slices = _window_slices(text, segment_start, segment_end)
+def _extract_quote_candidates(text: str) -> tuple[list[str], list[str]]:
+    """Collect deduplicated primary (sentence/window) and secondary (clause) candidates."""
+    primary: list[str] = []
+    clause: list[str] = []
+    seen: set[str] = set()
+    max_collect = MAX_SNIPPETS * 2
+    for raw_start, raw_end in _ranges(text, 0, len(text), _SENTENCE_END):
+        segment_start, segment_end = _trim_bounds(text, raw_start, raw_end)
+        if segment_start >= segment_end:
+            continue
+        slices = (
+            [(segment_start, segment_end)]
+            if segment_end - segment_start <= MAX_QUOTE_CHARS
+            else _window_slices(text, segment_start, segment_end)
+        )
         for start, end in slices:
             quote = text[start:end]
             if not MIN_QUOTE_CHARS <= len(quote) <= MAX_QUOTE_CHARS:
                 continue
-            if quote not in seen:
+            if quote not in seen and len(primary) + len(clause) < max_collect:
                 seen.add(quote)
-                snippets.append(quote)
-                if len(snippets) > MAX_SNIPPETS:
-                    raise SourceBoundSchemaError("snippet_budget_exceeded")
+                primary.append(quote)
+        for clause_raw_start, clause_raw_end in _ranges(text, segment_start, segment_end, _CLAUSE_END):
+            c_start, c_end = _trim_bounds(text, clause_raw_start, clause_raw_end)
+            if c_start >= c_end:
+                continue
+            c_slices = (
+                [(c_start, c_end)]
+                if c_end - c_start <= MAX_QUOTE_CHARS
+                else _window_slices(text, c_start, c_end)
+            )
+            for start, end in c_slices:
+                quote = text[start:end]
+                if not MIN_QUOTE_CHARS <= len(quote) <= MAX_QUOTE_CHARS:
+                    continue
+                if quote not in seen and len(primary) + len(clause) < max_collect:
+                    seen.add(quote)
+                    clause.append(quote)
     # Formula and list fragments can consist entirely of short lines. Offer
     # the exact multiline text if it fits, rather than rewriting its spacing.
-    if not snippets and MIN_QUOTE_CHARS <= len(text.strip()) <= MAX_QUOTE_CHARS:
-        snippets.append(text.strip())
-    return snippets
+    if not primary and not clause and MIN_QUOTE_CHARS <= len(text.strip()) <= MAX_QUOTE_CHARS:
+        primary.append(text.strip())
+    return primary, clause
+
+
+def _snippets_for(text: str) -> list[str]:
+    primary, clause = _extract_quote_candidates(text)
+    return [*primary, *clause][:MAX_SNIPPETS]
+
+
+def _trim_quote_budget(
+    item_candidates: list[tuple[str, list[str], list[str]]],
+) -> dict[str, list[str]]:
+    """Trim candidate quotes deterministically to satisfy snippet and character caps."""
+    total_snippets = sum(len(p) + len(c) for _, p, c in item_candidates)
+    total_chars = sum(sum(map(len, p)) + sum(map(len, c)) for _, p, c in item_candidates)
+    if total_snippets <= MAX_SNIPPETS and total_chars <= MAX_QUOTED_CHARS:
+        return {item_id: [*p, *c] for item_id, p, c in item_candidates}
+
+    # Tier 1: drop clause sub-snippets while preserving all primary sentence/window quotes
+    # (or keeping clause snippets for an item that has no primary quotes at all).
+    reduced: list[tuple[str, list[str]]] = [
+        (item_id, list(p) if p else list(c)) for item_id, p, c in item_candidates
+    ]
+    total_snippets = sum(len(quotes) for _, quotes in reduced)
+    total_chars = sum(sum(map(len, quotes)) for _, quotes in reduced)
+    if total_snippets <= MAX_SNIPPETS and total_chars <= MAX_QUOTED_CHARS:
+        return {item_id: quotes for item_id, quotes in reduced if quotes}
+
+    # Tier 2: round-robin selection across items so every evidence record remains quotable.
+    selected: dict[str, list[str]] = {item_id: [] for item_id, _ in reduced}
+    count_used = 0
+    chars_used = 0
+    depth = 0
+    while count_used < MAX_SNIPPETS:
+        progressed = False
+        for item_id, quotes in reduced:
+            if depth >= len(quotes):
+                continue
+            quote = quotes[depth]
+            if count_used + 1 > MAX_SNIPPETS:
+                break
+            if chars_used + len(quote) > MAX_QUOTED_CHARS:
+                continue
+            selected[item_id].append(quote)
+            count_used += 1
+            chars_used += len(quote)
+            progressed = True
+        if not progressed:
+            break
+        depth += 1
+    return {item_id: quotes for item_id, quotes in selected.items() if quotes}
 
 
 def source_quote_enums(evidence) -> dict[str, list[str]]:
@@ -138,10 +208,8 @@ def source_quote_enums(evidence) -> dict[str, list[str]]:
         raise SourceBoundSchemaError("evidence_records_required")
 
     total_source_chars = 0
-    total_snippets = 0
-    total_quoted_chars = 0
     seen_ids = set()
-    quotes_by_id = {}
+    item_candidates: list[tuple[str, list[str], list[str]]] = []
     for item in evidence:
         if not isinstance(item, Mapping):
             raise SourceBoundSchemaError("evidence_record_must_be_an_object")
@@ -153,26 +221,27 @@ def source_quote_enums(evidence) -> dict[str, list[str]]:
         if total_source_chars > MAX_SOURCE_CHARS:
             raise SourceBoundSchemaError("source_work_budget_exceeded")
 
-        snippets = _snippets_for(source_text)
+        primary, clause = _extract_quote_candidates(source_text)
         record = item.get("record")
         if isinstance(record, Mapping) and "source_spans" in record:
-            mapped_snippets = []
-            for quote in snippets:
-                try:
-                    quote_spans({"text": source_text, "record": record}, quote)
-                except ValueError:
-                    continue
-                mapped_snippets.append(quote)
-            snippets = mapped_snippets
-        if not snippets:
+            def filter_mapped(candidates: list[str]) -> list[str]:
+                mapped: list[str] = []
+                for quote in candidates:
+                    try:
+                        quote_spans({"text": source_text, "record": record}, quote)
+                    except ValueError:
+                        continue
+                    mapped.append(quote)
+                return mapped
+
+            primary = filter_mapped(primary)
+            clause = filter_mapped(clause)
+        if not primary and not clause:
             continue
-        total_snippets += len(snippets)
-        total_quoted_chars += sum(map(len, snippets))
-        if total_snippets > MAX_SNIPPETS:
-            raise SourceBoundSchemaError("snippet_budget_exceeded")
-        if total_quoted_chars > MAX_QUOTED_CHARS:
-            raise SourceBoundSchemaError("quoted_character_budget_exceeded")
-        quotes_by_id[item_id] = snippets
+        item_candidates.append((item_id, primary, clause))
+    if not item_candidates:
+        raise SourceBoundSchemaError("no_eligible_quote_snippet")
+    quotes_by_id = _trim_quote_budget(item_candidates)
     if not quotes_by_id:
         raise SourceBoundSchemaError("no_eligible_quote_snippet")
     return quotes_by_id

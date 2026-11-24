@@ -1,6 +1,38 @@
-import type { Role } from './domain';
+import type { CalendarEvent, Role } from './domain';
 import { canOpenRoute, matchRoute } from './navigation';
 import { routeHref } from '@/config/routes';
+
+const LEARNING_ACTIVITY_REF_PREFIX = 'learning:activity:';
+const TEACHING_SESSION_KEYWORD_RE = /(chữa|ôn\s*tập|phụ\s*đạo|bổ\s*trợ|tiết\s*học|buổi\s*học)/i;
+const CORE_EXAM_TITLE_RE = /^(?:lịch\s+)?(?:bài\s+)?(?:kiểm\s*tra|đánh\s*giá|thi(?:\s|$))/i;
+const CORE_ASSIGNMENT_TITLE_RE = /^(?:hạn\s+)?(?:nộp\s+)?(?:bài\s*tập|btvn(?:\s|$))/i;
+const CORE_OTHER_TITLE_RE = /^(?:hoạt\s*động|ngoại\s*khóa|họp|sự\s*kiện\s*khác)/i;
+const LEARNING_EXAM_FALLBACK_RE = /(kiểm\s*tra|đánh\s*giá|\bthi\b|exam|assessment)/i;
+
+export function parseLearningActivityRef(externalRef?: string | null): string | null {
+  if (!externalRef || !externalRef.startsWith(LEARNING_ACTIVITY_REF_PREFIX)) return null;
+  const activityId = externalRef.slice(LEARNING_ACTIVITY_REF_PREFIX.length).trim();
+  return activityId || null;
+}
+
+export function inferCalendarEventCategory(input: {
+  origin: 'CORE' | 'LEARNING';
+  title: string;
+  learningKind?: 'ASSESSMENT' | 'ASSIGNMENT' | 'PRACTICE';
+}): CalendarEvent['category'] {
+  if (input.learningKind === 'ASSESSMENT') return 'EXAM';
+  if (input.learningKind === 'ASSIGNMENT') return 'ASSIGNMENT';
+  if (input.origin === 'LEARNING') {
+    return LEARNING_EXAM_FALLBACK_RE.test(input.title) ? 'EXAM' : 'ASSIGNMENT';
+  }
+  const title = input.title.trim();
+  if (!TEACHING_SESSION_KEYWORD_RE.test(title)) {
+    if (CORE_EXAM_TITLE_RE.test(title)) return 'EXAM';
+    if (CORE_ASSIGNMENT_TITLE_RE.test(title)) return 'ASSIGNMENT';
+    if (CORE_OTHER_TITLE_RE.test(title)) return 'OTHER';
+  }
+  return 'CLASS';
+}
 
 export type CalendarDayCell = {
   dayNumber: number;

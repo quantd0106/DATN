@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from uuid import UUID
 
 from sqlalchemy import select
@@ -14,7 +15,13 @@ from app.runtime.rag_runtime import RagRuntime
 
 _PAGE_QUERY_RE = re.compile(r"(?:trang|page|tr\.?)\s*(\d+)", re.IGNORECASE)
 _TOKEN_RE = re.compile(r"\w+", re.UNICODE)
-_MAX_CHUNK_CHARS = 1800
+_MAX_CHUNK_CHARS = 1000
+
+
+def _fold_vi(value: str) -> str:
+    nfd = unicodedata.normalize("NFD", value)
+    stripped = "".join(ch for ch in nfd if unicodedata.category(ch) != "Mn")
+    return stripped.replace("đ", "d").replace("Đ", "D").lower()
 
 
 def _page_number(page: dict, fallback: int) -> int:
@@ -22,6 +29,14 @@ def _page_number(page: dict, fallback: int) -> int:
     if not isinstance(number, int) or number < 1:
         number = page.get("page_id")
     return number if isinstance(number, int) and number >= 1 else fallback
+
+
+def _block_latex_text(raw: object) -> str:
+    if isinstance(raw, list):
+        return "\n".join(str(item).strip() for item in raw if str(item).strip())
+    if isinstance(raw, str):
+        return raw.strip()
+    return ""
 
 
 def _extract_pages(artifact: dict) -> list[tuple[int, str, str]]:
@@ -34,8 +49,9 @@ def _extract_pages(artifact: dict) -> list[tuple[int, str, str]]:
                 continue
             num = _page_number(page, idx)
             title = str(page.get("title") or f"Trang {num}")
-            paragraphs = [str(p).strip() for p in (page.get("paragraphs") or []) if str(p).strip()]
-            text = "\n".join(paragraphs).strip()
+            parts = [str(p).strip() for p in (page.get("paragraphs") or []) if str(p).strip()]
+            parts.extend(str(f).strip() for f in (page.get("formulas") or []) if str(f).strip())
+            text = "\n".join(parts).strip()
             if text:
                 extracted.append((num, title, text))
         return extracted
@@ -52,6 +68,8 @@ def _extract_pages(artifact: dict) -> list[tuple[int, str, str]]:
                 if not isinstance(block, dict) or block.get("excluded"):
                     continue
                 part = (block.get("text") or block.get("markdown") or "").strip()
+                if not part:
+                    part = _block_latex_text(block.get("latex"))
                 if part:
                     parts.append(part)
             text = "\n".join(parts).strip()
@@ -115,14 +133,18 @@ def rank_canonical_records(records: list[dict], question: str, limit: int = 4) -
         return []
     requested_pages = {int(m) for m in _PAGE_QUERY_RE.findall(question)}
     q_tokens = {tok for tok in _TOKEN_RE.findall(question.lower()) if len(tok) >= 2}
+    q_folded = {tok for tok in _TOKEN_RE.findall(_fold_vi(question)) if len(tok) >= 2}
     scored: list[tuple[int, int, dict]] = []
     for idx, record in enumerate(records):
         score = 0
         if record.get("page") in requested_pages:
             score += 10_000
+        text_lower = record["text"].lower()
         if q_tokens:
-            text_lower = record["text"].lower()
             score += sum(10 for tok in q_tokens if tok in text_lower)
+        if q_folded:
+            text_folded = _fold_vi(record["text"])
+            score += sum(4 for tok in q_folded if tok in text_folded)
         scored.append((score, -idx, record))
     scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
     return [item[2] for item in scored[:limit]]

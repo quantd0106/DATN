@@ -1,7 +1,4 @@
-from collections.abc import Iterator
-from pathlib import PurePosixPath
-from typing import Annotated, BinaryIO
-from urllib.parse import quote
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response
@@ -12,7 +9,7 @@ from app.common.core_client import Core
 from app.common.db import Db
 from app.common.errors import AppError, correlation_id
 from app.common.pagination import Page, PageRequest
-from app.common.storage import CHUNK_SIZE, Storage
+from app.common.storage import Storage, safe_content_disposition, stream_chunks
 from app.common.types import DocumentFormat
 from app.modules.grants.public import require_live_source
 from app.modules.grants.schemas import (
@@ -91,12 +88,6 @@ def reader(
     return document_reader(session, core, storage, actor, class_id, document_id, version)
 
 
-def stream_chunks(stream: BinaryIO) -> Iterator[bytes]:
-    with stream:
-        while chunk := stream.read(CHUNK_SIZE):
-            yield chunk
-
-
 @router.get("/{document_id}/download", response_class=StreamingResponse)
 def download(
     class_id: UUID,
@@ -109,20 +100,12 @@ def download(
 ) -> StreamingResponse:
     serving = require_live_source(session, core, actor, class_id, document_id)
     viewing = select_viewing_version(session, document_id, serving, version)
-    filename = viewing.original_filename
-    # The fallback is ASCII and the RFC 5987 value contains no raw header metacharacters.
-    suffix = PurePosixPath(filename).suffix.lower()
-    safe_suffix = suffix if suffix in {".pdf", ".pptx", ".docx", ".txt", ".md", ".markdown"} else ""
-    disposition = (
-        f'attachment; filename="document{safe_suffix}"; '
-        f"filename*=UTF-8''{quote(filename, safe='')}"
-    )
     stream = open_original(storage, viewing)
     return StreamingResponse(
         stream_chunks(stream),
         media_type=viewing.mime_type,
         headers={
-            "Content-Disposition": disposition,
+            "Content-Disposition": safe_content_disposition(viewing.original_filename),
             "Content-Length": str(viewing.file_size_bytes),
             "Cache-Control": "no-store",
             "X-Content-Type-Options": "nosniff",

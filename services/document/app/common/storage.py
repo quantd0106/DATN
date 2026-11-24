@@ -4,9 +4,10 @@ from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from hashlib import file_digest, sha256
 from io import BytesIO
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from tempfile import NamedTemporaryFile
 from typing import Annotated, BinaryIO, Protocol
+from urllib.parse import quote
 from uuid import uuid4
 
 from fastapi import Depends
@@ -118,6 +119,22 @@ class LocalVolumeStorage:
                 self.delete(key)
         except (OSError, ValueError):
             return False
+
+
+def stream_chunks(stream: BinaryIO) -> Iterator[bytes]:
+    with stream:
+        while chunk := stream.read(CHUNK_SIZE):
+            yield chunk
+
+
+def safe_content_disposition(filename: str) -> str:
+    # The fallback is ASCII and the RFC 5987 value contains no raw header metacharacters.
+    suffix = PurePosixPath(filename).suffix.lower()
+    safe_suffix = suffix if suffix in {".pdf", ".pptx", ".docx", ".txt", ".md", ".markdown"} else ""
+    return (
+        f'attachment; filename="document{safe_suffix}"; '
+        f"filename*=UTF-8''{quote(filename, safe='')}"
+    )
 
 
 def get_storage() -> StorageBackend:

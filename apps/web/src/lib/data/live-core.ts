@@ -2,7 +2,11 @@ import { routeHref } from '@/config/routes';
 import { ApiError } from '../api/errors';
 import type { HttpRequest } from '../api/http';
 import type { CalendarEvent, ClassSummary, FeedComment, FeedPost, NotificationItem, Page, User, WorkspaceData } from '../domain';
+import type { NotificationInboxPage } from './port';
 import type { LiveIdentitySession } from './live-identity';
+import { actorInitials } from '../format';
+import { inferCalendarEventCategory } from '../calendar';
+import { formatNotificationEventWindow } from '../notifications';
 
 type Request = HttpRequest;
 type RecordValue = Record<string, unknown>;
@@ -105,54 +109,126 @@ function localDate(value: Date): string {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
 }
 
-function decodeCalendarEvent(value: unknown, className?: string): CalendarEvent {
+export function decodeCalendarEvent(value: unknown, className?: string): CalendarEvent {
   const source = record(value);
   const startsAt = validDate(source.starts_at), endsAt = validDate(source.ends_at);
   if (startsAt >= endsAt) return invalid();
   const origin = string(source.origin);
   if (!['CORE', 'LEARNING'].includes(origin)) return invalid();
+  const title = string(source.title);
+  const externalRef = optionalString(source.external_ref);
   return {
     id: string(source.id),
     classId: string(source.class_id),
     className,
-    title: string(source.title),
+    title,
     description: optionalString(source.description),
-    category: 'CLASS',
+    category: inferCalendarEventCategory({ origin: origin as 'CORE' | 'LEARNING', title }),
     start: startsAt.toISOString(),
     end: endsAt.toISOString(),
     date: localDate(startsAt),
     timeRange: `${startsAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} – ${endsAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`,
     readOnly: origin === 'LEARNING',
+    ...(externalRef ? { externalRef } : {}),
   };
 }
 
-const notificationCopy: Record<string, { title: string; content: string; category: NotificationItem['category']; target: 'feed' | 'calendar' | 'classes' | 'assessments' | 'gradingQueue' | null }> = {
+type NotificationTarget =
+  | 'feed'
+  | 'calendar'
+  | 'classes'
+  | 'practice'
+  | 'assignments'
+  | 'assessments'
+  | 'activities'
+  | 'gradingQueue';
+
+const notificationCopy: Record<
+  string,
+  { title: string; content: string; category: NotificationItem['category']; target: NotificationTarget | null }
+> = {
   CLASS_ENROLLMENT_CHANGED: { title: 'Danh sách lớp đã thay đổi', content: 'Thông tin ghi danh của lớp đã được cập nhật.', category: 'CLASS', target: 'classes' },
   CLASS_ENROLLMENT_MODE_CHANGED: { title: 'Chế độ ghi danh đã thay đổi', content: 'Chế độ ghi danh của lớp đã được cập nhật.', category: 'CLASS', target: 'classes' },
   CLASS_TEACHERS_CHANGED: { title: 'Phân công giáo viên đã thay đổi', content: 'Phân công giảng dạy của lớp đã được cập nhật.', category: 'CLASS', target: 'classes' },
   CLASS_STATUS_CHANGED: { title: 'Trạng thái lớp đã thay đổi', content: 'Trạng thái lớp học đã được cập nhật.', category: 'CLASS', target: 'classes' },
   CLASS_STUDENT_TRANSFERRED: { title: 'Thông tin chuyển lớp', content: 'Ghi danh lớp học của bạn đã được cập nhật.', category: 'CLASS', target: 'classes' },
   HOMEROOM_STUDENT_TRANSFERRED: { title: 'Thông tin lớp hành chính', content: 'Danh sách lớp hành chính của bạn đã được cập nhật.', category: 'CLASS', target: 'classes' },
-  SOCIAL_POST_CREATED: { title: 'Bài viết mới', content: 'Có bài viết mới trong bảng tin lớp.', category: 'CLASS', target: 'feed' },
-  SOCIAL_COMMENT_CREATED: { title: 'Bình luận mới', content: 'Có bình luận mới trong bảng tin lớp.', category: 'CLASS', target: 'feed' },
-  CALENDAR_DEADLINE_CHANGED: { title: 'Lịch lớp học đã cập nhật', content: 'Thời hạn hoặc sự kiện học tập của lớp đã thay đổi.', category: 'ASSIGNMENT', target: 'calendar' },
+  SOCIAL_POST_CREATED: { title: 'Bài viết mới', content: 'Có bài viết mới trong bảng tin lớp.', category: 'DISCUSSION', target: 'feed' },
+  SOCIAL_COMMENT_CREATED: { title: 'Bình luận mới', content: 'Có bình luận mới trong bảng tin lớp.', category: 'DISCUSSION', target: 'feed' },
+  CALENDAR_EVENT_CREATED: { title: 'Lịch học / sự kiện mới', content: 'Giáo viên vừa thêm lịch học hoặc sự kiện mới cho lớp.', category: 'CALENDAR', target: 'calendar' },
+  CALENDAR_EVENT_UPDATED: { title: 'Lịch học / sự kiện đã cập nhật', content: 'Giáo viên vừa cập nhật thời gian hoặc nội dung lịch lớp học.', category: 'CALENDAR', target: 'calendar' },
+  CALENDAR_EVENT_DELETED: { title: 'Sự kiện lịch lớp học đã bị hủy', content: 'Giáo viên vừa xóa một sự kiện khỏi lịch lớp.', category: 'CALENDAR', target: 'calendar' },
+  CALENDAR_DEADLINE_CHANGED: { title: 'Lịch lớp học đã cập nhật', content: 'Thời hạn hoặc sự kiện học tập của lớp đã thay đổi.', category: 'CALENDAR', target: 'calendar' },
+  PRACTICE_PUBLISHED: { title: 'Bài luyện tập mới', content: 'Giáo viên vừa công bố một bài luyện tập mới trong lớp.', category: 'PRACTICE', target: 'practice' },
   ASSESSMENT_RESULT_RELEASED: { title: 'Đã công bố kết quả kiểm tra', content: 'Bạn có thể xem kết quả trong danh sách bài kiểm tra.', category: 'EXAM', target: 'assessments' },
   GRADE_PROPOSAL_PENDING: { title: 'Đề xuất điều chỉnh điểm đang chờ duyệt', content: 'Mở hàng chờ chấm để xem đề xuất.', category: 'EXAM', target: 'gradingQueue' },
   APPEAL_RESOLVED: { title: 'Yêu cầu phúc khảo đã được giải quyết', content: 'Bạn có thể xem kết quả phúc khảo trong danh sách bài kiểm tra.', category: 'EXAM', target: 'assessments' },
 };
 
-const notificationTargetLabels = {
+const notificationTargetLabels: Record<NotificationTarget, string> = {
   feed: 'Mở bảng tin',
   calendar: 'Mở lịch',
   classes: 'Mở danh sách lớp',
+  practice: 'Mở bài luyện tập',
+  assignments: 'Mở bài tập',
   assessments: 'Mở danh sách bài kiểm tra',
+  activities: 'Quản lý hoạt động',
   gradingQueue: 'Mở hàng chờ chấm',
 };
 
-function decodeNotification(value: unknown, actor: User, classNames: Map<string, string>): NotificationItem {
+function resolveNotificationSpec(
+  type: string,
+  payload: RecordValue,
+  actor: User,
+): { title: string; content: string; category: NotificationItem['category']; target: NotificationTarget | null } {
+  const isStudent = actor.roles.includes('STUDENT');
+  if (type === 'CALENDAR_EVENT_CREATED' || type === 'CALENDAR_EVENT_UPDATED' || type === 'CALENDAR_EVENT_DELETED') {
+    const base = notificationCopy[type];
+    const windowLabel = formatNotificationEventWindow(optionalString(payload.starts_at), optionalString(payload.ends_at));
+    const actionText = type === 'CALENDAR_EVENT_CREATED'
+      ? 'Giáo viên vừa thêm lịch học/sự kiện mới'
+      : type === 'CALENDAR_EVENT_UPDATED'
+        ? 'Giáo viên vừa cập nhật lịch học/sự kiện lớp'
+        : 'Giáo viên vừa hủy một sự kiện khỏi lịch lớp';
+    return {
+      title: base.title,
+      content: windowLabel ? `${actionText}: ${windowLabel}.` : `${actionText}.`,
+      category: 'CALENDAR',
+      target: 'calendar',
+    };
+  }
+  if (type === 'CALENDAR_DEADLINE_CHANGED') {
+    const activityKind = optionalString(payload.activity_kind);
+    if (activityKind === 'ASSESSMENT') {
+      return {
+        title: 'Lịch kiểm tra đã cập nhật',
+        content: 'Thời gian mở hoặc hạn nộp bài kiểm tra của lớp đã được cập nhật.',
+        category: 'EXAM',
+        target: isStudent ? 'assessments' : 'calendar',
+      };
+    }
+    if (activityKind === 'ASSIGNMENT') {
+      return {
+        title: 'Hạn nộp bài tập đã cập nhật',
+        content: 'Bài tập mới hoặc thời hạn nộp bài tập của lớp đã được cập nhật.',
+        category: 'ASSIGNMENT',
+        target: isStudent ? 'assignments' : 'calendar',
+      };
+    }
+  }
+  if (type === 'PRACTICE_PUBLISHED') {
+    return {
+      ...notificationCopy.PRACTICE_PUBLISHED,
+      target: isStudent ? 'practice' : 'activities',
+    };
+  }
+  return notificationCopy[type] ?? { title: 'Thông báo mới', content: 'Bạn có một thông báo mới.', category: 'SYSTEM' as const, target: null };
+}
+
+export function decodeCoreNotification(value: unknown, actor: User, classNames: Map<string, string>): NotificationItem {
   const source = record(value), type = string(source.type), payload = record(source.payload_json);
   if (typeof source.read !== 'boolean') return invalid();
-  const spec = notificationCopy[type] ?? { title: 'Thông báo mới', content: 'Bạn có một thông báo mới.', category: 'SYSTEM' as const, target: null };
+  const spec = resolveNotificationSpec(type, payload, actor);
   const classId = uuidOrUndefined(payload.class_id);
   const className = classId ? classNames.get(classId) : undefined;
   const rolePrefix = actor.roles.includes('LECTURER') ? '/teacher' : actor.roles.includes('STUDENT') ? '/student' : null;
@@ -160,7 +236,10 @@ function decodeNotification(value: unknown, actor: User, classNames: Map<string,
   if (rolePrefix && classId && spec.target === 'feed') targetHref = routeHref(rolePrefix === '/teacher' ? 't.feed' : 's.feed', { classId }) ?? `${rolePrefix}/classes/${classId}/feed`;
   else if (rolePrefix && classId && spec.target === 'calendar') targetHref = routeHref(rolePrefix === '/teacher' ? 't.calendar' : 's.calendar', { classId }) ?? `${rolePrefix}/classes/${classId}/calendar`;
   else if (rolePrefix && spec.target === 'classes') targetHref = routeHref(rolePrefix === '/teacher' ? 't.classes' : 's.classes') ?? `${rolePrefix}/classes`;
+  else if (classId && spec.target === 'practice' && actor.roles.includes('STUDENT')) targetHref = routeHref('s.practice', { classId }) ?? undefined;
+  else if (classId && spec.target === 'assignments' && actor.roles.includes('STUDENT')) targetHref = routeHref('s.assignments', { classId }) ?? undefined;
   else if (classId && spec.target === 'assessments' && actor.roles.includes('STUDENT')) targetHref = routeHref('s.assessments', { classId }) ?? undefined;
+  else if (classId && spec.target === 'activities' && actor.roles.includes('LECTURER')) targetHref = routeHref('t.activities', { classId }) ?? undefined;
   else if (classId && spec.target === 'gradingQueue' && actor.roles.includes('LECTURER')) targetHref = routeHref('t.gradingQueue', { classId }) ?? undefined;
   return {
     id: string(source.id),
@@ -173,6 +252,23 @@ function decodeNotification(value: unknown, actor: User, classNames: Map<string,
     ...(classId ? { classId } : {}),
     ...(className ? { className } : {}),
     ...(targetHref && spec.target ? { targetHref, targetLabel: notificationTargetLabels[spec.target] } : {}),
+  };
+}
+
+function decodeNotificationInboxPage(value: unknown): { items: unknown[]; unreadCount: number; nextCursor: string | null } {
+  const source = record(value);
+  if (
+    !Array.isArray(source.items) ||
+    typeof source.unread_count !== 'number' ||
+    !Number.isInteger(source.unread_count) ||
+    source.unread_count < 0
+  ) {
+    return invalid();
+  }
+  return {
+    items: source.items,
+    unreadCount: source.unread_count,
+    nextCursor: optionalString(source.next_cursor) ?? null,
   };
 }
 
@@ -325,7 +421,7 @@ export function createLiveCore(session: LiveIdentitySession) {
       const classMembers = routeId === 't.overview' ? await readClassMembers(classId, signal) : undefined;
       return { kind: 'ready', classSummary, classMembers, pendingCapabilities, classOverview: {
         summary: classSummary,
-        ...(latest ? { announcement: { id: latest.id, authorName: latest.authorName, authorRole: '', authorInitials: latest.authorName.trim().split(/\s+/).slice(-2).map(part => part[0]).join(''), timeAgo: new Date(latest.createdAt).toLocaleString('vi-VN'), title: 'Bài viết mới nhất', content: latest.content } } : {}),
+        ...(latest ? { announcement: { id: latest.id, authorName: latest.authorName, authorRole: '', authorInitials: actorInitials(latest.authorName), timeAgo: new Date(latest.createdAt).toLocaleString('vi-VN'), title: 'Bài viết mới nhất', content: latest.content } } : {}),
         recentMaterials: [], upcomingActivities: [],
       } };
     }
@@ -353,10 +449,42 @@ export function createLiveCore(session: LiveIdentitySession) {
         session.authenticated(request => allNotificationPages(request, signal)),
       ]);
       const classNames = new Map(classes.map(cls => [cls.id, cls.name]));
-      const notifications = inbox.items.map(item => decodeNotification(item, current, classNames));
+      const notifications = inbox.items.map(item => decodeCoreNotification(item, current, classNames));
       return { kind: 'ready', notifications, notificationUnreadCount: inbox.unreadCount, pendingCapabilities };
     }
     return { kind: 'unavailable', message: 'Chức năng này chưa khả dụng ở phiên bản hiện tại. Bạn có thể tiếp tục sử dụng lớp học, bảng tin và lịch.' };
+  }
+
+  let classNameCache: { actorId: string; expiresAt: number; map: Map<string, string> } | null = null;
+
+  async function resolveNotificationClassNames(
+    current: User,
+    rawItems: unknown[],
+    signal?: AbortSignal,
+  ): Promise<Map<string, string>> {
+    const needed = new Set<string>();
+    for (const raw of rawItems) {
+      if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
+        const payload = (raw as RecordValue).payload_json;
+        if (typeof payload === 'object' && payload !== null && !Array.isArray(payload)) {
+          const cid = (payload as RecordValue).class_id;
+          if (typeof cid === 'string' && /^[0-9a-f-]{36}$/i.test(cid)) needed.add(cid);
+        }
+      }
+    }
+    const now = Date.now();
+    const cacheValid = Boolean(classNameCache && classNameCache.actorId === current.id && classNameCache.expiresAt > now);
+    if (needed.size === 0) return cacheValid && classNameCache ? classNameCache.map : new Map();
+    const missing = !cacheValid || [...needed].some(id => !classNameCache?.map.has(id));
+    if (!missing && classNameCache) return classNameCache.map;
+    try {
+      const classes = await readClasses(signal);
+      const map = new Map(classes.map(cls => [cls.id, cls.name]));
+      classNameCache = { actorId: current.id, expiresAt: now + 60_000, map };
+      return map;
+    } catch {
+      return cacheValid && classNameCache ? classNameCache.map : new Map();
+    }
   }
 
   return {
@@ -405,6 +533,26 @@ export function createLiveCore(session: LiveIdentitySession) {
       },
     },
     notifications: {
+      async list(options?: { limit?: number; cursor?: string; signal?: AbortSignal }): Promise<NotificationInboxPage> {
+        const current = await actor();
+        const limit = Math.max(1, Math.min(100, options?.limit ?? 30));
+        const raw = await session.authenticated(request =>
+          request('notifications', {
+            query: {
+              limit,
+              ...(options?.cursor ? { cursor: options.cursor } : {}),
+            },
+            signal: options?.signal,
+          }),
+        );
+        const pageData = decodeNotificationInboxPage(raw);
+        const classNames = await resolveNotificationClassNames(current, pageData.items, options?.signal);
+        return {
+          items: pageData.items.map(item => decodeCoreNotification(item, current, classNames)),
+          unreadCount: pageData.unreadCount,
+          nextCursor: pageData.nextCursor,
+        };
+      },
       async markAsRead(id: string) {
         await session.authenticated(request => request('markNotificationRead', { pathParams: { notificationId: id } }), true);
       },

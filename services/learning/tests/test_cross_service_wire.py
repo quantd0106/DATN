@@ -979,3 +979,56 @@ def test_learning_document_http_active_grants_wire_and_fault_isolation(wire, mon
         assert degraded["editor"]["availableClassSources"] == []
     finally:
         wire.run(doc_http.aclose)
+
+
+def test_learning_practice_published_and_deadline_kind_notifications_wire(wire):
+    publish_assessment(wire)
+    publish_assignment(wire)
+    practice = wire.call(
+        "POST", wire.base + "/practices", wire.primary, expected=201, json={"title": "Hàm số bậc hai"}
+    ).json()
+    path = wire.base + "/practices/" + practice["practice_id"]
+    question = {
+        "id": "q1",
+        "type": "single_choice",
+        "prompt": "1 + 1 bằng mấy?",
+        "options": [{"id": "a", "text": "2"}, {"id": "b", "text": "3"}],
+        "correctOptionId": "a",
+        "explanation": "1 + 1 = 2.",
+    }
+    draft = wire.call(
+        "PUT", path + "/draft", wire.primary, json={"expected_revision": 1, "questions": [question]}
+    ).json()
+    reviewed = wire.call(
+        "POST",
+        path + "/questions/q1/review",
+        wire.primary,
+        json={"expected_revision": int(draft["revision"]), "approved": True},
+    ).json()
+    wire.call(
+        "POST",
+        path + "/publish",
+        wire.primary,
+        json={"expected_revision": int(reviewed["revision"])},
+    )
+
+    counts = wire.run(run_worker_cycle, wire.database, wire.core_client, str(uuid4()))
+    assert counts["deadlines_sent"] == 2
+    assert counts["notifications_sent"] == 1
+    assert wire.core.drain(session_factory=wire.core.sessions) == 3
+
+    student_inbox = wire.call("GET", "/api/v1/notifications", wire.student, client=wire.core_http).json()
+    teacher_inbox = wire.call("GET", "/api/v1/notifications", wire.primary, client=wire.core_http).json()
+
+    practice_notifs = [item for item in student_inbox["items"] if item["type"] == "PRACTICE_PUBLISHED"]
+    assert len(practice_notifs) == 1
+    assert practice_notifs[0]["payload_json"]["resource_id"] == practice["practice_id"]
+    assert practice_notifs[0]["payload_json"]["resource_type"] == "practice"
+    assert not any(item["type"] == "PRACTICE_PUBLISHED" for item in teacher_inbox["items"])
+
+    deadline_kinds = {
+        item["payload_json"].get("activity_kind")
+        for item in student_inbox["items"]
+        if item["type"] == "CALENDAR_DEADLINE_CHANGED"
+    }
+    assert deadline_kinds == {"ASSESSMENT", "ASSIGNMENT"}

@@ -278,7 +278,7 @@ test('s.tutor deep-links citations to s.reader, loads Document classHasSources &
   assert.equal(tutor.classHasSources, true);
   assert.equal(tutor.quickNotes.length, 1);
   assert.equal(tutor.quickNotes[0].id, noteId);
-  assert.equal(tutor.citations[0].readerHref, `/student/classes/${classId}/documents/${docId}?page=3`);
+  assert.equal(tutor.citations[0].readerHref, `/student/classes/${classId}/documents/${docId}?page=3&quote=b%5E2+%3D+a+*+b%27`);
   assert.equal(tutor.citations[1].readerHref, `/student/classes/${classId}/documents`);
 
   docsMode = 'empty';

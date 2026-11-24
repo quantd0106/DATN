@@ -22,6 +22,7 @@ LEARNING_NOTIFICATION_EVENTS = (
     "ASSESSMENT_RESULT_RELEASED",
     "GRADE_PROPOSAL_PENDING",
     "APPEAL_RESOLVED",
+    "PRACTICE_PUBLISHED",
 )
 
 
@@ -37,6 +38,7 @@ async def dispatch_event(event: OutboxEvent, core: CorePort, correlation_id: str
             starts_at=datetime.fromisoformat(data["starts_at"]),
             ends_at=datetime.fromisoformat(data["ends_at"]),
             version=data["version"],
+            activity_kind=data.get("activity_kind"),
             correlation_id=correlation_id,
         )
         if receipt.version < data["version"]:

@@ -1,8 +1,19 @@
 'use client';
 
 import { useId, useRef, useEffect } from 'react';
-import type { NotificationItem } from '@/lib/domain';
+import type { NotificationCategory, NotificationItem } from '@/lib/domain';
 import type { NotificationReadIssue } from '@/lib/notification-read-controller';
+import {
+  formatNotificationFullDateTime,
+  formatNotificationTimeAgo,
+  getNotificationCategoryBadgeClass,
+  getNotificationCategoryIconName,
+  getNotificationCategoryLabel,
+  getNotificationCategoryShortLabel,
+  getValidNotificationIso,
+  NOTIFICATION_CATEGORIES,
+  PRIMARY_NOTIFICATION_CATEGORIES,
+} from '@/lib/notifications';
 import { Icon, StatePanel, ErrorNotice } from '@/components/ui';
 import './notification-center.css';
 
@@ -12,6 +23,9 @@ export type NotificationCenterProps = {
   items: readonly Readonly<NotificationItem>[]; // already filtered by root
   selected: Readonly<NotificationItem> | null;
   filter: 'all' | 'unread';
+  categoryFilter: 'ALL' | NotificationCategory;
+  categoryCounts: Record<NotificationCategory, number>;
+  statusTotalCount: number;
   totalCount: number;
   unreadCount: number;
   busy: boolean;
@@ -20,6 +34,7 @@ export type NotificationCenterProps = {
   accessNotice: string | null;
   onSelect(id: string): void;
   onFilter(filter: 'all' | 'unread'): void;
+  onCategoryFilter(category: 'ALL' | NotificationCategory): void;
   onNavigate(item: Readonly<NotificationItem>): void;
   onMarkAll(): void;
   onRetry(): void;
@@ -27,129 +42,15 @@ export type NotificationCenterProps = {
   onRefresh(): void;
 };
 
-function parseValidDate(isoString: string | undefined | null): Date | null {
-  if (!isoString || typeof isoString !== 'string') return null;
-  const date = new Date(isoString);
-  return isNaN(date.getTime()) ? null : date;
-}
-
-function getValidIsoDateTime(isoString: string): string | undefined {
-  const date = parseValidDate(isoString);
-  if (!date) return undefined;
-  try {
-    return date.toISOString();
-  } catch {
-    return undefined;
-  }
-}
-
-function formatTimeAgo(isoString: string): string {
-  const date = parseValidDate(isoString);
-  if (!date) return 'Chưa có thời gian';
-
-  try {
-    const now = Date.now();
-    const diffMs = now - date.getTime();
-    if (diffMs < 0) return 'Vừa xong';
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 1) return 'Vừa xong';
-    if (diffMins < 60) return `${diffMins} phút trước`;
-    const diffHours = Math.floor(diffMs / 3600000);
-    if (diffHours < 24) {
-      const isToday = new Date().toDateString() === date.toDateString();
-      const timeStr = date.toLocaleTimeString('vi-VN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Ho_Chi_Minh',
-      });
-      return isToday ? `${timeStr} Hôm nay` : `${diffHours} giờ trước`;
-    }
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays === 1) return 'Hôm qua';
-    if (diffDays < 7) return `${diffDays} ngày trước`;
-    return date.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
-  } catch {
-    return 'Chưa có thời gian';
-  }
-}
-
-function formatFullDateTime(isoString: string): string {
-  const date = parseValidDate(isoString);
-  if (!date) return 'Chưa có thời gian';
-
-  try {
-    return date.toLocaleString('vi-VN', {
-      timeZone: 'Asia/Ho_Chi_Minh',
-      hour: '2-digit',
-      minute: '2-digit',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-  } catch {
-    return 'Chưa có thời gian';
-  }
-}
-
-function getCategoryLabel(category: NotificationItem['category'], customLabel?: string): string {
-  if (customLabel) return customLabel;
-  switch (category) {
-    case 'ASSIGNMENT':
-      return 'Bài tập';
-    case 'EXAM':
-      return 'Bài kiểm tra';
-    case 'MATERIAL':
-      return 'Tài liệu học tập';
-    case 'CLASS':
-      return 'Lớp học';
-    case 'SYSTEM':
-      return 'Hệ thống';
-    default:
-      return 'Thông báo';
-  }
-}
-
-function getCategoryBadgeClass(category: NotificationItem['category']): string {
-  switch (category) {
-    case 'ASSIGNMENT':
-      return 'lumi-notification-badge-assignment';
-    case 'EXAM':
-      return 'lumi-notification-badge-exam';
-    case 'MATERIAL':
-      return 'lumi-notification-badge-material';
-    case 'CLASS':
-      return 'lumi-notification-badge-class';
-    case 'SYSTEM':
-      return 'lumi-notification-badge-system';
-    default:
-      return 'lumi-notification-badge-default';
-  }
-}
-
-function getCategoryIconName(category: NotificationItem['category']): string {
-  switch (category) {
-    case 'ASSIGNMENT':
-      return 'clipboard';
-    case 'EXAM':
-      return 'edit';
-    case 'MATERIAL':
-      return 'file';
-    case 'CLASS':
-      return 'users';
-    case 'SYSTEM':
-      return 'shield';
-    default:
-      return 'bell';
-  }
-}
-
 export function NotificationCenter({
   loadState,
   loadMessage,
   items,
   selected,
   filter,
+  categoryFilter,
+  categoryCounts,
+  statusTotalCount,
   totalCount,
   unreadCount,
   busy,
@@ -158,6 +59,7 @@ export function NotificationCenter({
   accessNotice,
   onSelect,
   onFilter,
+  onCategoryFilter,
   onNavigate,
   onMarkAll,
   onRetry,
@@ -327,7 +229,7 @@ export function NotificationCenter({
 
         {/* BỘ LỌC TABS */}
         <div className="lumi-notification-tabs-bar">
-          <div className="lumi-notification-tabs" role="tablist" aria-label="Bộ lọc thông báo">
+          <div className="lumi-notification-tabs" role="tablist" aria-label="Bộ lọc trạng thái đọc">
             <button
               ref={allTabRef}
               type="button"
@@ -361,6 +263,35 @@ export function NotificationCenter({
               {unreadCount > 0 && <span className="lumi-notification-tab-dot" aria-hidden="true" />}
             </button>
           </div>
+        </div>
+
+        {/* BỘ LỌC PHÂN LOẠI */}
+        <div className="lumi-notification-category-bar" role="group" aria-label="Phân loại thông báo">
+          <button
+            type="button"
+            className={`lumi-notification-category-chip ${categoryFilter === 'ALL' ? 'is-active' : ''}`}
+            aria-pressed={categoryFilter === 'ALL'}
+            onClick={() => onCategoryFilter('ALL')}
+          >
+            <span>Tất cả loại</span>
+            <span className="lumi-notification-count">({statusTotalCount})</span>
+          </button>
+          {NOTIFICATION_CATEGORIES.filter(
+            cat => PRIMARY_NOTIFICATION_CATEGORIES.includes(cat) || categoryCounts[cat] > 0,
+          ).map(category => (
+            <button
+              key={category}
+              type="button"
+              className={`lumi-notification-category-chip ${categoryFilter === category ? 'is-active' : ''}`}
+              aria-pressed={categoryFilter === category}
+              onClick={() => onCategoryFilter(category)}
+            >
+              <span>{getNotificationCategoryShortLabel(category)}</span>
+              {categoryCounts[category] > 0 && (
+                <span className="lumi-notification-count">({categoryCounts[category]})</span>
+              )}
+            </button>
+          ))}
         </div>
 
         {/* KHU VỰC THÔNG BÁO TRẠNG THÁI / LỖI ĐỒNG BỘ */}
@@ -444,20 +375,26 @@ export function NotificationCenter({
                 <Icon name={filter === 'unread' ? 'check' : 'bell'} />
               </div>
               <p className="lumi-notification-empty-title">
-                {filter === 'unread' ? 'Không có thông báo chưa đọc' : 'Bạn chưa có thông báo nào'}
+                {categoryFilter !== 'ALL'
+                  ? `Không có thông báo "${getNotificationCategoryShortLabel(categoryFilter)}"`
+                  : filter === 'unread'
+                    ? 'Không có thông báo chưa đọc'
+                    : 'Bạn chưa có thông báo nào'}
               </p>
               <p className="lumi-notification-empty-text muted">
-                {filter === 'unread'
-                  ? 'Bạn đã xem hết các thông báo mới.'
-                  : 'Các cập nhật bài tập, kiểm tra và tài liệu từ lớp học sẽ xuất hiện tại đây.'}
+                {categoryFilter !== 'ALL'
+                  ? 'Thử chọn lại mục "Tất cả loại" hoặc chuyển bộ lọc trạng thái đọc.'
+                  : filter === 'unread'
+                    ? 'Bạn đã xem hết các thông báo mới.'
+                    : 'Các cập nhật lịch học, luyện tập, bài tập và kiểm tra từ lớp học sẽ xuất hiện tại đây.'}
               </p>
             </div>
           ) : (
             items.map(item => {
               const isSelected = selected?.id === item.id;
               const isUnread = !item.isRead;
-              const itemTimeAgo = formatTimeAgo(item.createdAt);
-              const validTimeIso = getValidIsoDateTime(item.createdAt);
+              const itemTimeAgo = formatNotificationTimeAgo(item.createdAt);
+              const validTimeIso = getValidNotificationIso(item.createdAt);
               const timeDescription = itemTimeAgo === 'Chưa có thời gian' ? 'chưa có thời gian' : `gửi lúc ${itemTimeAgo}`;
               return (
                 <div key={item.id} role="listitem" className="lumi-notification-listitem">
@@ -471,9 +408,9 @@ export function NotificationCenter({
                     <div className="lumi-notification-item-top">
                       <div className="lumi-notification-item-badges">
                         {isUnread && <span className="lumi-notification-unread-dot" title="Chưa đọc" aria-hidden="true" />}
-                        <span className={`lumi-notification-badge ${getCategoryBadgeClass(item.category)}`}>
-                          <Icon name={getCategoryIconName(item.category)} />
-                          <span>{getCategoryLabel(item.category, item.categoryLabel)}</span>
+                        <span className={`lumi-notification-badge ${getNotificationCategoryBadgeClass(item.category)}`}>
+                          <Icon name={getNotificationCategoryIconName(item.category)} />
+                          <span>{getNotificationCategoryLabel(item.category, item.categoryLabel)}</span>
                         </span>
                         {item.className && <span className="lumi-notification-class-tag">{item.className}</span>}
                       </div>
@@ -504,9 +441,9 @@ export function NotificationCenter({
           <article className="lumi-notification-detail-article" aria-labelledby={detailTitleId}>
             <header className="lumi-notification-detail-header">
               <div className="lumi-notification-detail-meta-left">
-                <span className={`lumi-notification-badge ${getCategoryBadgeClass(selected.category)}`}>
-                  <Icon name={getCategoryIconName(selected.category)} />
-                  <span>{getCategoryLabel(selected.category, selected.categoryLabel)}</span>
+                <span className={`lumi-notification-badge ${getNotificationCategoryBadgeClass(selected.category)}`}>
+                  <Icon name={getNotificationCategoryIconName(selected.category)} />
+                  <span>{getNotificationCategoryLabel(selected.category, selected.categoryLabel)}</span>
                 </span>
                 {selected.className && (
                   <span className="lumi-notification-class-badge">{selected.className}</span>
@@ -516,8 +453,8 @@ export function NotificationCenter({
                   {!selected.isRead ? 'Chưa đọc' : 'Đã đọc'}
                 </span>
               </div>
-              <time className="lumi-notification-detail-date" dateTime={getValidIsoDateTime(selected.createdAt)}>
-                {formatFullDateTime(selected.createdAt)}
+              <time className="lumi-notification-detail-date" dateTime={getValidNotificationIso(selected.createdAt)}>
+                {formatNotificationFullDateTime(selected.createdAt)}
               </time>
             </header>
 

@@ -132,6 +132,25 @@ def test_quote_maps_later_occurrence_and_rejects_overlapping_geometry():
         quote_spans(evidence("S1", "abcdef", [span(0, 2, 0), span(1, 3, 1)]), "abcd")
 
 
+def test_source_quote_enums_trims_gracefully_across_large_evidence():
+    from rag.citations.source_quotes import MAX_QUOTED_CHARS, MAX_SNIPPETS
+
+    items = []
+    for idx in range(1, 5):
+        sentences = " ".join(
+            f"Trang {idx}, mục {part}: giá trị hệ số bằng {idx * 10 + part}, kết luận rõ."
+            for part in range(1, 45)
+        )
+        items.append(evidence(f"S{idx}", sentences, [span(0, len(sentences), idx * 10_000)]))
+
+    enums = source_quote_enums(items)
+    assert set(enums) == {"S1", "S2", "S3", "S4"}
+    total = sum(len(v) for v in enums.values())
+    total_chars = sum(len(q) for quotes in enums.values() for q in quotes)
+    assert 1 <= total <= MAX_SNIPPETS
+    assert total_chars <= MAX_QUOTED_CHARS
+
+
 LESSON = """# Chương 1. Mệnh đề
 
 ## Bài 1.2. Tên bài cùng số

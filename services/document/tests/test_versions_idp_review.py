@@ -252,6 +252,24 @@ def test_doc_t05_previous_success_serves_until_owner_accepts(
     assert storage.read_bytes(
         version.canonical_storage_key, expected_sha256=version.canonical_sha256
     )
+    # Owner can preview and download NEEDS_REVIEW versions directly from library; non-owners cannot.
+    preview_review = client.get(
+        f"{DOCUMENTS}/{doc_id}/reader", params={"version": 2}, headers=bearer("primary")
+    )
+    assert preview_review.status_code == 200, preview_review.text
+    assert preview_review.json()["viewing_version"] == 2
+    assert preview_review.json()["serving_version"] == 1
+    assert preview_review.json()["document"]["processing_status"] == "NEEDS_REVIEW"
+    assert preview_review.json()["pages"][0]["paragraphs"] == ["Version two reader text"]
+    download_review = client.get(
+        f"{DOCUMENTS}/{doc_id}/download", params={"version": 2}, headers=bearer("primary")
+    )
+    assert download_review.status_code == 200
+    assert download_review.content == b"Version two source"
+    assert client.get(f"{DOCUMENTS}/{doc_id}/reader", headers=bearer("assisting")).status_code == 404
+    assert client.get(f"{DOCUMENTS}/{doc_id}/download", headers=bearer("assisting")).status_code == 404
+    assert client.get(f"{DOCUMENTS}/{doc_id}/reader", headers=bearer("student")).status_code == 403
+    assert client.get(f"{DOCUMENTS}/{doc_id}/download", headers=bearer("admin")).status_code == 403
     path = f"{version_url(doc_id, v2_id)}/accept"
     request_id = str(uuid4())
     accepted = client.post(

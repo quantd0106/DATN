@@ -209,6 +209,38 @@ test('student workspace loads owned history, masks revoked citations, selects on
     { isAccessible: true, locator: 'Trang 7', excerpt: citation.quote, readerHref: `/student/classes/${classId}/documents` },
     { isAccessible: false, locator: '', excerpt: '', readerHref: '#' },
   ]);
+  const docUuid = '44444444-4444-4444-8444-444444444444';
+  const slideAssist = {
+    ...assistant,
+    id: randomUUID(),
+    rendered: {
+      claims: [{
+        text: 'Giải chi tiết',
+        citations: [{
+          source_id: randomUUID(),
+          document_id: docUuid,
+          version_number: 3,
+          location: { document_name: 'Slide bài giảng', slide: 5 },
+          quote: 'Phương trình bậc hai ax^2 + bx + c = 0',
+          masked: false,
+        }],
+      }],
+      knowledge_type: 'CLASS_SOURCE',
+    },
+  };
+  const hDirect = harness({
+    [listKey]: () => Response.json([conversation()]),
+    [historyKey]: () => Response.json([slideAssist]),
+    [lockKey]: () => Response.json({ items: [] }),
+  });
+  const directRes = await hDirect.ai.workspace.load('s.tutor', { classId });
+  assert.equal(directRes.kind, 'ready');
+  if (directRes.kind === 'ready') {
+    assert.equal(
+      directRes.tutorWorkspace?.citations[0].readerHref,
+      `/student/classes/${classId}/documents/${docUuid}?version=3&page=5&quote=Ph%C6%B0%C6%A1ng+tr%C3%ACnh+b%E1%BA%ADc+hai+ax%5E2+%2B+bx+%2B+c+%3D+0`,
+    );
+  }
   const selected = await h.ai.workspace.load('s.tutor', { classId, conversationId: otherConversationId });
   assert.equal(selected.kind === 'ready' && selected.tutorWorkspace?.activeConversationId, otherConversationId);
   const fresh = await h.ai.workspace.load('s.tutor', { classId, compose: 'new' });

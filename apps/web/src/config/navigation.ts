@@ -151,6 +151,10 @@ export const classTabs = {
       "t.activities"
     ],
     [
+      "Chấm bài",
+      "t.gradingQueue"
+    ],
+    [
       "Lịch học",
       "t.calendar"
     ],

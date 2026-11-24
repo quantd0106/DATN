@@ -16,6 +16,7 @@ import type {
   FeedPost,
   IssuedCode,
   Login,
+  NotificationItem,
   Page,
   PersonalNoteItem,
   PracticeAnswer,
@@ -30,6 +31,12 @@ import type {
   User,
   WorkspaceData,
 } from '../domain';
+
+export type NotificationInboxPage = {
+  items: NotificationItem[];
+  unreadCount: number;
+  nextCursor: string | null;
+};
 
 export interface DataAdapter {
   personalData: PersonalDataPort;
@@ -69,16 +76,19 @@ export interface DataAdapter {
     deleteEvent(id: string, classId?: string): Promise<void>;
   };
   notifications: {
+    list(options?: { limit?: number; cursor?: string; signal?: AbortSignal }): Promise<NotificationInboxPage>;
     markAsRead(id: string): Promise<void>;
     markAllAsRead(): Promise<void>;
   };
   document: {
     previewClassSource(input: {classId: string; documentId: string; version: number}): Promise<ClassSourcePreview>;
+    previewLibraryDocument(input: {documentId: string; version?: number}): Promise<ClassSourcePreview>;
     uploadDocument(file: { name: string; size: number; type: string; file?: File | Blob; title: string; description?: string }): Promise<DocumentItem>;
     uploadVersion(documentId: string, file: { name: string; size: number; type: string; file?: File | Blob }): Promise<DocumentVersion>;
     acceptVersion(documentId: string, versionId: string): Promise<DocumentVersion>;
     retryProcessing(documentId: string, versionNumber?: number, versionId?: string): Promise<DocumentItem>;
     downloadClassDocument(classId: string, documentId: string, version?: number): Promise<{ blob: Blob; filename?: string }>;
+    downloadLibraryDocument(documentId: string, version?: number): Promise<{ blob: Blob; filename?: string }>;
     shareDocument(documentId: string, classIds: string[]): Promise<void>;
     revokeShare(documentId: string, classId: string): Promise<void>;
     deleteDocument(documentId: string, options?: { confirmMultiClass?: boolean }): Promise<void>;

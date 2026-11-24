@@ -13,6 +13,7 @@ import { createAccountsPort } from './accounts';
 import { createAssignmentPort } from './assignment';
 import { createAssessmentPort } from './assessment';
 import type { DataAdapter } from '../../src/lib/data/port';
+import { actorInitials } from '../../src/lib/format';
 import type {
   BookmarkItem,
   CalendarEvent,
@@ -480,7 +481,7 @@ async function actorNotifications(user: User): Promise<NotificationItem[]> {
     try {
       if (event.resourceType === 'assessment') { const page = await assessmentPort.load('s.assessment', { classId: event.classId!, assessmentId: event.resourceId }); if (page.kind !== 'ready' || page.page.type !== 'detail') continue; title = page.page.assessment.title; category = 'EXAM'; href = `/student/classes/${event.classId}/assessments/${event.resourceId}`; }
       else if (event.resourceType === 'assignment') { const page = await assignmentPort.load('s.assignment', { classId: event.classId!, assignmentId: event.resourceId }); if (page.kind !== 'detail') continue; title = page.assignment.title; category = 'ASSIGNMENT'; href = `/student/classes/${event.classId}/assignments/${event.resourceId}`; }
-      else if (event.resourceType === 'practice') { const item = practiceActivities.find(row => row.id === event.resourceId && row.classId === event.classId); if (!item) continue; title = item.title; href = `/student/classes/${event.classId}/practice`; }
+      else if (event.resourceType === 'practice') { const item = practiceActivities.find(row => row.id === event.resourceId && row.classId === event.classId); if (!item) continue; title = item.title; category = 'PRACTICE'; href = `/student/classes/${event.classId}/practice`; }
       else continue;
     } catch { continue; }
     const id = `published:${event.id}`;
@@ -630,7 +631,7 @@ export const adapter: DataAdapter = {
         authorId: user.id,
         authorName: user.display_name ?? user.username ?? user.email ?? 'Người dùng',
         authorRole: isTeacher ? 'TEACHER' : 'STUDENT',
-        authorAvatar: (user.display_name ?? 'ND').split(' ').slice(-2).map(x => x[0]).join(''),
+        authorAvatar: actorInitials(user.display_name ?? user.username, 'ND'),
         content: content.trim(),
         createdAt: new Date().toISOString(),
         isAnnouncement: isTeacher,
@@ -760,6 +761,28 @@ export const adapter: DataAdapter = {
         id: 'cal-' + crypto.randomUUID(),
       };
       calendarEvents = [...calendarEvents, newEvent];
+      if (newEvent.classId) {
+        const clsName = newEvent.className ?? classes.find(c => c.id === newEvent.classId)?.name;
+        const createdAt = new Date().toISOString();
+        const studentNotifications: NotificationItem[] = previewClassroomStore
+          .activeStudentIds(newEvent.classId)
+          .filter(studentId => studentId !== user.id)
+          .map(studentId => ({
+            id: `cal-created-${newEvent.id}-${studentId}`,
+            userId: studentId,
+            title: 'Lịch học / sự kiện mới',
+            content: `Giáo viên vừa thêm sự kiện "${newEvent.title}"${newEvent.timeRange ? ` (${newEvent.timeRange})` : ''}.`,
+            category: 'CALENDAR',
+            categoryLabel: 'Lịch học',
+            createdAt,
+            isRead: false,
+            classId: newEvent.classId,
+            ...(clsName ? { className: clsName } : {}),
+            targetHref: `/student/classes/${newEvent.classId}/calendar`,
+            targetLabel: 'Mở lịch',
+          }));
+        notifications = [...studentNotifications, ...notifications];
+      }
       return structuredClone(newEvent);
     },
     async updateEvent(id, patch, _classId) {
@@ -800,6 +823,28 @@ export const adapter: DataAdapter = {
 
       const idx = calendarEvents.findIndex(e => e.id === id);
       calendarEvents[idx] = updated;
+      if (updated.classId) {
+        const clsName = updated.className ?? classes.find(c => c.id === updated.classId)?.name;
+        const createdAt = new Date().toISOString();
+        const studentNotifications: NotificationItem[] = previewClassroomStore
+          .activeStudentIds(updated.classId)
+          .filter(studentId => studentId !== user.id)
+          .map(studentId => ({
+            id: `cal-updated-${updated.id}-${crypto.randomUUID()}`,
+            userId: studentId,
+            title: 'Lịch học / sự kiện đã cập nhật',
+            content: `Giáo viên vừa cập nhật sự kiện "${updated.title}"${updated.timeRange ? ` (${updated.timeRange})` : ''}.`,
+            category: 'CALENDAR',
+            categoryLabel: 'Lịch học',
+            createdAt,
+            isRead: false,
+            classId: updated.classId,
+            ...(clsName ? { className: clsName } : {}),
+            targetHref: `/student/classes/${updated.classId}/calendar`,
+            targetLabel: 'Mở lịch',
+          }));
+        notifications = [...studentNotifications, ...notifications];
+      }
       return structuredClone(updated);
     },
     async deleteEvent(id, _classId) {
@@ -817,9 +862,48 @@ export const adapter: DataAdapter = {
       }
 
       calendarEvents = calendarEvents.filter(e => e.id !== id);
+      if (existing.classId) {
+        const clsName = existing.className ?? classes.find(c => c.id === existing.classId)?.name;
+        const createdAt = new Date().toISOString();
+        const studentNotifications: NotificationItem[] = previewClassroomStore
+          .activeStudentIds(existing.classId)
+          .filter(studentId => studentId !== user.id)
+          .map(studentId => ({
+            id: `cal-deleted-${existing.id}-${crypto.randomUUID()}`,
+            userId: studentId,
+            title: 'Sự kiện lịch lớp học đã bị hủy',
+            content: `Giáo viên vừa xóa sự kiện "${existing.title}" khỏi lịch lớp.`,
+            category: 'CALENDAR',
+            categoryLabel: 'Lịch học',
+            createdAt,
+            isRead: false,
+            classId: existing.classId,
+            ...(clsName ? { className: clsName } : {}),
+            targetHref: `/student/classes/${existing.classId}/calendar`,
+            targetLabel: 'Mở lịch',
+          }));
+        notifications = [...studentNotifications, ...notifications];
+      }
     },
   },
   notifications: {
+    async list(options) {
+      const user = signedIn();
+      const all = await actorNotifications(user);
+      const unreadCount = all.filter(item => !item.isRead).length;
+      const limit = Math.max(1, Math.min(100, options?.limit ?? 30));
+      const startIndex = options?.cursor
+        ? Math.max(0, all.findIndex(item => item.id === options.cursor) + 1)
+        : 0;
+      const items = all.slice(startIndex, startIndex + limit);
+      const nextCursor =
+        startIndex + limit < all.length && items.length > 0 ? items[items.length - 1].id : null;
+      return {
+        items: structuredClone(items),
+        unreadCount,
+        nextCursor,
+      };
+    },
     async markAsRead(id) {
       const user = signedIn();
       const foreign = notifications.find(item => item.id === id && item.userId !== user.id);
@@ -852,7 +936,18 @@ export const adapter: DataAdapter = {
       const doc = documents.find(d => d.id === input.documentId);
       const content = mockReaderModels[input.documentId];
       if (!doc || !content || (content.viewingVersion ?? content.servingVersion) !== input.version || !content.pageContents?.length) throw new ApiError('UNAVAILABLE', 'Nội dung đọc của phiên bản này chưa sẵn sàng.', 503);
-      return { documentId: doc.id, classId: input.classId, title: doc.title, version: input.version, totalPages: content.totalPages, pages: structuredClone(content.pageContents) };
+      return { documentId: doc.id, classId: input.classId, format: doc.format, title: doc.title, version: input.version, totalPages: content.totalPages, pages: structuredClone(content.pageContents) };
+    },
+    async previewLibraryDocument(input) {
+      const user = signedIn();
+      const doc = documents.find(d => d.id === input.documentId);
+      if (!user.roles.includes('LECTURER') || !doc || doc.ownerId !== user.id) {
+        throw new ApiError('FORBIDDEN', 'Chỉ giáo viên sở hữu mới có quyền xem trước tài liệu này.', 403);
+      }
+      const content = mockReaderModels[input.documentId];
+      const selected = input.version ?? content?.viewingVersion ?? doc.currentVersion;
+      if (!content || !content.pageContents?.length) throw new ApiError('UNAVAILABLE', 'Nội dung đọc của phiên bản này chưa sẵn sàng.', 503);
+      return { documentId: doc.id, format: doc.format, title: doc.title, version: selected, totalPages: content.totalPages, pages: structuredClone(content.pageContents) };
     },
     async downloadClassDocument(classId, documentId, version) {
       const user = signedIn();
@@ -861,6 +956,17 @@ export const adapter: DataAdapter = {
       if (selected === undefined || !previewContext.sourceAccessible(user.id, classId, documentId, selected)) {
         throw new ApiError('FORBIDDEN', 'Bạn hiện không có quyền tải nguồn tài liệu này.', 403);
       }
+      const file = uploadedDocumentFiles.get(`${documentId}:${selected}`);
+      if (!file) throw new ApiError('UNAVAILABLE', 'Tệp gốc chưa khả dụng trong bản xem trước.', 503);
+      return file;
+    },
+    async downloadLibraryDocument(documentId, version) {
+      const user = signedIn();
+      const doc = documents.find(d => d.id === documentId);
+      if (!user.roles.includes('LECTURER') || !doc || doc.ownerId !== user.id) {
+        throw new ApiError('FORBIDDEN', 'Chỉ giáo viên sở hữu mới có quyền tải tài liệu này.', 403);
+      }
+      const selected = version ?? doc.currentVersion;
       const file = uploadedDocumentFiles.get(`${documentId}:${selected}`);
       if (!file) throw new ApiError('UNAVAILABLE', 'Tệp gốc chưa khả dụng trong bản xem trước.', 503);
       return file;

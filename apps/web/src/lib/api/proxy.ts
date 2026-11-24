@@ -46,7 +46,7 @@ export function createCoreProxy(resolver: OriginResolver | UpstreamResolvers, fe
     for (const key of operationQueryParameters[operation] ?? []) {
       if (incoming.searchParams.has(key)) target.searchParams.set(key, incoming.searchParams.get(key)!);
     }
-    const download = operation === 'classDocumentDownload';
+    const download = operation === 'classDocumentDownload' || operation === 'libraryDocumentDownload';
     const headers = new Headers({ Accept: download ? '*/*' : 'application/json' });
     if (download) headers.set('Accept-Encoding', 'identity');
     const requestHeaders = ['authorization', 'content-type', 'origin', 'referer', 'x-correlation-id'];

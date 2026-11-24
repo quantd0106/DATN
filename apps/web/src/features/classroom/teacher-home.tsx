@@ -5,6 +5,7 @@ import { routeHref } from '@/config/routes';
 import type { WorkspaceData } from '@/lib/domain';
 import { StatePanel, Icon } from '@/components/ui';
 import { operationalTeachingOverview, teachingWorkload } from '@/lib/classroom-presentation';
+import { formatDateTime } from '@/lib/format';
 
 type Props = {
   route: RouteDefinition;
@@ -190,7 +191,7 @@ export function TeacherHomeFeature({ route: _route, data, reload }: Props) {
                   <div className="disc-header">
                     <strong>{disc.studentName}</strong>
                     <span className="tag secondary small">{disc.className}</span>
-                    <span className="muted text-xs">{disc.createdAt}</span>
+                    <span className="muted text-xs">{formatDateTime(disc.createdAt)}</span>
                   </div>
                   <p className="disc-content text-sm">{disc.content}</p>
                   <div className="disc-action">

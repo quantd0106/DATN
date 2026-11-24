@@ -34,6 +34,8 @@ const documentOperations = {
   documents: ['GET', '/documents'],
   createDocument: ['POST', '/documents'],
   documentDetail: ['GET', '/documents/:documentId'],
+  libraryDocumentReader: ['GET', '/documents/:documentId/reader'],
+  libraryDocumentDownload: ['GET', '/documents/:documentId/download'],
   updateDocument: ['PATCH', '/documents/:documentId'],
   deleteDocument: ['DELETE', '/documents/:documentId'],
   uploadDocumentVersion: ['POST', '/documents/:documentId/versions'],
@@ -61,7 +63,7 @@ export function operationUpstream(id: OperationId): UpstreamService {
 }
 
 export function operationTimeoutMs(id: OperationId): number {
-  return id === 'createDocument' || id === 'uploadDocumentVersion' || id === 'classDocumentDownload' ? 60_000 : 15_000;
+  return id === 'createDocument' || id === 'uploadDocumentVersion' || id === 'classDocumentDownload' || id === 'libraryDocumentDownload' ? 60_000 : 15_000;
 }
 
 export const successStatus: Record<OperationId, number> = {
@@ -82,7 +84,7 @@ export const successStatus: Record<OperationId, number> = {
   adminSyncEnrollment: 200, adminAddClassMember: 201, adminEndClassMember: 204, adminTransferClassMember: 200,
   adminSetManualRoster: 200,
   adminArchiveClass: 200, adminRestoreClass: 200,
-  documentPolicy: 200, documents: 200, createDocument: 201, documentDetail: 200, updateDocument: 200,
+  documentPolicy: 200, documents: 200, createDocument: 201, documentDetail: 200, libraryDocumentReader: 200, libraryDocumentDownload: 200, updateDocument: 200,
   deleteDocument: 204, uploadDocumentVersion: 201, acceptDocumentVersion: 200, retryDocumentVersion: 200,
   grantClassDocument: 201, revokeClassDocument: 204, classDocuments: 200, classDocumentReader: 200, classDocumentDownload: 200,
   myNotes: 200, createClassNote: 201, updateNote: 200, deleteNote: 204, myBookmarks: 200, toggleClassBookmark: 200,
@@ -102,6 +104,7 @@ export const operationQueryParameters: Partial<Record<OperationId, readonly stri
   deleteDocument: ['confirm_multi_class'],
   classDocuments: ['cursor', 'limit', 'format', 'search'],
   classDocumentReader: ['version'], classDocumentDownload: ['version'],
+  libraryDocumentReader: ['version'], libraryDocumentDownload: ['version'],
   myNotes: ['cursor', 'limit', 'class_id', 'document_id'], myBookmarks: ['cursor', 'limit', 'class_id'],
 };
 

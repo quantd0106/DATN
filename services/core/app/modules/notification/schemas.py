@@ -5,13 +5,19 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, model_validator
 
 LearningEventType = Literal[
-    "ASSESSMENT_RESULT_RELEASED", "GRADE_PROPOSAL_PENDING", "APPEAL_RESOLVED"
+    "ASSESSMENT_RESULT_RELEASED",
+    "GRADE_PROPOSAL_PENDING",
+    "APPEAL_RESOLVED",
+    "PRACTICE_PUBLISHED",
 ]
-LearningResourceType = Literal["assessment_attempt", "grade_revision", "appeal"]
+LearningResourceType = Literal[
+    "assessment_attempt", "grade_revision", "appeal", "practice"
+]
 LEARNING_RESOURCE_BY_EVENT = {
     "ASSESSMENT_RESULT_RELEASED": "assessment_attempt",
     "GRADE_PROPOSAL_PENDING": "grade_revision",
     "APPEAL_RESOLVED": "appeal",
+    "PRACTICE_PUBLISHED": "practice",
 }
 
 
@@ -30,7 +36,11 @@ class LearningNotificationRequest(BaseModel):
     def validate_resource_and_recipient(self) -> Self:
         if self.resource_type != LEARNING_RESOURCE_BY_EVENT[self.event_type]:
             raise ValueError("Resource type does not match the event type")
-        if (self.student_id is None) != (self.event_type == "GRADE_PROPOSAL_PENDING"):
+        expects_no_student = self.event_type in {
+            "GRADE_PROPOSAL_PENDING",
+            "PRACTICE_PUBLISHED",
+        }
+        if (self.student_id is None) != expects_no_student:
             raise ValueError("Student ID does not match the event type")
         return self
 

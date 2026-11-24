@@ -2,6 +2,7 @@
 
 import type { DocumentItem, DocumentVersion, ClassDocumentGrant } from '@/lib/domain';
 import { Icon } from '@/components/ui';
+import { formatDateTime } from '@/lib/format';
 import './source-management-ui.css';
 
 const PROCESSING_STATUS_LABELS: Record<string, { label: string; className: string }> = {
@@ -19,6 +20,8 @@ export interface SourceDocumentSummaryProps {
   busy: boolean;
   canShare: boolean;
   shareUnavailableReason?: string;
+  canPreview?: boolean;
+  onPreview?(): void;
   onShare(): void;
   onUploadVersion(): void;
   onDelete(): void;
@@ -30,6 +33,8 @@ export function SourceDocumentSummary({
   busy,
   canShare,
   shareUnavailableReason,
+  canPreview = false,
+  onPreview,
   onShare,
   onUploadVersion,
   onDelete,
@@ -69,7 +74,7 @@ export function SourceDocumentSummary({
           <div className="lumi-source-meta-row">
             <span>Chủ sở hữu: {document.ownerName}</span>
             <span className="lumi-source-meta-divider" aria-hidden="true">·</span>
-            <span>Ngày tạo: {document.createdAt}</span>
+            <span>Ngày tạo: {formatDateTime(document.createdAt)}</span>
             {document.locatorCountLabel && (
               <>
                 <span className="lumi-source-meta-divider" aria-hidden="true">·</span>
@@ -86,6 +91,18 @@ export function SourceDocumentSummary({
         </div>
 
         <div className="lumi-source-actions">
+          {canPreview && onPreview && (
+            <button
+              id="ux-doc-open-preview"
+              type="button"
+              className="button lumi-source-btn lumi-source-btn-outline"
+              onClick={onPreview}
+              disabled={busy}
+            >
+              <Icon name="book" />
+              <span>Xem trước</span>
+            </button>
+          )}
           <button
             id="ux-doc-open-share"
             type="button"
@@ -224,7 +241,7 @@ export function SourceGrantsPanel({ grants, busy, onRevoke }: SourceGrantsPanelP
                   </div>
                   <div className="lumi-source-grant-meta">
                     <span>Phiên bản phục vụ: v{grant.servingVersion}</span>
-                    {grant.grantedAt && <span>Cấp quyền: {grant.grantedAt}</span>}
+                    {grant.grantedAt && <span>Cấp quyền: {formatDateTime(grant.grantedAt)}</span>}
                   </div>
                 </div>
                 <button
@@ -266,6 +283,7 @@ export interface SourceVersionHistoryProps {
   canManageSource?: boolean;
   onRetry(versionNumber: number): void;
   onAccept?(versionId: string): void;
+  onPreview?(versionNumber: number): void;
 }
 
 export function SourceVersionHistory({
@@ -274,6 +292,7 @@ export function SourceVersionHistory({
   canManageSource = true,
   onRetry,
   onAccept,
+  onPreview,
 }: SourceVersionHistoryProps) {
   return (
     <section className="lumi-source-history-card" aria-labelledby="lumi-source-history-heading">
@@ -327,7 +346,7 @@ export function SourceVersionHistory({
                       </div>
                     </td>
                     <td>{v.fileSizeFormatted}</td>
-                    <td>{v.uploadedAt}</td>
+                    <td>{formatDateTime(v.uploadedAt)}</td>
                     <td>
                       <span className={`lumi-source-badge ${statusMeta.className}`}>
                         <span className="lumi-source-badge-dot" aria-hidden="true" />
@@ -347,32 +366,45 @@ export function SourceVersionHistory({
                       )}
                     </td>
                     <td className="lumi-source-table-actions">
-                      {canManageSource && v.status === 'FAILED' ? (
-                        <button
-                          id={`ux-doc-table-retry-v${v.versionNumber}`}
-                          type="button"
-                          className="lumi-source-btn-retry"
-                          onClick={() => onRetry(v.versionNumber)}
-                          disabled={busy}
-                        >
-                          Thử lại
-                        </button>
-                      ) : canManageSource && v.status === 'NEEDS_REVIEW' && versionId && onAccept ? (
-                        <button
-                          id={`ux-doc-table-accept-v${v.versionNumber}`}
-                          type="button"
-                          className="button small lumi-source-btn-accept"
-                          title={v.reviewSummary?.flaggedPages.length
-                            ? `Trang cần rà soát: ${v.reviewSummary.flaggedPages.join(', ')}`
-                            : 'Chấp nhận phiên bản này để phục vụ lớp'}
-                          onClick={() => onAccept(versionId)}
-                          disabled={busy}
-                        >
-                          Chấp nhận
-                        </button>
-                      ) : (
-                        <span className="muted text-xs">—</span>
-                      )}
+                      <div className="lumi-source-row-actions">
+                        {onPreview && (v.status === 'READY' || v.status === 'NEEDS_REVIEW') && (
+                          <button
+                            id={`ux-doc-table-preview-v${v.versionNumber}`}
+                            type="button"
+                            className="button small secondary"
+                            onClick={() => onPreview(v.versionNumber)}
+                            disabled={busy}
+                          >
+                            Xem trước
+                          </button>
+                        )}
+                        {canManageSource && v.status === 'FAILED' ? (
+                          <button
+                            id={`ux-doc-table-retry-v${v.versionNumber}`}
+                            type="button"
+                            className="lumi-source-btn-retry"
+                            onClick={() => onRetry(v.versionNumber)}
+                            disabled={busy}
+                          >
+                            Thử lại
+                          </button>
+                        ) : canManageSource && v.status === 'NEEDS_REVIEW' && versionId && onAccept ? (
+                          <button
+                            id={`ux-doc-table-accept-v${v.versionNumber}`}
+                            type="button"
+                            className="button small lumi-source-btn-accept"
+                            title={v.reviewSummary?.flaggedPages.length
+                              ? `Trang cần rà soát: ${v.reviewSummary.flaggedPages.join(', ')}`
+                              : 'Chấp nhận phiên bản này để phục vụ lớp'}
+                            onClick={() => onAccept(versionId)}
+                            disabled={busy}
+                          >
+                            Chấp nhận
+                          </button>
+                        ) : !(onPreview && (v.status === 'READY' || v.status === 'NEEDS_REVIEW')) ? (
+                          <span className="muted text-xs">—</span>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 );

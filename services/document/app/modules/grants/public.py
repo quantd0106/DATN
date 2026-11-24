@@ -6,9 +6,23 @@ from sqlalchemy.orm import Session
 from app.common.core_client import CoreClient, CoreUser, class_access, require_class_access
 from app.common.errors import AppError
 from app.modules.grants.repository import grant_for_document, grants_for_document
-from app.modules.grants.schemas import ClassDocumentGrantDTO
+from app.modules.grants.schemas import (
+    ClassDocumentGrantDTO,
+    DocumentReaderDTO,
+    ReaderDocumentDTO,
+)
 from app.modules.library.public import find_document
 from app.modules.versions.public import get_serving_version
+
+__all__ = [
+    "ClassDocumentGrantDTO",
+    "DocumentReaderDTO",
+    "ReaderDocumentDTO",
+    "deactivate_document_grants",
+    "is_source_accessible",
+    "list_document_grants",
+    "require_live_source",
+]
 
 
 def list_document_grants(

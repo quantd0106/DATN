@@ -1,3 +1,4 @@
+import logging
 from itertools import islice, zip_longest
 from threading import Event
 from typing import Literal
@@ -17,8 +18,11 @@ from app.integrations.document_client import GrantSnapshot
 from app.modules.indexing.corpora import active_corpora
 from app.modules.tutor.canonical_fallback import rank_canonical_records
 from app.modules.tutor.models import TutorMode
+from app.modules.tutor.service import attach_citation_source_metadata
 from app.modules.tutor.streaming import TurnResult
 from app.runtime.rag_runtime import RagRuntime
+
+logger = logging.getLogger(__name__)
 
 Operation = Literal["ASK", "CHECK", "HINT", "REVEAL"]
 
@@ -55,7 +59,7 @@ def _retrieve(
             raise AppError(409)
         cached = runtime.canonical_records(grant.document_version_id)
         if cached:
-            ranked.append(rank_canonical_records(cached, question, limit=6))
+            ranked.append(rank_canonical_records(cached, question, limit=4))
     records = (record for rank in zip_longest(*ranked) for record in rank if record is not None)
     return evidence_items(islice(records, 12))
 
@@ -130,7 +134,7 @@ def generate_turn(
                 raise AppError(403)
             return _step_result(session, session.reveal_solution(), set(planned_sources), [])
         citations = session.plan["steps"][session.step_index]["evidence"]
-        event = check_step(runtime.pipeline(), session, question, wait_timeout=10)
+        event = check_step(runtime.pipeline(), session, question, wait_timeout=30)
         return _step_result(session, event, set(planned_sources), citations)
 
     pipeline = runtime.pipeline()
@@ -140,7 +144,7 @@ def generate_turn(
     context_hint = ""
     extra_provenance: list[dict] = []
     if history and should_condense(question, history):
-        condensed = condense(pipeline, question, history, wait_timeout=10)
+        condensed = condense(pipeline, question, history, wait_timeout=30)
         standalone = condensed["standalone_question"]
         intent = condensed["intent"]
         needs_retrieval = bool(condensed["needs_retrieval"])
@@ -177,6 +181,15 @@ def generate_turn(
         else []
     )
     if not evidence and not config.allow_general_knowledge:
+        logger.warning(
+            "tutor_insufficient_evidence_pre_generation",
+            extra={
+                "mode": effective_mode.value,
+                "evidence_count": 0,
+                "grant_count": len(scope.grants),
+                "refusal_reason": "no_evidence",
+            },
+        )
         return TurnResult(_render(refusal("no_evidence")), extra_provenance)
     if cancelled.is_set():
         raise AppError(409)
@@ -188,8 +201,19 @@ def generate_turn(
             config=config,
             grade=grade,
             context_hint=context_hint,
-            wait_timeout=10,
+            wait_timeout=30,
         )
+        if result["status"] == "insufficient_evidence":
+            logger.warning(
+                "tutor_quick_qa_insufficient_evidence",
+                extra={
+                    "mode": effective_mode.value,
+                    "evidence_count": len(evidence),
+                    "refusal_reason": result.get("refusal_reason"),
+                    "provenance_count": len(result.get("provenance", ())),
+                    "flags": list(result.get("flags", ())),
+                },
+            )
         return TurnResult(_render(result), [*extra_provenance, *result["provenance"]])
     result = start_session(
         pipeline,
@@ -197,10 +221,20 @@ def generate_turn(
         evidence=evidence,
         config=config,
         grade=grade,
-        wait_timeout=10,
+        wait_timeout=30,
     )
     planned = result["session"]
     if planned is None:
+        logger.warning(
+            "tutor_step_plan_insufficient_evidence",
+            extra={
+                "mode": effective_mode.value,
+                "evidence_count": len(evidence),
+                "error_code": result.get("error_code"),
+                "provenance_count": len(result.get("provenance", ())),
+                "flags": list(result.get("flags", ())),
+            },
+        )
         return TurnResult(
             _render(refusal("no_evidence")), [*extra_provenance, *result["provenance"]]
         )
@@ -257,3 +291,4 @@ async def locate_citations(services: Services, result: TurnResult, snapshot: Gra
                     cite["location"] = {"document_name": doc_name}
                 else:
                     cite["location"] = None
+            attach_citation_source_metadata(cite, grant, services.document)

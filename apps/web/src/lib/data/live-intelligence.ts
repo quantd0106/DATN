@@ -6,7 +6,7 @@ import { createUnavailableIntelligencePort } from './intelligence-unavailable';
 type Row = Record<string, unknown>;
 
 function invalid(): never {
-  throw new ApiError('CONTRACT_MISMATCH', 'Dữ liệu audit chưa đúng hợp đồng Core.', 502);
+  throw new ApiError('CONTRACT_MISMATCH', 'Dữ liệu nhật ký kiểm toán chưa đúng định dạng máy chủ.', 502);
 }
 
 function record(value: unknown): Row {

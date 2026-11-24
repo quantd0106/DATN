@@ -5,6 +5,7 @@ import { mergeFeedComments } from '@/lib/feed-comments';
 import { canParticipateInFeed, updateFeedPosts } from '@/lib/feed-post-state';
 import { adapter, dataMode } from '@/lib/data';
 import { Dialog, ErrorNotice, Icon, StatePanel, useUnsavedChanges } from '@/components/ui';
+import { actorInitials } from '@/lib/format';
 
 type Props = {
   data: WorkspaceData | null;
@@ -210,7 +211,7 @@ export function ClassFeedFeature({ data, role, user, params, reload }: Props) {
       {canWrite && <section className="card padded feed-composer-card">
         <div className="feed-composer-header">
           <div className="avatar" aria-hidden="true">
-            {(user.display_name ?? 'MA').split(' ').slice(-2).map(x => x[0]).join('')}
+            {actorInitials(user.display_name ?? user.username, 'MA')}
           </div>
           <div>
             <strong>{user.display_name ?? user.username ?? 'Tài khoản'}</strong>
@@ -263,7 +264,7 @@ export function ClassFeedFeature({ data, role, user, params, reload }: Props) {
                 <div className="feed-post-top">
                   <div className="feed-author-info">
                     <div className="avatar" aria-hidden="true">
-                      {post.authorAvatar ?? post.authorName.split(' ').slice(-2).map(x => x[0]).join('')}
+                      {post.authorAvatar ?? actorInitials(post.authorName)}
                     </div>
                     <div>
                       <div className="feed-author-name-row">

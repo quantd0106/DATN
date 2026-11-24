@@ -75,6 +75,7 @@ def record_deadline(
         "starts_at": ensure_utc(starts_at).isoformat(),
         "ends_at": ensure_utc(ends_at).isoformat(),
         "version": version.deadline_version,
+        "activity_kind": str(activity.kind),
     }
     event_type = "calendar.deadline.upsert"
     if student_id is not None:

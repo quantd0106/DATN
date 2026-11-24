@@ -182,12 +182,20 @@ async def stream_turn(
             )
             if not set(initial.grants) <= set(current.grants):
                 raise AppError(403)
+            current_grants = {grant.source_id: grant for grant in current.grants}
             if cancelled.is_set():
                 message = await run_in_threadpool(finish, MessageStatus.STOPPED)
             else:
                 message = await run_in_threadpool(finish, MessageStatus.COMPLETED, result)
             terminal = True
-            yield sse_message(project_history_message(message, current.source_ids))
+            yield sse_message(
+                project_history_message(
+                    message,
+                    current.source_ids,
+                    grants_by_source=current_grants,
+                    document_port=document,
+                )
+            )
         except (AppError, GenerationUnavailable, SchedulerBusy):
             message = await run_in_threadpool(finish, MessageStatus.FAILED)
             terminal = True

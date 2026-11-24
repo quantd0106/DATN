@@ -7,6 +7,8 @@ import type { DocumentCapabilityPolicy, DocumentFormat, DocumentItem, Processing
 import { adapter } from '@/lib/data';
 import { documentFileError, documentFileSelection, documentUploadLimits } from '@/lib/document-upload';
 import { StatePanel, Icon, Dialog } from '@/components/ui';
+import { formatDateTime } from '@/lib/format';
+import { ClassSourcePreviewDialog, type SourcePreviewRequest } from '../class-source-preview';
 import '../library.css';
 
 type Props = {
@@ -29,6 +31,7 @@ export function TeacherLibraryView({ data, reload }: Props) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [previewRequest, setPreviewRequest] = useState<SourcePreviewRequest | null>(null);
   const [isPending, startTransition] = useTransition();
 
   if (!data) {
@@ -255,9 +258,20 @@ export function TeacherLibraryView({ data, reload }: Props) {
                     <td className="library-table-share-count">
                       {doc.sharedClassCount ? `${doc.sharedClassCount} lớp` : <span className="muted">Chưa chia sẻ</span>}
                     </td>
-                    <td className="library-table-date muted">{doc.updatedAt}</td>
+                    <td className="library-table-date muted">{formatDateTime(doc.updatedAt)}</td>
                     <td className="library-table-actions">
                       <div className="library-row-actions">
+                        {(doc.processingStatus === 'READY' || doc.processingStatus === 'NEEDS_REVIEW') && (
+                          <button
+                            type="button"
+                            data-ux-document-action="preview"
+                            className="button small secondary"
+                            onClick={() => setPreviewRequest({ scope: 'library', documentId: doc.id, version: doc.currentVersion })}
+                            disabled={isPending}
+                          >
+                            Xem trước
+                          </button>
+                        )}
                         {doc.processingStatus === 'FAILED' && (
                           <button
                             type="button"
@@ -283,6 +297,7 @@ export function TeacherLibraryView({ data, reload }: Props) {
       )}
 
       {/* D02 Upload Document Modal */}
+      <ClassSourcePreviewDialog request={previewRequest} onClose={() => setPreviewRequest(null)} />
       <Dialog
         busy={isPending}
         open={uploadOpen}

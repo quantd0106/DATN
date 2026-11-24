@@ -318,6 +318,14 @@
   font-weight: 600;
 }
 
+.calendar-feature .tag.cal-badge-blue,
+.calendar-feature .tag.cal-badge-amber,
+.calendar-feature .tag.cal-badge-red,
+.calendar-feature .tag.cal-badge-green {
+  border-width: 1px;
+  border-style: solid;
+}
+
 .calendar-feature .cal-badge-blue {
   background: #eff6ff;
   color: #1d4ed8;

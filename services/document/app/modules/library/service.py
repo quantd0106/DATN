@@ -1,3 +1,4 @@
+from typing import BinaryIO
 from uuid import UUID, uuid4
 
 from fastapi import UploadFile
@@ -13,6 +14,8 @@ from app.common.pagination import Page, Pagination, paginate
 from app.common.storage import StorageBackend, staged_upload
 from app.modules.grants.public import (
     ClassDocumentGrantDTO,
+    DocumentReaderDTO,
+    ReaderDocumentDTO,
     deactivate_document_grants,
     list_document_grants,
 )
@@ -29,8 +32,12 @@ from app.modules.library.validation import EXTENSIONS, FORMATS, validate_upload
 from app.modules.versions.public import (
     DocumentVersionDTO,
     create_pending_version,
+    get_serving_version,
+    get_version_by_number,
     latest_status,
     list_versions_with_derived_state,
+    load_reader_projection,
+    open_original,
     source_storage_key,
     version_dto,
 )
@@ -213,3 +220,85 @@ def delete_document(
                 "deleted_at": now,
             },
         )
+
+
+def library_document_reader(
+    session: Session,
+    storage: StorageBackend,
+    actor: CoreUser,
+    document_id: UUID,
+    version_number: int | None,
+) -> DocumentReaderDTO:
+    document = require_owned_document(session, document_id, actor)
+    serving = get_serving_version(session, document.id)
+    if version_number is not None:
+        viewing = get_version_by_number(session, document.id, version_number)
+        if viewing is None:
+            raise AppError(404)
+        if viewing.processing_status not in ("SUCCESS", "NEEDS_REVIEW"):
+            raise AppError(409, "Phiên bản chưa có dữ liệu đọc.")
+    elif serving is not None:
+        viewing = serving
+    else:
+        versions = list_versions_with_derived_state(session, document.id)
+        candidate = next(
+            (v for v in versions if v.processing_status in ("SUCCESS", "NEEDS_REVIEW")),
+            None,
+        )
+        viewing = (
+            get_version_by_number(session, document.id, candidate.version_number)
+            if candidate is not None
+            else None
+        )
+        if viewing is None:
+            raise AppError(409, "Tài liệu chưa có phiên bản sẵn sàng để xem trước.")
+    projection = load_reader_projection(storage, viewing)
+    return DocumentReaderDTO(
+        document=ReaderDocumentDTO(
+            id=document.id,
+            school_id=document.school_id,
+            owner_user_id=document.owner_user_id,
+            owner_display_name=document.owner_display_name,
+            title=document.title,
+            description=document.description,
+            format=viewing.file_type,
+            created_at=document.created_at,
+            updated_at=document.updated_at,
+            current_version=viewing.version_number,
+            page_count=viewing.page_count,
+            processing_status=viewing.processing_status,
+        ),
+        is_source_accessible=True,
+        serving_version=serving.version_number if serving is not None else None,
+        viewing_version=viewing.version_number,
+        outline=projection.outline,
+        pages=projection.pages,
+        notes=[],
+        is_bookmarked=False,
+    )
+
+
+def library_document_download(
+    session: Session,
+    storage: StorageBackend,
+    actor: CoreUser,
+    document_id: UUID,
+    version_number: int | None,
+) -> tuple[object, BinaryIO]:
+    document = require_owned_document(session, document_id, actor)
+    if version_number is not None:
+        viewing = get_version_by_number(session, document.id, version_number)
+        if viewing is None:
+            raise AppError(404)
+    else:
+        viewing = get_serving_version(session, document.id)
+        if viewing is None:
+            versions = list_versions_with_derived_state(session, document.id)
+            viewing = (
+                get_version_by_number(session, document.id, versions[0].version_number)
+                if versions
+                else None
+            )
+            if viewing is None:
+                raise AppError(404)
+    return viewing, open_original(storage, viewing)

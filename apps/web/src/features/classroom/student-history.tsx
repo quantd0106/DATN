@@ -4,6 +4,8 @@ import Link from 'next/link';
 import type { RouteDefinition } from '@/config/routes';
 import type { WorkspaceData } from '@/lib/domain';
 import { StatePanel, Icon } from '@/components/ui';
+import { formatDateTime } from '@/lib/format';
+import { RichMathText } from '@/features/document/reader-content';
 
 type Props = {
   route: RouteDefinition;
@@ -118,7 +120,7 @@ export function StudentHistoryFeature({ route: _route, data, reload }: Props) {
                   >
                     <div className="conv-item-top">
                       <span className="conv-title">{conv.title}</span>
-                      <span className="conv-date muted text-xs">{conv.date}</span>
+                      <span className="conv-date muted text-xs">{formatDateTime(conv.date)}</span>
                     </div>
                     <p className="conv-preview muted text-xs">{conv.preview}</p>
                   </button>
@@ -132,7 +134,7 @@ export function StudentHistoryFeature({ route: _route, data, reload }: Props) {
                     <div className="viewer-header">
                       <div>
                         <h4>{activeConversation.title}</h4>
-                        <span className="muted text-xs">Ngày: {activeConversation.date} · Chế độ chỉ đọc</span>
+                        <span className="muted text-xs">Ngày: {formatDateTime(activeConversation.date)} · Chế độ chỉ đọc</span>
                       </div>
                       <span className="badge info text-xs">
                         <Icon name="lock" /> Read-only
@@ -149,9 +151,9 @@ export function StudentHistoryFeature({ route: _route, data, reload }: Props) {
                             <span className="author-name">
                               {msg.role === 'user' ? 'Bạn (Học sinh)' : 'Trợ lý Lumi'}
                             </span>
-                            <span className="msg-time">{msg.timestamp}</span>
+                            <span className="msg-time">{formatDateTime(msg.timestamp)}</span>
                           </div>
-                          <div className="bubble-content">{msg.content}</div>
+                          <div className="bubble-content"><RichMathText text={msg.content} /></div>
                         </div>
                       ))}
                     </div>
@@ -187,7 +189,7 @@ export function StudentHistoryFeature({ route: _route, data, reload }: Props) {
                 <article key={note.id} className="card note-item-card">
                   <div className="note-item-header">
                     <h4>{note.title}</h4>
-                    <span className="muted text-xs">{note.date}</span>
+                    <span className="muted text-xs">{formatDateTime(note.date)}</span>
                   </div>
                   <p className="note-content text-sm">{note.content}</p>
                 </article>

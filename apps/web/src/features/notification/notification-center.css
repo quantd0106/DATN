@@ -171,6 +171,42 @@
   display: inline-block;
 }
 
+.lumi-notification-category-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.lumi-notification-category-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 9999px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.lumi-notification-category-chip:hover {
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.lumi-notification-category-chip.is-active {
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
 /* ================== ALERTS & BANNERS ================== */
 
 .lumi-notification-alerts-region {
@@ -451,6 +487,18 @@
   flex-shrink: 0;
 }
 
+.lumi-notification-badge-calendar {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.lumi-notification-badge-practice {
+  background-color: #f5f3ff;
+  color: #6d28d9;
+  border-color: #ddd6fe;
+}
+
 .lumi-notification-badge-assignment {
   background-color: #fffbeb;
   color: #b45309;
@@ -463,10 +511,16 @@
   border-color: #fecaca;
 }
 
+.lumi-notification-badge-discussion {
+  background-color: #f0fdf4;
+  color: #15803d;
+  border-color: #bbf7d0;
+}
+
 .lumi-notification-badge-material {
-  background-color: #eff6ff;
-  color: #1d4ed8;
-  border-color: #bfdbfe;
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border-color: #bae6fd;
 }
 
 .lumi-notification-badge-class {

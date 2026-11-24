@@ -86,6 +86,7 @@ class CorePort(Protocol):
         starts_at: datetime,
         ends_at: datetime,
         version: int,
+        activity_kind: str | None = None,
         correlation_id: str,
     ) -> DeadlineProjectionReceipt: ...
 
@@ -168,8 +169,20 @@ class CoreClient:
         starts_at: datetime,
         ends_at: datetime,
         version: int,
+        activity_kind: str | None = None,
         correlation_id: str,
     ) -> DeadlineProjectionReceipt:
+        payload: dict[str, object] = {
+            "school_id": str(school_id),
+            "class_id": str(class_id),
+            "external_ref": external_ref,
+            "title": title,
+            "starts_at": starts_at.isoformat(),
+            "ends_at": ends_at.isoformat(),
+            "version": version,
+        }
+        if activity_kind is not None:
+            payload["activity_kind"] = activity_kind
         return await request_model(
             self.client,
             self.origin,
@@ -177,15 +190,7 @@ class CoreClient:
             DeadlineProjectionReceipt,
             method="PUT",
             headers=service_headers(self.key, correlation_id),
-            payload={
-                "school_id": str(school_id),
-                "class_id": str(class_id),
-                "external_ref": external_ref,
-                "title": title,
-                "starts_at": starts_at.isoformat(),
-                "ends_at": ends_at.isoformat(),
-                "version": version,
-            },
+            payload=payload,
             expected_statuses=(200, 201),
         )
 

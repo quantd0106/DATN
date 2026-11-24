@@ -232,11 +232,11 @@ export function decodeDocumentReader(value: unknown): DocumentReaderModel {
     };
   });
   const totalPages = optional(dto.total_pages, value => integer(value, 0));
-  if (accessible && (!servingVersion || !viewingVersion || (totalPages !== undefined && !totalPages))) return invalid();
+  if (accessible && (!viewingVersion || (totalPages !== undefined && !totalPages))) return invalid();
   return {
     document: { ...document, isBookmarked: accessible && (optional(dto.is_bookmarked, bool) ?? document.isBookmarked) },
     isSourceAccessible: accessible,
-    servingVersion: servingVersion ?? document.currentVersion,
+    servingVersion: servingVersion ?? viewingVersion ?? document.currentVersion,
     viewingVersion,
     revokedReason: optional(dto.revoked_reason, text),
     currentPage: 1,
@@ -252,7 +252,17 @@ function decodeClassSourcePreview(value: unknown, classId: string, documentId: s
   if (!reader.isSourceAccessible) throw new ApiError('FORBIDDEN', 'Bạn hiện không có quyền đọc nguồn tài liệu này.', 403);
   if (reader.document.id !== documentId.toLowerCase() || reader.viewingVersion !== version) return invalid();
   if (!reader.pageContents?.length) throw new ApiError('UNAVAILABLE', 'Nội dung đọc của phiên bản này chưa sẵn sàng.', 503);
-  return { classId, documentId, version, title: reader.document.title, totalPages: reader.totalPages, pages: reader.pageContents };
+  return { classId, documentId, version, format: reader.document.format, title: reader.document.title, totalPages: reader.totalPages, pages: reader.pageContents };
+}
+
+function decodeLibrarySourcePreview(value: unknown, documentId: string, version?: number): ClassSourcePreview {
+  const reader = decodeDocumentReader(value);
+  if (!reader.isSourceAccessible) throw new ApiError('FORBIDDEN', 'Bạn hiện không có quyền đọc nguồn tài liệu này.', 403);
+  if (reader.document.id !== documentId.toLowerCase()) return invalid();
+  const resolvedVersion = reader.viewingVersion ?? version ?? reader.servingVersion;
+  if (version !== undefined && resolvedVersion !== version) return invalid();
+  if (!reader.pageContents?.length) throw new ApiError('UNAVAILABLE', 'Nội dung đọc của phiên bản này chưa sẵn sàng.', 503);
+  return { documentId, format: reader.document.format, version: resolvedVersion, title: reader.document.title, totalPages: reader.totalPages, pages: reader.pageContents };
 }
 
 async function readPages<T>(
@@ -389,11 +399,26 @@ export function createLiveDocument(session: LiveIdentitySession, classes: ClassR
         pathParams: { classId, documentId }, query: { version },
       }), classId, documentId, version));
     },
+    async previewLibraryDocument({ documentId, version }) {
+      return session.authenticated(async request => decodeLibrarySourcePreview(await request('libraryDocumentReader', {
+        pathParams: { documentId }, query: version !== undefined ? { version } : undefined,
+      }), documentId, version));
+    },
     async downloadClassDocument(classId, documentId, version) {
       return session.authenticated(async request => {
         let filename: string | undefined;
         const blob = await request('classDocumentDownload', {
           pathParams: { classId, documentId }, query: { version },
+          onResponse: response => { filename = downloadFilename(response.headers.get('content-disposition')); },
+        });
+        return { blob, filename };
+      });
+    },
+    async downloadLibraryDocument(documentId, version) {
+      return session.authenticated(async request => {
+        let filename: string | undefined;
+        const blob = await request('libraryDocumentDownload', {
+          pathParams: { documentId }, query: version !== undefined ? { version } : undefined,
           onResponse: response => { filename = downloadFilename(response.headers.get('content-disposition')); },
         });
         return { blob, filename };

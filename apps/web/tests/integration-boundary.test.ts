@@ -192,6 +192,8 @@ test('Document path templates validate every UUID and downloads preserve file he
   assert.throws(() => operationPath('acceptDocumentVersion', { documentId, versionId: 'bad' }), /UUID/);
   assert.equal(findOperation('GET', `/classes/${documentClassId}/documents/bad/reader`), undefined);
   assert.equal(findOperation('GET', `/classes/bad/documents/${documentId}/reader`), undefined);
+  assert.equal(findOperation('GET', `/documents/${documentId}/reader`), 'libraryDocumentReader');
+  assert.equal(findOperation('GET', `/documents/${documentId}/download`), 'libraryDocumentDownload');
   const path = `classes/${documentClassId}/documents/${documentId}/download`;
   const headers = {
     'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="sample.pdf"',

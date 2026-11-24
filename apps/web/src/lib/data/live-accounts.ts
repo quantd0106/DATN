@@ -14,7 +14,7 @@ type PendingImport = { job: ImportJob; previewId: string | null; owner: ImportOw
 type UserFilters = { user_id?: string; account_type?: 'STUDENT' | 'STAFF'; username_missing?: 'true' };
 
 function invalid(): never {
-  throw new ApiError('CONTRACT_MISMATCH', 'Dữ liệu danh sách tài khoản chưa đúng hợp đồng Core.', 502);
+  throw new ApiError('CONTRACT_MISMATCH', 'Dữ liệu danh sách tài khoản chưa đúng định dạng máy chủ.', 502);
 }
 
 function record(value: unknown): Row {
@@ -73,7 +73,7 @@ async function listAccounts(request: HttpRequest, filters: UserFilters = {}, sig
     const response = decodePage(await request('adminUsers', { query: { limit: 100, cursor, ...filters }, signal }));
     result.push(...response.items);
     if (!response.next_cursor) return result.sort((a, b) => (a.username ?? a.email ?? '').localeCompare(b.username ?? b.email ?? '', 'vi', { numeric: true }) || a.id.localeCompare(b.id));
-    if (seen.has(response.next_cursor)) throw new ApiError('CONTRACT_MISMATCH', 'Core trả cursor lặp khi tải danh sách tài khoản.', 502);
+    if (seen.has(response.next_cursor)) throw new ApiError('CONTRACT_MISMATCH', 'Máy chủ trả dữ liệu phân trang lặp khi tải danh sách tài khoản.', 502);
     seen.add(response.next_cursor);
     cursor = response.next_cursor;
   }
@@ -126,7 +126,7 @@ function importError(code: string): string {
     USERNAME_MISMATCH: 'Tên đăng nhập không khớp tài khoản hiện có.', DISPLAY_NAME_MISMATCH: 'Họ tên không khớp tài khoản hiện có.',
     LEGACY_VERIFICATION_REQUIRED: 'Tài khoản cũ cần được xác minh trước khi gán tên đăng nhập.',
   };
-  return messages[code] ?? 'Dòng không hợp lệ theo quy tắc Core.';
+  return messages[code] ?? 'Dòng không hợp lệ theo quy tắc kiểm tra dữ liệu.';
 }
 
 function mapImportRows(file: ImportFile, mapping: ImportMapping, items: Row[], errors: Row[]): ImportRow[] {
@@ -165,7 +165,7 @@ function importResultJob(previous: ImportJob, value: unknown, replayed: boolean)
   let createdCount = 0;
   const rows = previous.rows.map(item => {
     const result = byRow.get(item.rowNumber);
-    if (!result) return { ...item, status: 'INVALID' as const, errors: ['Core không trả kết quả cho dòng này.'] };
+    if (!result) return { ...item, status: 'INVALID' as const, errors: ['Máy chủ không trả kết quả cho dòng này.'] };
     const outcome = text(result.outcome), student = record(result.student);
     if (!['CREATED', 'EXISTING', 'USERNAME_ASSIGNED'].includes(outcome)) return invalid();
     if (outcome === 'CREATED') createdCount++;
@@ -260,7 +260,7 @@ export function createLiveAccounts(session: LiveIdentitySession): AccountsPort {
       return { invitation, deliveryStatus: status };
     },
     async revokeInvitation() {
-      throw new ApiError('CAPABILITY_UNAVAILABLE', 'Core chưa có thao tác thu hồi invitation; hãy khóa tài khoản nếu cần chặn đăng nhập.', 503);
+      throw new ApiError('CAPABILITY_UNAVAILABLE', 'Hệ thống chưa hỗ trợ thu hồi lời mời; hãy khóa tài khoản nếu cần chặn đăng nhập.', 503);
     },
     async resendInvitation(id): Promise<StaffInvitationResult> {
       let sentStatus: string | null = null;
@@ -285,7 +285,7 @@ export function createLiveAccounts(session: LiveIdentitySession): AccountsPort {
     },
     async previewImport(input) {
       const { file, mapping } = input;
-      if (!file.contentBase64) throw new ApiError('VALIDATION_ERROR', 'Hãy chọn lại tệp gốc để Core kiểm tra.', 422);
+      if (!file.contentBase64) throw new ApiError('VALIDATION_ERROR', 'Hãy chọn lại tệp gốc để hệ thống kiểm tra.', 422);
       const header = (index: number | null) => index === null ? null : file.headers[index];
       if (!header(mapping.username) || (mapping.displayName !== null && !header(mapping.displayName))) throw new ApiError('VALIDATION_ERROR', 'Cột đã chọn không còn trong tệp.', 422);
       const owner = await currentImportOwner();

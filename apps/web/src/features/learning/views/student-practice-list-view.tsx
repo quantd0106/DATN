@@ -7,6 +7,7 @@ import type { Role, RouteParams, User, WorkspaceData, PracticeActivity, Practice
 import { adapter } from '@/lib/data';
 import { draftStore, formatPracticeListDraftKey, getAttemptDraft } from '@/lib/draft-store';
 import { StatePanel, Dialog, Icon } from '@/components/ui';
+import { formatDateTime } from '@/lib/format';
 
 type Props = {
   route: RouteDefinition;
@@ -227,7 +228,7 @@ export function StudentPracticeListView({ data, reload, params, user }: Props) {
                         Điểm gần nhất: <strong>{act.lastScore.correct}/{act.lastScore.total} ({act.lastScore.percentage}%)</strong>
                         {act.lastCompletedAt && (
                           <span className="practice-row-date">
-                            Hoàn thành: {act.lastCompletedAt}
+                            Hoàn thành: {formatDateTime(act.lastCompletedAt)}
                           </span>
                         )}
                       </div>
@@ -354,7 +355,7 @@ export function StudentPracticeListView({ data, reload, params, user }: Props) {
                     </div>
 
                     <p className="history-item-meta">
-                      Hoàn thành: {item.completedAt} · Thời gian: {item.durationMinutes} phút
+                      Hoàn thành: {formatDateTime(item.completedAt)} · Thời gian: {item.durationMinutes} phút
                     </p>
 
                     <div className="history-item-foot">

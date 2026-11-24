@@ -6,6 +6,7 @@ import type { BookmarkItem, PersonalNoteItem, WorkspaceData } from '@/lib/domain
 import { adapter } from '@/lib/data';
 import { StatePanel, Icon, Dialog, ErrorNotice, useUnsavedChanges } from '@/components/ui';
 import { personalSourceHref } from '@/lib/document-preview';
+import { formatDateTime } from '@/lib/format';
 
 type Props = {
   route: RouteDefinition;
@@ -228,7 +229,7 @@ export function StudentNotesView({ data, reload }: Props) {
                 </div>
 
                 <footer className="note-card-footer">
-                  <span className="note-timestamp">{note.updatedAt}</span>
+                  <span className="note-timestamp">{formatDateTime(note.updatedAt)}</span>
                   <div className="note-actions">
                     <button
                       type="button"
@@ -282,12 +283,12 @@ export function StudentNotesView({ data, reload }: Props) {
 
                 <div className="bookmark-card-body">
                   <p className="bookmark-summary-text">
-                    Dấu trang được lưu tại <strong>{bm.locator}</strong> vào ngày {bm.createdAt}. Bấm vào nút bên dưới để mở đúng vị trí trong tài liệu.
+                    Dấu trang được lưu tại <strong>{bm.locator}</strong> vào ngày {formatDateTime(bm.createdAt)}. Bấm vào nút bên dưới để mở đúng vị trí trong tài liệu.
                   </p>
                 </div>
 
                 <footer className="note-card-footer">
-                  <span className="note-timestamp">Đã lưu: {bm.createdAt}</span>
+                  <span className="note-timestamp">Đã lưu: {formatDateTime(bm.createdAt)}</span>
                   <div className="note-actions">
                     <Link href={readerHref} className="button small primary">
                       <Icon name="book" />

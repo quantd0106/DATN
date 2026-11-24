@@ -4,13 +4,16 @@ import { learningOperationPath, learningOperations, type LearningOperationId } f
 import { isExpectedSuccessStatus, operationPath, operationQueryParameters, operations, operationTimeoutMs, type OperationId } from './operations';
 
 export type HttpOptions = { body?: unknown; userId?: string; pathParams?: Record<string, string>; cursor?: string; query?: Record<string, string | number | undefined>; headers?: Record<string, string>; onResponse?: (response: Response) => void; signal?: AbortSignal; timeoutMs?: number };
-export type HttpRequest = (id: OperationId, options?: HttpOptions) => Promise<unknown>;
+export type HttpRequest = {
+  (id: 'classDocumentDownload' | 'libraryDocumentDownload', options?: HttpOptions): Promise<Blob>;
+  (id: OperationId, options?: HttpOptions): Promise<unknown>;
+};
 export function createHttpClient(getToken: () => string | null, fetcher: typeof fetch = fetch) {
-  function request(id: 'classDocumentDownload', options?: HttpOptions): Promise<Blob>;
+  function request(id: 'classDocumentDownload' | 'libraryDocumentDownload', options?: HttpOptions): Promise<Blob>;
   function request(id: OperationId, options?: HttpOptions): Promise<unknown>;
   async function request(id: OperationId, options: HttpOptions = {}): Promise<unknown> {
     const [method] = operations[id];
-    const download = id === 'classDocumentDownload';
+    const download = id === 'classDocumentDownload' || id === 'libraryDocumentDownload';
     const form = options.body instanceof FormData ? options.body : undefined;
     const controller = new AbortController();
     const abort = () => controller.abort();

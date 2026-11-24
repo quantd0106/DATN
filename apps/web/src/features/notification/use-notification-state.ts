@@ -2,9 +2,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { adapter } from '@/lib/data';
-import type { NotificationItem, User, WorkspaceData } from '@/lib/domain';
+import type { NotificationCategory, NotificationItem, User, WorkspaceData } from '@/lib/domain';
 import { ApiError } from '@/lib/api/errors';
 import { matchRoute, canOpenRoute } from '@/lib/navigation';
+import { emitNotificationStateChanged, onNotificationStateChanged } from '@/lib/notification-events';
+import { countNotificationsByCategory, filterNotifications } from '@/lib/notifications';
 import { createNotificationReadController, type NotificationReadController, type NotificationReadState, type NotificationSnapshotRequest } from '@/lib/notification-read-controller';
 
 const emptyState = (actorId: string): NotificationReadState => ({ actorId, items: [], unreadCount: 0, busy: false, reconciling: false, issue: null, snapshotError: null });
@@ -15,6 +17,7 @@ export function useNotificationState(data: WorkspaceData | null, user: User, rel
   const actorId = user.id;
   const [state, setState] = useState<NotificationReadState>(() => emptyState(actorId));
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<'ALL' | NotificationCategory>('ALL');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [accessNotice, setAccessNotice] = useState<string | null>(null);
   const controllerRef = useRef<NotificationReadController | null>(null);
@@ -37,7 +40,18 @@ export function useNotificationState(data: WorkspaceData | null, user: User, rel
         );
       } catch (error) { if (generation.current === expected) controller.rejectSnapshot(error, ticket); }
     };
-    controller = createNotificationReadController({ actorId, markOne: id => adapter.notifications.markAsRead(id), markAll: () => adapter.notifications.markAllAsRead(), reload: receive });
+    controller = createNotificationReadController({
+      actorId,
+      markOne: async id => {
+        await adapter.notifications.markAsRead(id);
+        emitNotificationStateChanged({ source: 'center', readId: id });
+      },
+      markAll: async () => {
+        await adapter.notifications.markAllAsRead();
+        emitNotificationStateChanged({ source: 'center', markAll: true, unreadCount: 0 });
+      },
+      reload: receive,
+    });
     controllerRef.current = controller;
     const unsubscribe = controller.subscribe(() => { if (generation.current === expected) setState(controller.getState()); });
     const snapshot = snapshotRef.current;
@@ -46,14 +60,25 @@ export function useNotificationState(data: WorkspaceData | null, user: User, rel
       undefined,
       snapshot?.kind === 'ready' ? snapshot.notificationUnreadCount : undefined,
     );
-    setState(controller.getState()); setFilter('all'); setSelectedId(null); setAccessNotice(null);
+    setState(controller.getState()); setFilter('all'); setCategoryFilter('ALL'); setSelectedId(null); setAccessNotice(null);
     return () => { ++generation.current; unsubscribe(); controller.dispose(); if (controllerRef.current === controller) controllerRef.current = null; };
+  }, [actorId]);
+
+  useEffect(() => {
+    const unsubscribe = onNotificationStateChanged(event => {
+      if (event.source === 'bell') {
+        controllerRef.current?.refresh();
+      }
+    });
+    return unsubscribe;
   }, [actorId]);
 
   useEffect(() => { if (data?.kind === 'ready') controllerRef.current?.receiveSnapshot(data.notifications ?? [], undefined, data.notificationUnreadCount); else if (data?.kind === 'empty') controllerRef.current?.receiveSnapshot([]); }, [data, actorId]);
 
   const currentState = state.actorId === actorId ? state : emptyState(actorId);
-  const items = filter === 'unread' ? currentState.items.filter(item => !item.isRead) : currentState.items;
+  const statusItems = filterNotifications(currentState.items, { readFilter: filter });
+  const categoryCounts = countNotificationsByCategory(statusItems);
+  const items = filterNotifications(statusItems, { category: categoryFilter });
   const selected = items.find(item => item.id === selectedId) ?? items[0] ?? null;
   function select(id: string) {
     const item = currentState.items.find(item => item.id === id);
@@ -71,9 +96,10 @@ export function useNotificationState(data: WorkspaceData | null, user: User, rel
   return {
     loadState: !data ? 'loading' as const : data.kind === 'unavailable' ? 'unavailable' as const : 'ready' as const,
     loadMessage: data?.kind === 'unavailable' || data?.kind === 'empty' ? data.message : undefined,
-    items, selected, filter, totalCount: currentState.items.length, unreadCount: currentState.unreadCount,
+    items, selected, filter, categoryFilter, categoryCounts, statusTotalCount: statusItems.length,
+    totalCount: currentState.items.length, unreadCount: currentState.unreadCount,
     busy: currentState.busy || currentState.reconciling, issue: currentState.issue, snapshotError: currentState.snapshotError, accessNotice,
-    onSelect: select, onFilter: setFilter, onNavigate: navigate,
+    onSelect: select, onFilter: setFilter, onCategoryFilter: setCategoryFilter, onNavigate: navigate,
     onMarkAll: () => { void controllerRef.current?.markAll(); },
     onRetry: () => { void controllerRef.current?.retry(); },
     onReconcile: () => { controllerRef.current?.reconcile(); },

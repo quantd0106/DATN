@@ -625,6 +625,14 @@
   white-space: nowrap;
 }
 
+.lumi-source-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .lumi-source-empty-state {
   padding: 32px 20px;
   text-align: center;

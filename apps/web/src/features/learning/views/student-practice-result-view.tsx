@@ -7,6 +7,7 @@ import type { Role, RouteParams, User, WorkspaceData, PracticeResultQuestionItem
 import { adapter } from '@/lib/data';
 import { setTutorDraft } from '@/lib/draft-store';
 import { StatePanel, Icon } from '@/components/ui';
+import { formatDateTime } from '@/lib/format';
 
 type Props = {
   route: RouteDefinition;
@@ -102,7 +103,7 @@ export function StudentPracticeResultView({ data, reload, params, user }: Props)
             ← Trở về Luyện tập
           </Link>
           <span className="practice-result-meta">
-            Lượt làm #{result.attemptNumber} · Hoàn thành: {result.completedAt}
+            Lượt làm #{result.attemptNumber} · Hoàn thành: {formatDateTime(result.completedAt)}
           </span>
         </div>
 

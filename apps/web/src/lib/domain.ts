@@ -61,17 +61,28 @@ export type CalendarEvent = {
   date: string; // YYYY-MM-DD
   timeRange?: string; // e.g. "07:00 – 09:15"
   readOnly?: boolean; // Learning deadlines are projected read-only
+  externalRef?: string;
   teacherName?: string;
   location?: string;
   href?: string;
 };
+
+export type NotificationCategory =
+  | 'CALENDAR'
+  | 'PRACTICE'
+  | 'ASSIGNMENT'
+  | 'EXAM'
+  | 'DISCUSSION'
+  | 'MATERIAL'
+  | 'CLASS'
+  | 'SYSTEM';
 
 export type NotificationItem = {
   id: string;
   userId: string;
   title: string;
   content: string;
-  category: 'MATERIAL' | 'ASSIGNMENT' | 'EXAM' | 'CLASS' | 'SYSTEM';
+  category: NotificationCategory;
   categoryLabel?: string;
   createdAt: string;
   isRead: boolean;

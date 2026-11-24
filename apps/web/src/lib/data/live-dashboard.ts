@@ -1,6 +1,8 @@
 import { routeHref } from '@/config/routes';
+import { inferCalendarEventCategory, parseLearningActivityRef } from '@/lib/calendar';
 import { isRouteAvailable } from '@/lib/route-availability';
 import type {
+  CalendarEvent,
   ClassOverviewData,
   PracticeActivity,
   StudentHomeOverview,
@@ -290,16 +292,26 @@ export function createLiveDashboardEnricher(
         optionalServiceRead(() => gradingQueue(cls.id, signal), null, signal),
       ),
     );
+    const todaySchedule = await enrichCalendarEvents(home.todaySchedule, 'LECTURER', signal);
     const succeeded = queues.filter(
       (queue): queue is NonNullable<(typeof queues)[number]> => queue !== null,
     );
-    if (!succeeded.length) return data;
+    if (!succeeded.length) {
+      return {
+        ...data,
+        teacherHome: {
+          ...home,
+          todaySchedule,
+        },
+      };
+    }
 
     const pendingGrading = succeeded.reduce((sum, queue) => sum + countPendingGrading(queue), 0);
     return {
       ...data,
       teacherHome: {
         ...home,
+        todaySchedule,
         stats: {
           totalClasses: home.stats?.totalClasses ?? home.assignedClasses.length,
           totalStudents: home.stats?.totalStudents ?? 0,
@@ -307,6 +319,83 @@ export function createLiveDashboardEnricher(
         },
       },
     };
+  }
+
+  async function enrichCalendarEvents(
+    events: CalendarEvent[],
+    role: 'STUDENT' | 'LECTURER',
+    signal?: AbortSignal,
+  ): Promise<CalendarEvent[]> {
+    const classIds = new Set<string>();
+    for (const event of events) {
+      if (event.readOnly && event.classId && parseLearningActivityRef(event.externalRef)) {
+        classIds.add(event.classId);
+      }
+    }
+    if (!classIds.size) return events;
+
+    type MatchInfo = { kind: 'ASSESSMENT' | 'ASSIGNMENT' | 'PRACTICE'; href?: string };
+    const matchesByClass = new Map<string, Map<string, MatchInfo>>();
+
+    await Promise.all(
+      [...classIds].map(async classId => {
+        const classMatches = new Map<string, MatchInfo>();
+        if (role === 'LECTURER') {
+          const listItems = await optionalServiceRead(
+            () => teacherActivities(classId, undefined, signal),
+            [],
+            signal,
+          );
+          for (const item of listItems) {
+            classMatches.set(item.resourceId, {
+              kind: item.type,
+              href: item.submissionsHref ?? item.editHref,
+            });
+          }
+        } else {
+          const [assessments, assignments] = await Promise.all([
+            readAssessments(classId, signal),
+            readAssignments(classId, signal),
+          ]);
+          for (const item of assessments) {
+            const href =
+              (item.activeAttemptId
+                ? routeHref('s.examAttempt', {
+                    classId,
+                    assessmentId: item.id,
+                    attemptId: item.activeAttemptId,
+                  })
+                : routeHref('s.assessment', { classId, assessmentId: item.id })) ??
+              `/student/classes/${classId}/assessments/${item.id}`;
+            classMatches.set(item.id, { kind: 'ASSESSMENT', href });
+          }
+          for (const item of assignments) {
+            const href =
+              routeHref('s.assignment', { classId, assignmentId: item.id }) ??
+              `/student/classes/${classId}/assignments/${item.id}`;
+            classMatches.set(item.id, { kind: 'ASSIGNMENT', href });
+          }
+        }
+        matchesByClass.set(classId, classMatches);
+      }),
+    );
+
+    return events.map(event => {
+      if (!event.readOnly) return event;
+      const activityId = parseLearningActivityRef(event.externalRef);
+      const matched =
+        activityId && event.classId ? matchesByClass.get(event.classId)?.get(activityId) : undefined;
+      if (!matched) return event;
+      return {
+        ...event,
+        category: inferCalendarEventCategory({
+          origin: 'LEARNING',
+          title: event.title,
+          learningKind: matched.kind,
+        }),
+        ...(matched.href ? { href: matched.href } : {}),
+      };
+    });
   }
 
   async function enrichStudentOverview(
@@ -477,6 +566,23 @@ export function createLiveDashboardEnricher(
       result = await enrichStudentOverview(baseData, params.classId, signal);
     } else if (routeId === 't.overview' && params.classId) {
       result = await enrichTeacherOverview(baseData, params.classId, signal);
+    } else if (routeId === 's.calendar' && baseData.calendarEvents) {
+      result = {
+        ...baseData,
+        calendarEvents: await enrichCalendarEvents(baseData.calendarEvents, 'STUDENT', signal),
+      };
+    } else if (routeId === 't.calendar' && baseData.calendarEvents) {
+      result = {
+        ...baseData,
+        calendarEvents: await enrichCalendarEvents(baseData.calendarEvents, 'LECTURER', signal),
+      };
+    } else if (routeId === 'account.calendar' && baseData.calendarEvents) {
+      const current = session.currentUser();
+      const calRole = current?.roles.includes('LECTURER') ? 'LECTURER' : 'STUDENT';
+      result = {
+        ...baseData,
+        calendarEvents: await enrichCalendarEvents(baseData.calendarEvents, calRole, signal),
+      };
     }
     requireLearningSession(session, generation);
     return result;

@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Mapping
 from typing import Annotated, Protocol
 from uuid import UUID
@@ -8,6 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.common.errors import AppError
 from app.config import Settings
 from app.integrations.http import request_model, service_headers
+
+logger = logging.getLogger(__name__)
 
 SourceID = Annotated[str, Field(strict=True, min_length=1, max_length=256)]
 SourceSpan = tuple[
@@ -99,9 +102,13 @@ class HttpDocumentClient:
         self.client = client
         self.settings = settings
         self._document_names: dict[UUID, str] = {}
+        self._version_numbers: dict[UUID, int] = {}
 
     def document_name(self, document_version_id: UUID) -> str | None:
         return self._document_names.get(document_version_id)
+
+    def version_number(self, document_version_id: UUID) -> int | None:
+        return self._version_numbers.get(document_version_id)
 
     async def active_grants(
         self, class_id: UUID, school_id: UUID, correlation_id: str
@@ -136,6 +143,8 @@ class HttpDocumentClient:
             for item in payload.items:
                 if item.title:
                     self._document_names[item.serving_version_id] = item.title
+                if item.serving_version_number is not None:
+                    self._version_numbers[item.serving_version_id] = item.serving_version_number
             grants = tuple(
                 ActiveGrant(
                     document_id=item.document_id,
@@ -187,16 +196,36 @@ class HttpDocumentClient:
     async def canonical_artifact(self, grant: ActiveGrant, correlation_id: str) -> dict | None:
         if self.settings.document_mode != "http" or self.settings.document_api_url is None:
             return None
+        timeout = max(float(getattr(self.settings, "ai_dependency_timeout_seconds", 3.0)), 15.0)
         try:
             response = await self.client.get(
                 f"{str(self.settings.document_api_url).rstrip('/')}/internal/v1/documents/{grant.document_id}/versions/{grant.document_version_id}/canonical",
                 headers=service_headers(self.settings.document_service_key, correlation_id),
+                timeout=timeout,
             )
             if response.status_code != 200:
+                logger.warning(
+                    "canonical_artifact_fetch_failed",
+                    extra={
+                        "document_id": str(grant.document_id),
+                        "document_version_id": str(grant.document_version_id),
+                        "status_code": response.status_code,
+                        "correlation_id": correlation_id,
+                    },
+                )
                 return None
             payload = response.json()
             return payload if isinstance(payload, dict) else None
-        except (httpx.HTTPError, ValueError):
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.warning(
+                "canonical_artifact_fetch_error",
+                extra={
+                    "document_id": str(grant.document_id),
+                    "document_version_id": str(grant.document_version_id),
+                    "error_type": exc.__class__.__name__,
+                    "correlation_id": correlation_id,
+                },
+            )
             return None
 
 

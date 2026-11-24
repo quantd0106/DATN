@@ -31,6 +31,7 @@
 - `operation`: `ASK` (mặc định; `text` `1..2000` ký tự ở `QUICK_QA` và `1..600` ở `STEP_BY_STEP`), `CHECK` (`text` `1..500`, chỉ `STEP_BY_STEP`), `HINT` & `REVEAL` (`text` rỗng, chỉ `STEP_BY_STEP`, `REVEAL` phụ thuộc `allow_solution_reveal`).
 - `retry_of_message_id`: chỉ hợp lệ với `operation = "ASK"`, trỏ tới tin nhắn `USER` cùng hội thoại để tạo lại câu trả lời không nhân đôi tin nhắn hỏi.
 - Toàn bộ kiểm tra quyền, `D6` và hợp lệ dữ liệu chạy trước HTTP `200`. Luồng SSE phát `event: start` (`{"message_id": "..."}`) rồi `event: message` (DTO ở trạng thái `COMPLETED`, `STOPPED` hoặc `FAILED`), đồng thời xác minh lại phiên và grant trước khi lưu và phát kết quả.
+- Mỗi phần tử citation chưa bị che trong `rendered.claims[].citations[]` mang `source_id`, `quote`, `source_spans`, `location` (nếu xác định được), cùng trường tùy chọn `document_id` (UUID) và `version_number` (int) để giao diện mở đúng tài liệu và vị trí trích dẫn.
 
 ---
 

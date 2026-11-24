@@ -2,7 +2,7 @@
 import {Suspense,useCallback,useEffect,useMemo,useState} from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import {useSearchParams} from 'next/navigation';
+import {useRouter,useSearchParams} from 'next/navigation';
 import {getRoute,homeFor,type RouteId} from '@/config/routes';
 import {adapter} from '@/lib/data';
 import {canOpenRoute,SAFE_ROUTE_QUERY_KEYS,withSafeRouteQuery} from '@/lib/navigation';
@@ -21,7 +21,7 @@ const FeatureEntry=dynamic(()=>import('@/features').then(module=>module.FeatureE
 });
 
 function RouteScreenInner({routeId,params}:{routeId:RouteId;params:RouteParams}){
-  const session=useSession(),route=getRoute(routeId),searchParams=useSearchParams();
+  const session=useSession(),route=getRoute(routeId),searchParams=useSearchParams(),router=useRouter();
   const queryParams:RouteParams={};
   searchParams?.forEach((value,key)=>{if(SAFE_ROUTE_QUERY_KEYS.has(key))queryParams[key]=value;});
   const paramsKey=canonicalParams({...queryParams,...params});
@@ -54,11 +54,18 @@ function RouteScreenInner({routeId,params}:{routeId:RouteId;params:RouteParams})
     // Position-only query updates keep the current resource; explicit reload reads current params.
   },[snapshotKey,selfLoading,publicRoute,session.status]);
 
+  useEffect(()=>{
+    if(!publicRoute&&session.status==='signed-out'){
+      const target=session.explicitLogout?'/login':'/login?next='+encodeURIComponent(windowPath(route.path,effectiveParams));
+      router.replace(target);
+    }
+  },[publicRoute,session.status,session.explicitLogout,route.path,effectiveParams,router]);
+
   if(publicRoute)return <AuthView key={routeId} route={route}/>;
   if(session.status==='loading')return <main id="main-content" tabIndex={-1} className="standalone"><Brand/><StatePanel busy title="Đang kiểm tra phiên…"/></main>;
   if(session.status==='unavailable')return <main id="main-content" tabIndex={-1} className="standalone"><Brand/><StatePanel title="Chưa thể kiểm tra phiên" message={session.error??undefined}><button className="button" onClick={()=>void session.reload()}>Thử lại</button><Link href="/login">Đăng nhập</Link></StatePanel></main>;
-  if(!session.user)return <main id="main-content" tabIndex={-1} className="standalone"><Brand/><StatePanel title="Đăng nhập để tiếp tục"><Link className="button primary" href={'/login?next='+encodeURIComponent(windowPath(route.path,effectiveParams))}>Đăng nhập</Link></StatePanel></main>;
-  if(!canOpenRoute(route,session.user.roles))return <main id="main-content" tabIndex={-1} className="standalone"><Brand/><StatePanel title="Bạn không có quyền mở nội dung này"><Link href={homeFor(session.user.roles)}>Về trang chủ</Link></StatePanel></main>;
+  if(!session.user){const target=session.explicitLogout?'/login':'/login?next='+encodeURIComponent(windowPath(route.path,effectiveParams));return <main id="main-content" tabIndex={-1} className="standalone"><Brand/><StatePanel busy title="Đang chuyển đến trang đăng nhập…"><Link className="button primary" href={target}>Đăng nhập</Link></StatePanel></main>;}
+  if(!canOpenRoute(route,session.user.roles)){if(route.id==='account.calendar'&&session.user.roles.includes('ADMIN')){return <main id="main-content" tabIndex={-1} className="standalone"><Brand/><StatePanel title="Lịch học theo lớp dành cho giáo viên và học sinh" message="Quản trị viên quản lý năm học, học kỳ và danh mục lớp tại mục Quản trị lớp."><Link className="button primary" href="/admin/classes">Quản lý lớp học</Link><Link className="button secondary" href={homeFor(session.user.roles)}>Về trang quản trị</Link></StatePanel></main>;}return <main id="main-content" tabIndex={-1} className="standalone"><Brand/><StatePanel title="Bạn không có quyền mở nội dung này"><Link href={homeFor(session.user.roles)}>Về trang chủ</Link></StatePanel></main>;}
   const pathRole:Role|null=route.path.startsWith('/teacher')?'LECTURER':route.path.startsWith('/admin')?'ADMIN':route.path.startsWith('/student')?'STUDENT':null;
   const role=pathRole&&session.user.roles.includes(pathRole)?pathRole:session.user.roles.includes('ADMIN')?'ADMIN':session.user.roles.includes('LECTURER')?'LECTURER':'STUDENT';
   const data=snapshot?.key===snapshotKey?snapshot.data:null;

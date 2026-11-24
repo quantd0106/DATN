@@ -857,7 +857,7 @@ export const routes = [
       "LT06"
     ],
     "fallbackParentRouteId": "t.activities",
-    "contextClassTabRouteId": "t.activities",
+    "contextClassTabRouteId": "t.gradingQueue",
     "renderClassTabs": true
   },
   {
@@ -876,7 +876,7 @@ export const routes = [
       "LT07"
     ],
     "fallbackParentRouteId": "t.gradingQueue",
-    "contextClassTabRouteId": "t.activities",
+    "contextClassTabRouteId": "t.gradingQueue",
     "renderClassTabs": false
   },
   {
@@ -895,7 +895,7 @@ export const routes = [
       "LT08"
     ],
     "fallbackParentRouteId": "t.gradingQueue",
-    "contextClassTabRouteId": "t.activities",
+    "contextClassTabRouteId": "t.gradingQueue",
     "renderClassTabs": false
   },
   {
@@ -915,7 +915,7 @@ export const routes = [
       "SH_R06"
     ],
     "fallbackParentRouteId": "t.gradingQueue",
-    "contextClassTabRouteId": "t.activities",
+    "contextClassTabRouteId": "t.gradingQueue",
     "renderClassTabs": false
   },
   {
@@ -934,7 +934,7 @@ export const routes = [
       "LT10"
     ],
     "fallbackParentRouteId": "t.gradingQueue",
-    "contextClassTabRouteId": "t.activities",
+    "contextClassTabRouteId": "t.gradingQueue",
     "renderClassTabs": false
   },
   {
@@ -1185,7 +1185,7 @@ export const routes = [
   {
     "id": "a.homeroom",
     "path": "/admin/homerooms/:homeroomId",
-    "title": "Roster và chuyển lớp hành chính",
+    "title": "Danh sách và chuyển lớp hành chính",
     "layout": "AppLayout",
     "allowedRoles": [
       "ADMIN"
@@ -1257,7 +1257,7 @@ export const routes = [
   {
     "id": "a.enrollment",
     "path": "/admin/classes/:classId/enrollment",
-    "title": "AUTO/MANUAL và tác động",
+    "title": "Ghi danh lớp môn học",
     "layout": "AppLayout",
     "allowedRoles": [
       "ADMIN"

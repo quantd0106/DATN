@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.common.db import ensure_utc, transaction, utcnow
 from app.common.errors import AppError
-from app.common.outbox import record_outbox_event
+from app.common.outbox import record_learning_notification, record_outbox_event
 from app.integrations.ai_client import AiPort
 from app.integrations.core_client import CurrentUser
 from app.integrations.document_client import DocumentPort, GrantSnapshot
@@ -483,6 +483,14 @@ def publish_practice(
                 "version_number": version.version_number,
                 "published_at": now.isoformat(),
             },
+        )
+        record_learning_notification(
+            session,
+            event_type="PRACTICE_PUBLISHED",
+            school_id=school_id,
+            class_id=class_id,
+            resource_type="practice",
+            resource_id=activity.id,
         )
     return {
         "success": True,

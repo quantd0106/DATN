@@ -54,11 +54,19 @@ function decodeMessage(value: unknown, classId: string, conversationId: string):
       const excerpt = isAccessible ? quote : '';
       const rawDocumentId = optional(cite.document_id, text);
       const validDocumentId = rawDocumentId && learningUuid.test(rawDocumentId) ? rawDocumentId.toLowerCase() : undefined;
+      const versionNumber = isAccessible ? optional(cite.version_number, integer) : undefined;
       const pageNumber = isAccessible ? optional(location?.page, integer) : undefined;
+      const slideNumber = isAccessible ? optional(location?.slide, integer) : undefined;
+      const targetPage = pageNumber ?? slideNumber;
       const baseReaderHref = isAccessible && validDocumentId
         ? routeHref('s.reader', { classId, documentId: validDocumentId }) : null;
+      const readerQuery = new URLSearchParams();
+      if (versionNumber !== undefined && versionNumber > 0) readerQuery.set('version', String(versionNumber));
+      if (targetPage !== undefined && targetPage > 0) readerQuery.set('page', String(targetPage));
+      const cleanQuote = quote.trim().slice(0, 160);
+      if (isAccessible && cleanQuote) readerQuery.set('quote', cleanQuote);
       const readerHref = !isAccessible ? '#'
-        : baseReaderHref ? (pageNumber !== undefined ? `${baseReaderHref}?page=${pageNumber}` : baseReaderHref)
+        : baseReaderHref ? (readerQuery.size ? `${baseReaderHref}?${readerQuery}` : baseReaderHref)
         : (routeHref('s.documents', { classId }) ?? '#');
       const documentTitle = optional(location?.document_name, text) ?? 'Tài liệu lớp học';
       const key = JSON.stringify([sourceId, documentTitle, location?.page, location?.slide, location?.section, quote, isAccessible]);
@@ -68,7 +76,7 @@ function decodeMessage(value: unknown, classId: string, conversationId: string):
         id: `${base.id}:${citations.length}`,
         documentId: rawDocumentId ?? sourceId,
         documentTitle, locator, excerpt, isAccessible,
-        pageNumber,
+        pageNumber: targetPage,
         readerHref,
       });
     }

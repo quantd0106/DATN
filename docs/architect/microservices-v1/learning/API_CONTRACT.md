@@ -28,7 +28,7 @@
 | `PUT` | `/classes/{class_id}/practices/{practice_id}/draft` | Giáo viên lớp `ACTIVE`; `{expected_revision, title?, topic?, questions}` → `200` (`409` nếu stale revision) |
 | `POST` | `/classes/{class_id}/practices/{practice_id}/items/attach` | Giáo viên lớp `ACTIVE`; `{expected_revision, learning_item_ids}` → `200` |
 | `POST` | `/classes/{class_id}/practices/{practice_id}/questions/{question_id}/review` | Giáo viên lớp `ACTIVE`; `{expected_revision, approved}` → `200` |
-| `POST` | `/classes/{class_id}/practices/{practice_id}/publish` | Giáo viên lớp `ACTIVE`; `{expected_revision}` → `200` (bắt buộc duyệt đủ 100% câu hỏi `D1`) |
+| `POST` | `/classes/{class_id}/practices/{practice_id}/publish` | Giáo viên lớp `ACTIVE`; `{expected_revision}` → `200` (bắt buộc duyệt đủ 100% câu hỏi `D1`, ghi outbox `PRACTICE_PUBLISHED` sang Core) |
 | `POST` | `/classes/{class_id}/practices/{practice_id}/versions` | Giáo viên lớp `ACTIVE` → `201` phiên bản nháp mới |
 | `GET` | `/classes/{class_id}/practices` | Học sinh (`read_own_history`) → `200` danh sách bài luyện tập |
 | `POST` | `/classes/{class_id}/practices/{practice_id}/attempts` | Học sinh lớp `ACTIVE`; `{intent: "start"\|"resume"\|"retry"}` → `200 \| 201` |
@@ -48,7 +48,7 @@
 | `PUT` | `/classes/{class_id}/assessments/{assessment_id}/draft` | Giáo viên lớp `ACTIVE`; `{expected_revision, settings, questions}` → `200` |
 | `POST` | `/classes/{class_id}/assessments/{assessment_id}/questions/{question_id}/review` | Giáo viên lớp `ACTIVE`; `{expected_revision}` → `200` |
 | `POST` | `/classes/{class_id}/assessments/{assessment_id}/propose` | Giáo viên lớp `ACTIVE`; `{expected_revision}` → `200` (chuyển `PENDING_APPROVAL`) |
-| `POST` | `/classes/{class_id}/assessments/{assessment_id}/decision` | **Chỉ `PRIMARY`** lớp `ACTIVE`; `{expected_revision, decision: "APPROVE"\|"REJECT", reason?}` → `200` (công bố đề bất biến & phát outbox deadline) |
+| `POST` | `/classes/{class_id}/assessments/{assessment_id}/decision` | **Chỉ `PRIMARY`** lớp `ACTIVE`; `{expected_revision, decision: "APPROVE"\|"REJECT", reason?}` → `200` (công bố đề bất biến & phát outbox deadline kèm `activity_kind="ASSESSMENT"`) |
 | `POST` | `/classes/{class_id}/assessments/{assessment_id}/versions` | Giáo viên lớp `ACTIVE` → `201` phiên bản nháp mới (`O3`) |
 | `GET` | `/classes/{class_id}/assessments` | Học sinh lớp `ACTIVE` → `200` |
 | `GET` | `/classes/{class_id}/assessments/{assessment_id}` | Học sinh lớp `ACTIVE` → `200` |
@@ -64,7 +64,7 @@
 | Method | Endpoint | Quyền / Input → Kết quả |
 |---|---|---|
 | `POST` | `/classes/{class_id}/assignments` | Giáo viên lớp `ACTIVE` → `201` |
-| `PUT` | `/classes/{class_id}/assignments/{assignment_id}/draft` | Giáo viên lớp `ACTIVE`; `{expected_revision, title, topic?, instructions?, due_at, policy, source?, publish?}` → `200` (đẩy outbox deadline khi công bố/đổi hạn) |
+| `PUT` | `/classes/{class_id}/assignments/{assignment_id}/draft` | Giáo viên lớp `ACTIVE`; `{expected_revision, title, topic?, instructions?, due_at, policy, source?, publish?}` → `200` (đẩy outbox deadline kèm `activity_kind="ASSIGNMENT"` khi công bố/đổi hạn) |
 | `PUT` | `/classes/{class_id}/assignments/{assignment_id}/recipients` | Giáo viên lớp `ACTIVE`; `{expected_revision, student_ids}` → `204` |
 | `GET` | `/classes/{class_id}/assignments/{assignment_id}/recipients` | Giáo viên phân công → `200` |
 | `GET` | `/classes/{class_id}/assignments/{assignment_id}/submissions/{submission_id}/grading` | Giáo viên chấm bài (`grade_submitted_work`) → `200` |

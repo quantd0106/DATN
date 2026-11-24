@@ -31,7 +31,7 @@ type PendingChange =
   | { kind: 'ENROLLMENT'; preview: ClassroomChangePreview; classId: string; expectedClassVersion: number; currentMode: EnrollmentMode; targetMode: EnrollmentMode; targetIds: string[]; expectedRosterVersion?: number };
 
 function invalid(): never {
-  throw new ApiError('CONTRACT_MISMATCH', 'Dữ liệu quản trị lớp chưa đúng hợp đồng Core.', 502);
+  throw new ApiError('CONTRACT_MISMATCH', 'Dữ liệu quản trị lớp chưa đúng định dạng máy chủ.', 502);
 }
 
 function row(value: unknown): Row {
@@ -104,7 +104,7 @@ async function allPages<T>(request: Request, operation: 'classes' | 'adminUsers'
     const page = decodePage(await request(operation, { query: { limit: 100, cursor }, signal }), decode);
     items.push(...page.items);
     if (!page.next_cursor) return items;
-    if (seen.has(page.next_cursor)) throw new ApiError('CONTRACT_MISMATCH', 'Core trả cursor lặp khi tải dữ liệu quản trị.', 502);
+    if (seen.has(page.next_cursor)) throw new ApiError('CONTRACT_MISMATCH', 'Máy chủ trả dữ liệu phân trang lặp khi tải dữ liệu quản trị.', 502);
     seen.add(page.next_cursor);
     cursor = page.next_cursor;
   }
@@ -190,7 +190,7 @@ function mapManagedClass(
     code: course ? text(course.code) : '',
     name: source.name,
     status: source.status,
-    metadata: [`Khối ${source.grade}`, source.mode === 'AUTO' ? 'AUTO' : 'MANUAL', yearLabel, semesterName].filter(Boolean).join(' · '),
+    metadata: [`Khối ${source.grade}`, source.mode === 'AUTO' ? 'Tự động' : 'Thủ công', yearLabel, semesterName].filter(Boolean).join(' · '),
     teacherName: primaryUser?.display_name ?? primaryUser?.email ?? 'Chưa phân công',
     studentCount: management.members.length,
   };
@@ -282,7 +282,7 @@ export function createLiveClassroomAdminPort(session: LiveIdentitySession): Clas
         auditEvents: [],
         historyAvailable: false,
         reasonCodes: reasonCodes(),
-        policyNote: 'Core áp dụng quyền theo trường và lớp ở máy chủ. AUTO đồng bộ chính xác roster lớp hành chính; MANUAL dùng danh sách do Admin xác nhận. Lịch sử audit chi tiết chưa được nối vào màn hình này.',
+        policyNote: 'Quyền truy cập theo trường và lớp được kiểm tra tại máy chủ. Chế độ tự động đồng bộ theo danh sách lớp hành chính; chế độ thủ công dùng danh sách do quản trị viên xác nhận.',
       } satisfies ClassroomAdminWorkspace;
     });
     workspace = loaded;
@@ -315,8 +315,8 @@ export function createLiveClassroomAdminPort(session: LiveIdentitySession): Clas
     load,
     async saveCatalog(input) {
       await requireAdmin();
-      if (input.kind !== 'COURSE') throw new ApiError('CAPABILITY_UNAVAILABLE', 'Core hiện tạo năm học và học kỳ cùng lúc với lớp hành chính hoặc lớp môn học; khối 6–12 là danh mục cố định.', 503);
-      if (input.id) throw new ApiError('CAPABILITY_UNAVAILABLE', 'Core chưa có API sửa môn học đã tạo.', 503);
+      if (input.kind !== 'COURSE') throw new ApiError('CAPABILITY_UNAVAILABLE', 'Năm học và học kỳ hiện được tạo cùng lúc với lớp hành chính hoặc lớp môn học; khối 6–12 là danh mục cố định.', 503);
+      if (input.id) throw new ApiError('CAPABILITY_UNAVAILABLE', 'Hệ thống chưa hỗ trợ sửa môn học đã tạo.', 503);
       const created = row(await session.authenticated(request => request('adminCreateCourse', {
         body: { code: input.code, name: input.name },
         headers: { 'X-Admin-Reason': input.reason, 'Idempotency-Key': crypto.randomUUID() },
@@ -343,16 +343,16 @@ export function createLiveClassroomAdminPort(session: LiveIdentitySession): Clas
         const current = requireWorkspace().homerooms.find(item => item.id === input.homeroomId);
         if (!current) throw new ApiError('NOT_FOUND', 'Không tìm thấy lớp hành chính trong trường hiện tại.', 404);
         if (input.destinationHomeroomId) {
-          if (input.studentIds.length !== 1) throw new ApiError('CAPABILITY_UNAVAILABLE', 'Core hiện chuyển từng học sinh trong một transaction. Hãy chọn đúng một học sinh mỗi lần.', 409);
+          if (input.studentIds.length !== 1) throw new ApiError('CAPABILITY_UNAVAILABLE', 'Hệ thống hiện chuyển từng học sinh một để đảm bảo nhất quán dữ liệu. Hãy chọn đúng một học sinh mỗi lần.', 409);
           const destination = await freshRoster(request, input.destinationHomeroomId);
           const target = requireWorkspace().homerooms.find(item => item.id === input.destinationHomeroomId);
           if (!target || target.grade !== current.grade || target.yearId !== current.yearId) throw new ApiError('VALIDATION_ERROR', 'Lớp đích phải cùng năm học và khối.', 422);
-          if (!source.studentIds.includes(input.studentIds[0]) || destination.studentIds.includes(input.studentIds[0])) throw new ApiError('REQUEST_FAILED', 'Roster đã đổi. Tải lại trước khi chuyển học sinh.', 409);
+          if (!source.studentIds.includes(input.studentIds[0]) || destination.studentIds.includes(input.studentIds[0])) throw new ApiError('REQUEST_FAILED', 'Danh sách lớp đã thay đổi. Tải lại trước khi chuyển học sinh.', 409);
           const moved = input.studentIds[0];
           const destinationNext = [...destination.studentIds, moved];
           const sourceNext = source.studentIds.filter(studentId => studentId !== moved);
           return {
-            preview: { id, kind: 'HOMEROOM' as const, resourceId: current.id, revision: source.version, currentCount: source.studentIds.length, projectedCount: sourceNext.length, addedIds: [moved], endedIds: [moved], status: 'PREVIEW' as const, impact: homeroomImpact(current.id, sourceNext, source.studentIds, { id: target.id, currentIds: destination.studentIds, targetIds: destinationNext }), policyNote: 'Học sinh được chuyển nguyên tử giữa hai lớp cùng năm học và khối. Các lớp AUTO của nguồn và đích đồng bộ trong cùng thao tác; lịch sử lớp môn học được giữ.' },
+            preview: { id, kind: 'HOMEROOM' as const, resourceId: current.id, revision: source.version, currentCount: source.studentIds.length, projectedCount: sourceNext.length, addedIds: [moved], endedIds: [moved], status: 'PREVIEW' as const, impact: homeroomImpact(current.id, sourceNext, source.studentIds, { id: target.id, currentIds: destination.studentIds, targetIds: destinationNext }), policyNote: 'Học sinh được chuyển nhất quán giữa hai lớp cùng năm học và khối. Các lớp môn học ghi danh tự động liên quan được đồng bộ cùng lúc; lịch sử học tập được giữ.' },
             change: { kind: 'HOMEROOM' as const, preview: undefined, sourceId: current.id, sourceVersion: source.version, sourceIds: source.studentIds, targetIds: sourceNext, destinationId: target.id, destinationVersion: destination.version, destinationIds: destination.studentIds, transferStudentId: moved },
           };
         }
@@ -361,7 +361,7 @@ export function createLiveClassroomAdminPort(session: LiveIdentitySession): Clas
         const addedIds = targetIds.filter(studentId => !source.studentIds.includes(studentId));
         const endedIds = source.studentIds.filter(studentId => !targetSet.has(studentId));
         return {
-          preview: { id, kind: 'HOMEROOM' as const, resourceId: current.id, revision: source.version, currentCount: source.studentIds.length, projectedCount: targetIds.length, addedIds, endedIds, status: 'PREVIEW' as const, impact: homeroomImpact(current.id, targetIds, source.studentIds), policyNote: 'Danh sách sẽ được thay trong một transaction. Các lớp AUTO đồng bộ theo roster mới; lớp MANUAL giữ nguyên danh sách. Học sinh bỏ khỏi roster sẽ kết thúc ghi danh AUTO, lịch sử được giữ.' },
+          preview: { id, kind: 'HOMEROOM' as const, resourceId: current.id, revision: source.version, currentCount: source.studentIds.length, projectedCount: targetIds.length, addedIds, endedIds, status: 'PREVIEW' as const, impact: homeroomImpact(current.id, targetIds, source.studentIds), policyNote: 'Danh sách lớp hành chính sẽ được cập nhật đồng bộ. Các lớp môn học ghi danh tự động sẽ đồng bộ theo danh sách mới; lớp quản lý thủ công giữ nguyên danh sách.' },
           change: { kind: 'HOMEROOM' as const, preview: undefined, sourceId: current.id, sourceVersion: source.version, sourceIds: source.studentIds, targetIds },
         };
       });
@@ -435,7 +435,7 @@ export function createLiveClassroomAdminPort(session: LiveIdentitySession): Clas
       const current = requireWorkspace();
       const managed = current.classes.find(item => item.summary.id === input.classId);
       if (!managed) throw new ApiError('NOT_FOUND', 'Không tìm thấy lớp môn học trong trường hiện tại.', 404);
-      if (input.name !== managed.summary.name) throw new ApiError('CAPABILITY_UNAVAILABLE', 'Core chưa có API đổi tên lớp đã tạo; hiện chỉ có thể cập nhật phân công giáo viên.', 503);
+      if (input.name !== managed.summary.name) throw new ApiError('CAPABILITY_UNAVAILABLE', 'Hệ thống hiện chưa hỗ trợ đổi tên lớp đã tạo; chỉ có thể cập nhật phân công giáo viên.', 503);
       return session.authenticated(async request => {
         await request('adminSetTeachingAssignments', {
           pathParams: { classId: input.classId },
@@ -453,7 +453,7 @@ export function createLiveClassroomAdminPort(session: LiveIdentitySession): Clas
     },
     async previewEnrollment(input) {
       await requireAdmin();
-      if (input.manualIncludes?.length || input.manualExcludes?.length) throw new ApiError('CAPABILITY_UNAVAILABLE', 'Core AUTO tuân theo chính xác roster lớp hành chính và chưa hỗ trợ ngoại lệ.', 409);
+      if (input.manualIncludes?.length || input.manualExcludes?.length) throw new ApiError('CAPABILITY_UNAVAILABLE', 'Chế độ tự động tuân theo chính xác danh sách lớp hành chính và chưa hỗ trợ ngoại lệ.', 409);
       const base = requireWorkspace();
       const known = base.classes.find(item => item.summary.id === input.classId);
       if (!known) throw new ApiError('NOT_FOUND', 'Không tìm thấy lớp môn học trong trường hiện tại.', 404);
@@ -473,7 +473,7 @@ export function createLiveClassroomAdminPort(session: LiveIdentitySession): Clas
           const preview: ClassroomChangePreview = {
             id, kind: 'ENROLLMENT', resourceId: input.classId, revision: classVersion,
             currentCount: currentIds.length, projectedCount: projected, addedIds, endedIds, status: 'PREVIEW', impact: [],
-            policyNote: source.mode === 'MANUAL' ? 'Khi chuyển sang AUTO, Core đồng bộ roster lớp hành chính; danh sách MANUAL hiện tại có thể kết thúc.' : 'Xem trước thay đổi roster AUTO trước khi đồng bộ.',
+            policyNote: source.mode === 'MANUAL' ? 'Khi chuyển sang chế độ tự động, hệ thống đồng bộ theo danh sách lớp hành chính; danh sách thủ công hiện tại có thể kết thúc.' : 'Xem trước thay đổi danh sách ghi danh tự động trước khi đồng bộ.',
           };
           return { preview, classId: input.classId, currentMode: source.mode, targetMode: input.mode, targetIds: target, expectedClassVersion: classVersion, expectedRosterVersion: rosterVersion };
         }
@@ -485,7 +485,7 @@ export function createLiveClassroomAdminPort(session: LiveIdentitySession): Clas
         const preview: ClassroomChangePreview = {
           id, kind: 'ENROLLMENT', resourceId: input.classId, revision: source.version,
           currentCount: currentIds.length, projectedCount: targetIds.length, addedIds, endedIds, status: 'PREVIEW', impact: [],
-          policyNote: source.mode === 'AUTO' ? 'Chế độ AUTO sẽ chuyển sang MANUAL, giữ nguyên roster hiện hành. Sau khi áp dụng chế độ, có thể chỉnh danh sách riêng.' : 'Danh sách MANUAL được thay nguyên tử, roster lớp hành chính không ghi đè lớp này.',
+          policyNote: source.mode === 'AUTO' ? 'Lớp sẽ chuyển sang quản lý thủ công và giữ nguyên danh sách hiện hành. Sau khi áp dụng chế độ, có thể chỉnh danh sách riêng.' : 'Danh sách thủ công được cập nhật đồng bộ; thay đổi ở lớp hành chính không ghi đè lớp này.',
         };
         return { preview, classId: input.classId, currentMode: source.mode, targetMode: input.mode, targetIds, expectedClassVersion: source.version };
       });

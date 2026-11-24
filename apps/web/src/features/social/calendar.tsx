@@ -318,9 +318,7 @@ export function CalendarFeature({ data, role, params, reload, isGlobal = false }
   const isSelectedEventEditable = Boolean(
     isTeacher &&
       selectedEvent &&
-      !selectedEvent.readOnly &&
-      selectedEvent.category !== 'ASSIGNMENT' &&
-      selectedEvent.category !== 'EXAM'
+      !selectedEvent.readOnly
   );
 
   const safeActionHref = selectedEvent ? getRoleAwareEventHref(selectedEvent.href, role, params.classId ?? selectedEvent.classId) : undefined;
@@ -594,9 +592,7 @@ export function CalendarFeature({ data, role, params, reload, isGlobal = false }
               </dl>
 
               {/* Read-only Learning deadline notice */}
-              {(selectedEvent.readOnly ||
-                selectedEvent.category === 'ASSIGNMENT' ||
-                selectedEvent.category === 'EXAM') && (
+              {selectedEvent.readOnly && (
                 <div className="notice" style={{ fontSize: '12px', margin: '12px 0' }}>
                   <Icon name="lock" /> Hạn nộp và bài kiểm tra thuộc phân hệ học tập ở chế độ chỉ đọc. Mở hoạt động tương ứng để xem theo quyền.
                 </div>

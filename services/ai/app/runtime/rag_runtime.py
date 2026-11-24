@@ -87,13 +87,14 @@ class RagRuntime:
                     if settings.llama_mode == "openai_compatible":
                         if settings.llm_api_base is None or settings.llm_api_key is None:
                             raise ValueError("LLM_API_BASE and LLM_API_KEY are required")
+                        output_ceiling = max(settings.llama_output_ceiling, 1024)
                         generator = OpenAICompatibleGenerator(
                             str(settings.llm_api_base),
                             settings.llm_api_key.get_secret_value(),
                             model=settings.llm_model,
-                            context_tokens=settings.llama_context_tokens,
-                            max_new_tokens=min(settings.llama_output_ceiling, 1024),
-                            output_ceiling=settings.llama_output_ceiling,
+                            context_tokens=max(settings.llama_context_tokens, 16384),
+                            max_new_tokens=min(output_ceiling, 1024),
+                            output_ceiling=output_ceiling,
                             timeout=settings.llama_timeout_seconds,
                         )
                     else:

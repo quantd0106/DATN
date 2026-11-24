@@ -2,7 +2,7 @@
 
 **Trạng thái P0/P1:** `IMPLEMENTED — VERIFIED` (đã tích hợp Core và Web live qua BFF proxy `/api/v1`)
 
-Ngày 2026-11-21, suite Document trên PostgreSQL 16 đạt **`99 passed in 11.59s`**. Trong Compose trên Docker Desktop 29.7.2 (linux), Document `/health/ready` trả `200`. PDF `10,500,004` byte đi qua Web proxy từ `201 PENDING` đến `SUCCESS`, cấp grant trả `201`, và Student đọc/tải trả `200` với bản tải đủ `10,500,004` byte. Tệp `20,971,521` byte bị từ chối `413`. Tài liệu này khóa **20 endpoint public** (+ **2 endpoint internal** cho AI), ánh xạ 1-1 tới **12 hàm** trong `DataAdapter['document']` (`apps/web/src/lib/data/port.ts`) và các tuyến `workspace.load` qua Proxy allowlist (trong đó `accept` và `retry` qua proxy dùng **`version_id` UUID**). Xem [TASK-017](../../../../tasks/TASK-017-document-service-design-impl.md) và [TASK-017E](../../../../tasks/TASK-017E-compose-demo-and-deployment.md).
+Ngày 2026-11-21, suite Document trên PostgreSQL 16 đạt **`99 passed in 11.59s`**. Trong Compose trên Docker Desktop 29.7.2 (linux), Document `/health/ready` trả `200`. PDF `10,500,004` byte đi qua Web proxy từ `201 PENDING` đến `SUCCESS`, cấp grant trả `201`, và Student đọc/tải trả `200` với bản tải đủ `10,500,004` byte. Tệp `20,971,521` byte bị từ chối `413`. Tài liệu này khóa **22 endpoint public** (+ **2 endpoint internal** cho AI), ánh xạ 1-1 tới **14 hàm** trong `DataAdapter['document']` (`apps/web/src/lib/data/port.ts`) và các tuyến `workspace.load` qua Proxy allowlist (trong đó `accept` và `retry` qua proxy dùng **`version_id` UUID**). Xem [TASK-017](../../../../tasks/TASK-017-document-service-design-impl.md) và [TASK-017E](../../../../tasks/TASK-017E-compose-demo-and-deployment.md).
 
 Quyết định thiết kế tại [ADR-002](../ADR-002-document-service.md).
 
@@ -41,6 +41,8 @@ Quyết định thiết kế tại [ADR-002](../ADR-002-document-service.md).
 | `GET` | `/documents` | Bearer `LECTURER` ACTIVE (có `school_id`); `?limit=&cursor=&status=&format=&search=` → `200 Page[DocumentSummaryDTO]` |
 | `POST` | `/documents` | Bearer `LECTURER` ACTIVE (có `school_id`); `multipart/form-data`: `file` (bắt buộc), `title` (1..200, bắt buộc), `description?` (0..2000) → `201 DocumentSummaryDTO` |
 | `GET` | `/documents/{document_id}` | Bearer `LECTURER` ACTIVE + là `owner_user_id` cùng trường → `200 DocumentDetailResponse` |
+| `GET` | `/documents/{document_id}/reader` | Bearer `LECTURER` ACTIVE + là `owner_user_id` cùng trường; `?version=` → `200 DocumentReaderDTO` (xem trước phiên bản `SUCCESS` hoặc `NEEDS_REVIEW`) |
+| `GET` | `/documents/{document_id}/download` | Bearer `LECTURER` ACTIVE + là `owner_user_id` cùng trường; `?version=` → `200` binary stream |
 | `PATCH` | `/documents/{document_id}` | Bearer `LECTURER` ACTIVE + là `owner_user_id` cùng trường; JSON `{title?, description?}` → `200 DocumentSummaryDTO` |
 | `DELETE` | `/documents/{document_id}` | Bearer `LECTURER` ACTIVE + là `owner_user_id` cùng trường; `?confirm_multi_class=true\|false` → `204` hoặc `409 CONFLICT` |
 | `POST` | `/documents/{document_id}/versions` | Bearer `LECTURER` ACTIVE + là `owner_user_id` cùng trường; `multipart/form-data`: `file` → `201 DocumentVersionDTO` |
@@ -155,6 +157,8 @@ Mọi route Document qua Next.js proxy `/api/v1/*` đều định tuyến tới 
 | `documents` | `GET` | `/documents` | `document` | `cursor`, `limit`, `status`, `format`, `search` | `200` |
 | `createDocument` | `POST` | `/documents` | `document` | — | `201` |
 | `documentDetail` | `GET` | `/documents/:documentId` | `document` | — | `200` |
+| `libraryDocumentReader` | `GET` | `/documents/:documentId/reader` | `document` | `version` | `200` |
+| `libraryDocumentDownload` | `GET` | `/documents/:documentId/download` | `document` | `version` | `200` |
 | `updateDocument` | `PATCH` | `/documents/:documentId` | `document` | — | `200` |
 | `deleteDocument` | `DELETE` | `/documents/:documentId` | `document` | `confirm_multi_class` | `204` |
 | `uploadDocumentVersion` | `POST` | `/documents/:documentId/versions` | `document` | — | `201` |

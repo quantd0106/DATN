@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -96,6 +97,7 @@ class LearningDeadlineRequest(BaseModel):
     starts_at: AwareDatetime
     ends_at: AwareDatetime
     version: int = Field(strict=True, ge=1, le=2_147_483_647)
+    activity_kind: Literal["ASSIGNMENT", "ASSESSMENT"] | None = None
 
 
 class LearningDeadlineReceipt(BaseModel):
