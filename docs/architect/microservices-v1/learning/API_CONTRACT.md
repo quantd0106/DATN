@@ -23,6 +23,7 @@
 |---|---|---|
 | `GET` | `/classes/{class_id}/activities` | Giáo viên phân công (`read_class_content`); `?kind=` → `200 {items, next_cursor: null}` (kèm `pendingGradingCount`, `canDeleteDraft`) |
 | `DELETE` | `/classes/{class_id}/activities/{activity_id}` | Giáo viên lớp `ACTIVE`; chỉ xóa bản nháp chưa công bố và chưa có lượt làm/bài nộp (`DRAFT`) → `204` (`409 ACTIVITY_ALREADY_PUBLISHED` nếu đã công bố/chờ duyệt/có dữ liệu) |
+| `POST` | `/classes/{class_id}/activities/{activity_id}/copy` | Giáo viên đọc lớp nguồn (`read_class_content`) và dạy lớp đích `ACTIVE` (`participate_current_class`), cùng trường, khác lớp; `{target_class_id, title?}` → `201 {id, activity_id, class_id, source_activity_id, source_class_id, kind, title, status: "DRAFT", version_number, revision, edit_href, stripped_source_count}` (tạo bản nháp độc lập v1, giữ nguyên `reviewed=true` / `isReviewed=true`, lọc nguồn tài liệu theo grant lớp đích, không sao chép bài nộp/lượt làm/điểm/phúc khảo/gia hạn/audience) |
 | `GET` | `/classes/{class_id}/question-bank` | Giáo viên phân công (`read_class_content`); `?origin=&type=&topic=` → `200 {items, next_cursor: null}` |
 | `POST` | `/classes/{class_id}/practices` | Giáo viên lớp `ACTIVE` (`participate_current_class`); `{title, topic?}` → `201` |
 | `GET` | `/classes/{class_id}/practices/{practice_id}/editor` | Giáo viên phân công → `200` (kèm danh sách nguồn tài liệu khả dụng của lớp) |

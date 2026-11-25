@@ -12,7 +12,8 @@ from app.common.access import (
 )
 from app.common.auth import AuthenticatedActor, get_authenticated_actor
 from app.common.db import get_db
-from app.common.errors import ErrorEnvelope
+from app.common.errors import AppError, ErrorEnvelope
+from app.integrations.document_client import optional_grants as _optional_grants
 from app.modules.assessment import service as assessment_service
 from app.modules.assignment import service as assignment_service
 from app.modules.grading import service as grading_service
@@ -20,6 +21,7 @@ from app.modules.practice import service
 from app.modules.practice.schemas import (
     AttachBankItemsRequest,
     CheckPracticeAnswerRequest,
+    CopyActivityRequest,
     CreatePracticeRequest,
     ExplainMistakeRequest,
     PublishPracticeRequest,
@@ -93,6 +95,41 @@ async def delete_draft_activity(
         has_submissions=assignment_service.activity_has_submissions(session, activity_id),
     )
     return Response(status_code=204)
+
+
+@router.post("/classes/{class_id}/activities/{activity_id}/copy", status_code=201)
+async def copy_activity(
+    class_id: UUID,
+    activity_id: UUID,
+    body: CopyActivityRequest,
+    request: Request,
+    actor: Actor,
+    session: DbSession,
+) -> dict:
+    source_decision = await require_class_teacher_read(
+        request.app.state.core, actor.user, class_id, request.state.correlation_id
+    )
+    target_decision = await require_active_teacher(
+        request.app.state.core, actor.user, body.target_class_id, request.state.correlation_id
+    )
+    if source_decision.school_id != target_decision.school_id:
+        raise AppError(403)
+    target_grants = await _optional_grants(
+        request.app.state.document,
+        body.target_class_id,
+        target_decision.school_id,
+        request.state.correlation_id,
+    )
+    return service.copy_activity(
+        session,
+        school_id=source_decision.school_id,
+        source_class_id=class_id,
+        source_activity_id=activity_id,
+        target_class_id=body.target_class_id,
+        actor=actor.user,
+        title=body.title,
+        target_grants=target_grants,
+    )
 
 
 @router.get("/classes/{class_id}/question-bank")

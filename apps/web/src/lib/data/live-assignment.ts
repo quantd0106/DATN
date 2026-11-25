@@ -67,7 +67,9 @@ function definition(value: unknown, teacher: boolean, historical = false): Assig
     : undefined;
   return {
     id, classId, status, revision, title: text(row.title), topic: text(row.topic),
-    instructions: text(row.instructions), dueAt: timestamp(row.due_at), policy: policy(row.policy),
+    instructions: text(row.instructions),
+    dueAt: status === 'DRAFT' ? (nullable(row.due_at, timestamp) ?? '') : timestamp(row.due_at),
+    policy: policy(row.policy),
     source: parsedSource,
     ...(sourceHref ? { sourceHref } : {}),
     publishedRevision: status === 'PUBLISHED' ? revision : undefined,

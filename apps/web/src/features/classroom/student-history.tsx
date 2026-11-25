@@ -71,7 +71,7 @@ export function StudentHistoryFeature({ route: _route, data, reload }: Props) {
           </h3>
           <p>
             {history?.historyNotice ??
-              'Lớp học này đã kết thúc hoặc bạn đã hoàn thành chương trình học. Dữ liệu học tập và các đoạn hội thoại trước đây được giữ lại ở chế độ CHỈ ĐỌC để tra cứu. Các tính năng tương tác trực tiếp (hỏi Lumi trực tiếp, nộp bài, thảo luận bảng tin) đã đóng theo quy định bảo lưu.'}
+              'Lớp học này đã kết thúc hoặc bạn đã hoàn thành chương trình học. Dữ liệu học tập và các đoạn hội thoại trước đây được giữ lại ở chế độ CHỈ ĐỌC để tra cứu. Các tính năng tương tác trực tiếp (hỏi Athena trực tiếp, nộp bài, thảo luận bảng tin) đã đóng theo quy định bảo lưu.'}
           </p>
         </div>
       </div>
@@ -98,7 +98,7 @@ export function StudentHistoryFeature({ route: _route, data, reload }: Props) {
         <section className="history-section history-conversations-section">
           <div className="section-header">
             <div>
-              <h3>Hội thoại đã lưu với Lumi ({conversations.length})</h3>
+              <h3>Hội thoại đã lưu với Athena ({conversations.length})</h3>
               <p className="muted text-sm">Tra cứu câu hỏi và giải đáp từ các buổi học trước</p>
             </div>
           </div>
@@ -149,7 +149,7 @@ export function StudentHistoryFeature({ route: _route, data, reload }: Props) {
                         >
                           <div className="bubble-meta">
                             <span className="author-name">
-                              {msg.role === 'user' ? 'Bạn (Học sinh)' : 'Trợ lý Lumi'}
+                              {msg.role === 'user' ? 'Bạn (Học sinh)' : 'Trợ lý Athena'}
                             </span>
                             <span className="msg-time">{formatDateTime(msg.timestamp)}</span>
                           </div>

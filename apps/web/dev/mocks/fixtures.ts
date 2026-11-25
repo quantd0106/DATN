@@ -329,7 +329,7 @@ export const initialNotifications: NotificationItem[] = [
   {
     id: 'notif-5',
     userId: '00000000-0000-4000-8000-000000000011',
-    title: 'Cập nhật bảo mật hệ thống học tập Lumi',
+    title: 'Cập nhật bảo mật hệ thống học tập Athena',
     content: 'Hệ thống đã cập nhật tính năng xác thực hai lớp và quản lý quyền truy cập dữ liệu cá nhân theo quy định.',
     category: 'SYSTEM',
     categoryLabel: 'Hệ thống',
@@ -1119,14 +1119,14 @@ export const initialTeacherTutorConfigs: Record<string, TeacherTutorInstructionC
     instructions: 'Khuyến khích học sinh tự tính toán tọa độ đỉnh và tự lập bảng biến thiên. Không giải tắt hoặc đưa ngay đáp án cuối cùng mà hãy gợi ý theo từng bước trong sách giáo khoa.',
     updatedAt: '15/10/2026 10:00',
     maxChars: 2000,
-    disclaimer: 'Cấu hình chỉ dẫn sư phạm này được áp dụng cho Lumi khi giải đáp cho học sinh lớp này. Giáo viên không thể xem các đoạn hội thoại hoặc câu hỏi riêng tư của học sinh.',
+    disclaimer: 'Cấu hình chỉ dẫn sư phạm này được áp dụng cho Athena khi giải đáp cho học sinh lớp này. Giáo viên không thể xem các đoạn hội thoại hoặc câu hỏi riêng tư của học sinh.',
   },
   '00000000-0000-4000-8000-000000000102': {
     classId: '00000000-0000-4000-8000-000000000102',
     instructions: 'Ưu tiên giải thích trực quan về trục đối xứng và ứng dụng của parabol trong bài toán ném bóng.',
     updatedAt: '14/10/2026 09:00',
     maxChars: 2000,
-    disclaimer: 'Cấu hình chỉ dẫn sư phạm này được áp dụng cho Lumi khi giải đáp cho học sinh lớp này. Giáo viên không thể xem các đoạn hội thoại hoặc câu hỏi riêng tư của học sinh.',
+    disclaimer: 'Cấu hình chỉ dẫn sư phạm này được áp dụng cho Athena khi giải đáp cho học sinh lớp này. Giáo viên không thể xem các đoạn hội thoại hoặc câu hỏi riêng tư của học sinh.',
   },
 };
 
@@ -1355,7 +1355,7 @@ export const initialPracticeResults: Record<string, PracticeResultDetail> = {
     correctCount: 8,
     incorrectCount: 2,
     unansweredCount: 0,
-    studyTip: 'Dành 5 phút xem lại bảng tóm tắt công thức hoặc hỏi trợ lý Lumi để giải tỏa các băn khoăn về dấu của hệ số a và b.',
+    studyTip: 'Dành 5 phút xem lại bảng tóm tắt công thức hoặc hỏi trợ lý Athena để giải tỏa các băn khoăn về dấu của hệ số a và b.',
     questions: [
       {
         id: 'res-q1',

@@ -378,7 +378,7 @@ def test_multiturn_condense_masks_revoked_quotes_and_persists_metadata(
         meta_events = _sse_events(
             h.client.post(msg_url, headers=h.headers, json={"text": "Cậu là ai vậy?"})
         )
-        assert "Lumi" in meta_events[-1][1]["rendered"]["claims"][0]["text"]
+        assert "Athena" in meta_events[-1][1]["rendered"]["claims"][0]["text"]
 
         # EXERCISE_HELP in QUICK_QA switches to STEP_BY_STEP and saves step_session + metadata
         intent_state["next"] = "EXERCISE_HELP"

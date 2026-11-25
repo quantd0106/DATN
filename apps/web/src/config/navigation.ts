@@ -105,7 +105,7 @@ export const classTabs = {
       "s.documents"
     ],
     [
-      "Hỏi Lumi",
+      "Hỏi Athena",
       "s.tutor"
     ],
     [
@@ -143,7 +143,7 @@ export const classTabs = {
       "t.documents"
     ],
     [
-      "Hỏi Lumi",
+      "Hỏi Athena",
       "t.tutor"
     ],
     [

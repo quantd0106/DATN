@@ -251,7 +251,7 @@ export function createLiveDashboardEnricher(
     const tutorSuggestions = isRouteAvailable('s.tutor', 'live')
       ? activeClasses.slice(0, 3).map(cls => ({
           classId: cls.id,
-          prompt: `Hỏi Lumi ôn tập kiến thức lớp ${cls.name}`,
+          prompt: `Hỏi Athena ôn tập kiến thức lớp ${cls.name}`,
         }))
       : [];
 

@@ -574,7 +574,7 @@ export function StudentReaderView({ data, params, reload }: Props) {
               {isRouteAvailable('s.tutor', adapter.source) && (
                 <button className="button reader-ask-button" onClick={askPage}>
                   <Icon name="sparkles" />
-                  Hỏi Lumi về trang này
+                  Hỏi Athena về trang này
                 </button>
               )}
             </>
@@ -611,7 +611,7 @@ export function StudentReaderView({ data, params, reload }: Props) {
       {isAccessible && rawQuote && !citedBannerDismissed && (
         <div className="reader-citation-banner" role="status">
           <span>
-            <strong>Đang tô sáng trích dẫn từ Lumi:</strong> “{rawQuote}”
+            <strong>Đang tô sáng trích dẫn từ Athena:</strong> “{rawQuote}”
           </span>
           <button
             type="button"

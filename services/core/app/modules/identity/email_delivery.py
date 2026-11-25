@@ -21,7 +21,7 @@ class SMTPTokenSender:
         if not settings.public_web_url:
             raise AppError(
                 503,
-                "Chưa cấu hình địa chỉ trang Lumi để tạo liên kết an toàn. Vui lòng liên hệ bộ phận vận hành.",
+                "Chưa cấu hình địa chỉ trang Athena để tạo liên kết an toàn. Vui lòng liên hệ bộ phận vận hành.",
             )
 
     @staticmethod
@@ -36,21 +36,21 @@ class SMTPTokenSender:
     def _template(delivery: TokenDelivery) -> tuple[str, str, str, str]:
         if delivery.purpose == TokenPurpose.ADMIN_INVITATION:
             return (
-                "Lumi | Thư mời thiết lập tài khoản nhân sự",
+                "Athena | Thư mời thiết lập tài khoản nhân sự",
                 "/staff/invitation",
-                "Thiết lập tài khoản Lumi",
+                "Thiết lập tài khoản Athena",
                 (
                     "Nhà trường trân trọng mời Quý vị hoàn tất thiết lập tài khoản nhân sự trên "
-                    "hệ thống Lumi để phục vụ công tác quản lý và giảng dạy theo phân công."
+                    "hệ thống Athena để phục vụ công tác quản lý và giảng dạy theo phân công."
                 ),
             )
         if delivery.purpose == TokenPurpose.PASSWORD_RESET:
             return (
-                "Lumi | Hướng dẫn đặt lại mật khẩu",
+                "Athena | Hướng dẫn đặt lại mật khẩu",
                 "/reset-password",
                 "Đặt lại mật khẩu",
                 (
-                    "Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản Lumi liên kết "
+                    "Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản Athena liên kết "
                     "với địa chỉ email này. Nếu Quý vị là người gửi yêu cầu, vui lòng tiếp tục."
                 ),
             )
@@ -67,7 +67,7 @@ class SMTPTokenSender:
         if delivery.purpose == TokenPurpose.ADMIN_INVITATION:
             fallback = (
                 "Nếu nút thiết lập không mở được, Quý vị có thể truy cập trang nhận lời mời "
-                "của Lumi và nhập mã xác thực bên dưới."
+                "của Athena và nhập mã xác thực bên dưới."
             )
             closing = (
                 "Nếu Quý vị không mong đợi thư mời này, vui lòng bỏ qua thư và liên hệ "
@@ -76,7 +76,7 @@ class SMTPTokenSender:
         else:
             fallback = (
                 "Nếu nút đặt lại không mở được, Quý vị có thể truy cập trang đặt lại mật khẩu "
-                "của Lumi và nhập mã xác thực bên dưới."
+                "của Athena và nhập mã xác thực bên dưới."
             )
             closing = (
                 "Nếu Quý vị không yêu cầu thay đổi mật khẩu, vui lòng bỏ qua thư; mật khẩu "
@@ -86,7 +86,7 @@ class SMTPTokenSender:
             "Liên kết và mã xác thực chỉ sử dụng được một lần, có hiệu lực đến "
             f"{expiry}. Vui lòng không chia sẻ mã này với người khác."
         )
-        signature = "Bộ phận vận hành hệ thống Lumi"
+        signature = "Bộ phận vận hành hệ thống Athena"
 
         message = EmailMessage()
         message["From"] = settings.smtp_from
@@ -108,7 +108,7 @@ class SMTPTokenSender:
             '<div style="max-width:600px;margin:32px auto;padding:32px;background:#ffffff;'
             'border:1px solid #e5e7eb;border-radius:12px">'
             '<p style="margin:0 0 24px;color:#315eea;font-size:13px;font-weight:700;'
-            'letter-spacing:1.4px">LUMI · TRỢ GIẢNG HỌC TẬP</p>'
+            'letter-spacing:1.4px">ATHENA · KẾT NỐI TRI THỨC, VỮNG BƯỚC TƯƠNG LAI</p>'
             f"<p>{escape(salutation)}</p>"
             f'<p style="line-height:1.6">{escape(introduction)}</p>'
             '<p style="margin:28px 0"><a '

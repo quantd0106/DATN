@@ -236,7 +236,7 @@ export function TeacherClassDocumentsView({ data, params, reload }: Props) {
             <div className="lumi-source-impact-title">⚠️ Ảnh hưởng khi thu hồi quyền chia sẻ:</div>
             <ul className="lumi-source-impact-list">
               <li>Học sinh trong lớp không thể mở tài liệu nguồn.</li>
-              <li>Trợ lý Lumi không còn truy xuất hoặc trích dẫn nội dung tài liệu này trong lớp.</li>
+              <li>Trợ lý Athena không còn truy xuất hoặc trích dẫn nội dung tài liệu này trong lớp.</li>
               <li>Các đoạn trích dẫn nguyên văn trong ghi chú cá nhân sẽ bị ẩn; nội dung ghi chú riêng của học sinh vẫn được bảo lưu.</li>
               <li>Quyền truy cập của các lớp học khác không bị ảnh hưởng.</li>
             </ul>

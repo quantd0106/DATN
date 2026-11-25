@@ -877,7 +877,7 @@ export function StudentPracticeAttemptView({ data, reload, params, user }: Props
                     onClick={() => setShowHint(prev => !prev)}
                   >
                     <Icon name="sparkles" />
-                    <span>Gợi ý từ Lumi</span>
+                    <span>Gợi ý từ Athena</span>
                   </button>
                 </div>
 
@@ -917,7 +917,7 @@ export function StudentPracticeAttemptView({ data, reload, params, user }: Props
               {showHint && (
                 <div className="card practice-hint-box">
                   <div className="practice-hint-title">
-                    Gợi ý phương pháp từ Lumi:
+                    Gợi ý phương pháp từ Athena:
                   </div>
                   <p className="practice-hint-text">
                     {currentQuestion.sourceRef && currentQuestion.sourceRef.isAccessible !== false && currentQuestion.sourceRef.locator

@@ -185,16 +185,16 @@ export function ClassOverviewFeature({ route: _route, data, reload }: Props) {
           {!data.pendingCapabilities?.includes('AI Tutor') && (<section className="overview-section">
             <article className="card lumi-tutor-box">
               <div className="lumi-box-header">
-                <span className="lumi-badge">✨ Hỏi Lumi trong lớp này</span>
+                <span className="lumi-badge">✨ Hỏi Athena trong lớp này</span>
                 <p className="muted text-sm">
-                  Lumi trả lời dựa trên tài liệu và bài giảng của giáo viên lớp {summary?.name ?? ''}
+                  Athena trả lời dựa trên tài liệu và bài giảng của giáo viên lớp {summary?.name ?? ''}
                 </p>
               </div>
               <Link
                 className="button primary full-width"
                 href={routeHref('s.tutor', { classId }) ?? `/student/classes/${classId}/tutor`}
               >
-                Đặt câu hỏi cho Lumi <Icon name="chevronRight" />
+                Đặt câu hỏi cho Athena <Icon name="chevronRight" />
               </Link>
             </article>
           </section>)}

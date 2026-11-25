@@ -107,7 +107,21 @@ export function decodeScoringAdjustment(value: unknown): AssessmentScoringAdjust
   };
 }
 
-function settings(row: Record<string, unknown>): AssessmentSettings {
+function settings(row: Record<string, unknown>, draft = false): AssessmentSettings {
+  if (draft) {
+    return {
+      title: optional(row.title, text) ?? '',
+      code: optional(row.code, text) ?? '',
+      topic: optional(row.topic, text) ?? '',
+      opensAt: nullable(row.opens_at, timestamp) ?? '',
+      closesAt: nullable(row.closes_at, timestamp) ?? '',
+      durationMinutes: optional(row.duration_minutes, value => integer(value, 1)) ?? 0,
+      maxAttempts: optional(row.max_attempts, value => integer(value, 1)) ?? 1,
+      gradingPolicy: row.grading_policy == null ? 'BEST' : enumeration(row.grading_policy, 'BEST', 'LATEST', 'AVERAGE'),
+      resultsAt: nullable(row.results_at, timestamp) ?? '',
+      appealWindowDays: optional(row.appeal_window_days, value => integer(value, 1)),
+    };
+  }
   return {
     title: text(row.title), code: text(row.code), topic: text(row.topic),
     opensAt: timestamp(row.opens_at), closesAt: timestamp(row.closes_at), durationMinutes: integer(row.duration_minutes, 1),
@@ -127,7 +141,7 @@ export function decodeDraft(value: unknown): AssessmentDraft {
     versionNumber: integer(row.version_number, 1),
     settings: Object.keys(config).length === 0 && status === 'DRAFT'
       ? { title: '', code: '', opensAt: '', closesAt: '', durationMinutes: 0, maxAttempts: 1, gradingPolicy: 'BEST', resultsAt: '' }
-      : settings(config),
+      : settings(config, status === 'DRAFT'),
     questions: list(row.questions, editorQuestion),
     rejectionReason: nullable(row.rejection_reason, text),
     authorName: '',

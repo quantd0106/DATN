@@ -308,7 +308,7 @@ export function QuestionRenderer({
 
           {feedback.pedagogicalHint && (
             <div className="qr-feedback-hint">
-              <strong>Gợi ý từ Lumi:</strong> {feedback.pedagogicalHint}
+              <strong>Gợi ý từ Athena:</strong> {feedback.pedagogicalHint}
             </div>
           )}
         </div>

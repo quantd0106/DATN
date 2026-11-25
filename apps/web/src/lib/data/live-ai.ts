@@ -12,7 +12,7 @@ import type { LiveDocumentContext } from './live-document';
 import type { LiveIdentitySession } from './live-identity';
 import type { DataAdapter } from './port';
 
-const tutorUnavailable = 'Trợ lý AI Lumi hiện chưa sẵn sàng trên máy chủ.';
+const tutorUnavailable = 'Trợ lý AI Athena hiện chưa sẵn sàng trên máy chủ.';
 export const quizSourceUnavailable = 'Nguồn tài liệu lớp chưa sẵn sàng để sinh câu hỏi AI.';
 
 function invalid(): never {
@@ -84,7 +84,7 @@ function decodeMessage(value: unknown, classId: string, conversationId: string):
   const claimText = claims.map(claim => optional(claim.text, text)?.trim()).filter(Boolean).join('\n\n');
   const notice = optional(rendered?.notice, text);
   const fallback = status === 'STOPPED' ? 'Câu trả lời đã dừng trước khi hoàn tất.'
-    : status === 'FAILED' ? 'Lumi chưa thể trả lời. Bạn có thể thử lại.' : '';
+    : status === 'FAILED' ? 'Athena chưa thể trả lời. Bạn có thể thử lại.' : '';
   return {
     ...base, role: 'assistant', content: claimText || notice || fallback, citations,
     stepNumber: optional(step?.step, integer), totalSteps: optional(step?.total_steps, integer),
@@ -341,7 +341,7 @@ export function createLiveAi(session: LiveIdentitySession, core: Pick<LearningCo
   const activeStreams = new Map<string, Stream>();
   const tutor: DataAdapter['tutor'] = {
     async updateConfig() {
-      throw new ApiError('UNAVAILABLE', 'Cấu hình Lumi trên máy chủ sử dụng các trường chính sách sư phạm.', 503);
+      throw new ApiError('UNAVAILABLE', 'Cấu hình Athena trên máy chủ sử dụng các trường chính sách sư phạm.', 503);
     },
     updatePolicyConfig: (classId, policy) => read('updateTutorConfig', {
       pathParams: { classId },
@@ -482,7 +482,7 @@ export function createLiveAi(session: LiveIdentitySession, core: Pick<LearningCo
             summary,
             historyNotice: summary.membershipStatus === 'ENDED'
               ? 'Ghi danh đã kết thúc. Dữ liệu hội thoại AI Tutor trước đây được giữ ở chế độ CHỈ ĐỌC theo quy định bảo lưu.'
-              : 'Lớp học đang ở trạng thái lưu trữ. Các cuộc hội thoại với Lumi được giữ ở chế độ CHỈ ĐỌC.',
+              : 'Lớp học đang ở trạng thái lưu trữ. Các cuộc hội thoại với Athena được giữ ở chế độ CHỈ ĐỌC.',
             conversations: historyConversations,
             ...(classNotes.length ? {
               notes: classNotes.map(note => ({

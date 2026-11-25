@@ -184,7 +184,7 @@ export function StudentHomeFeature({ route: _route, data, reload }: Props) {
           <section className="home-section">
             <article className="card lumi-assistant-card">
               <div className="lumi-card-header">
-                <span className="lumi-badge">✨ Trợ lý Lumi</span>
+                <span className="lumi-badge">✨ Trợ lý Athena</span>
                 <p className="muted text-sm">Gợi ý câu hỏi học tập nhanh cho bạn</p>
               </div>
               <ul className="tutor-suggestion-list">

@@ -187,6 +187,34 @@ export function createLiveLearning(session: LiveIdentitySession, core: LearningC
       return { reviewedCount: editor.reviewedCount, canPublish: editor.canPublish };
     },
     deleteDraftActivity: input => read('deleteActivity', { pathParams: input }, () => undefined),
+    copyActivity: input => read('copyActivity', {
+      pathParams: { classId: input.classId, activityId: input.activityId },
+      body: {
+        target_class_id: input.targetClassId,
+        ...(input.title?.trim() ? { title: input.title.trim() } : {}),
+      },
+    }, value => {
+      const row = record(value);
+      const id = uuid(row.activity_id ?? row.id);
+      const classId = uuid(row.class_id);
+      const kind = enumeration(row.kind, 'PRACTICE', 'ASSESSMENT', 'ASSIGNMENT');
+      const editHref = kind === 'PRACTICE'
+        ? routeHref('t.practiceEditor', { classId, practiceId: id })
+        : kind === 'ASSIGNMENT'
+          ? routeHref('t.assignmentEditor', { classId, assignmentId: id })
+          : routeHref('t.assessmentEditor', { classId, assessmentId: id });
+      if (!editHref) return invalid();
+      return {
+        id,
+        activityId: id,
+        classId,
+        kind,
+        title: text(row.title),
+        status: enumeration(row.status, 'DRAFT'),
+        editHref,
+        strippedSourceCount: integer(row.stripped_source_count ?? 0, 0),
+      };
+    }),
   };
   const load: DataAdapter['workspace']['load'] = async (routeId, params, signal) => {
     const { classId, practiceId, attemptId } = params;
@@ -220,7 +248,7 @@ export function createLiveLearning(session: LiveIdentitySession, core: LearningC
             classId, className: classSummary.name, classSummary, activities: rows,
             teacherRoleLabel: classSummary.teachingRole === 'PRIMARY' ? 'Giáo viên chính'
               : classSummary.teachingRole === 'ASSISTING' ? 'Giáo viên phối hợp' : undefined,
-            assignedClasses: classes.filter(row => row.teachingRole).map(row => ({ id: row.id, name: row.name, isCurrent: row.id === classId })),
+            assignedClasses: classes.filter(row => row.teachingRole).map(row => ({ id: row.id, name: row.name, isCurrent: row.id === classId, status: row.status })),
           },
         };
       }

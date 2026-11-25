@@ -74,7 +74,7 @@ function TutorPolicyForm({ config, initialPolicy, className, reload }: {
 
   return <div className="teacher-tutor-config-container">
     <section className="card tutor-config-card">
-      <h2 className="tutor-config-title">Chính sách sư phạm cho Trợ lý Lumi</h2>
+      <h2 className="tutor-config-title">Chính sách sư phạm cho Trợ lý Athena</h2>
       <p className="tutor-config-meta">{className && <><strong>{className}</strong> · </>}
         {saved.version === null ? 'Mặc định hệ thống' : `Phiên bản ${saved.version}`}
       </p>
@@ -198,7 +198,7 @@ function TutorInstructionsForm({ data, params, reload }: Props) {
       <div className="card tutor-config-card">
         <div className="tutor-config-header">
           <div>
-            <h2 className="tutor-config-title">Chỉ dẫn sư phạm cho Trợ lý Lumi</h2>
+            <h2 className="tutor-config-title">Chỉ dẫn sư phạm cho Trợ lý Athena</h2>
             <p className="tutor-config-meta">
               Lớp: <strong>{classSummary?.name ?? params.classId}</strong> · Cập nhật gần nhất: {formatDateTime(config.updatedAt)}
             </p>
@@ -219,7 +219,7 @@ function TutorInstructionsForm({ data, params, reload }: Props) {
       <form onSubmit={handleSave} className="card tutor-config-form">
         {saveSuccess && (
           <div className="notice success" role="status">
-            Đã lưu cấu hình chỉ dẫn sư phạm thành công. Lumi sẽ áp dụng định hướng này cho các phản hồi trong lớp.
+            Đã lưu cấu hình chỉ dẫn sư phạm thành công. Athena sẽ áp dụng định hướng này cho các phản hồi trong lớp.
           </div>
         )}
 
@@ -234,7 +234,7 @@ function TutorInstructionsForm({ data, params, reload }: Props) {
             Nội dung chỉ dẫn phương pháp sư phạm:
           </label>
           <p className="tutor-config-hint">
-            Gợi ý: Hướng dẫn Lumi ưu tiên cách tiếp cận từng bước, khuyến khích học sinh tự tìm tòi công thức, hoặc tập trung vào các dạng bài tập trọng tâm trong học kỳ.
+            Gợi ý: Hướng dẫn Athena ưu tiên cách tiếp cận từng bước, khuyến khích học sinh tự tìm tòi công thức, hoặc tập trung vào các dạng bài tập trọng tâm trong học kỳ.
           </p>
           <textarea
             id="tutorInstructionsArea"

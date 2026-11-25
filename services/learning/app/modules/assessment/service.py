@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from uuid import UUID
 
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -11,7 +12,12 @@ from app.integrations.core_client import CurrentUser
 from app.integrations.document_client import GrantSnapshot
 from app.modules.appeals import service as appeals
 from app.modules.assessment.models import AssessmentAttempt, AssessmentAttemptStatus, AttemptAnswer
-from app.modules.assessment.schemas import AssessmentReceipt, SaveAnswersRequest, SaveDraftRequest
+from app.modules.assessment.schemas import (
+    AssessmentReceipt,
+    AssessmentSettings,
+    SaveAnswersRequest,
+    SaveDraftRequest,
+)
 from app.modules.bank import activities
 from app.modules.bank.grading_engine import (
     canonical_content_sha256,
@@ -176,6 +182,10 @@ def propose(session: Session, scope: tuple, actor: CurrentUser, expected: int) -
             raise AppError(422, "NO_QUESTIONS")
         if not all(q.get("reviewed") for q in ver.content_snapshot_json):
             raise AppError(422, "UNREVIEWED_QUESTIONS")
+        try:
+            AssessmentSettings.model_validate(ver.settings_json or {})
+        except ValidationError as exc:
+            raise AppError(422, "INCOMPLETE_ASSESSMENT_SETTINGS") from exc
         ver.status = VersionStatus.PENDING_APPROVAL
         ver.proposed_by, ver.proposed_at = actor.id, utcnow()
         ver.rejection_reason = None

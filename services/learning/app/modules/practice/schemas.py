@@ -13,6 +13,11 @@ class CreatePracticeRequest(RequestModel):
     topic: str = Field(default="", max_length=200)
 
 
+class CopyActivityRequest(RequestModel):
+    target_class_id: UUID
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+
+
 class SavePracticeDraftRequest(RequestModel):
     expected_revision: int = Field(ge=1)
     title: str | None = Field(default=None, min_length=1, max_length=255)

@@ -612,13 +612,24 @@ export type StudentPracticeListModel = {
   history?: PracticeHistoryItem[];
 };
 
+export type CopyActivityResult = {
+  id: string;
+  activityId: string;
+  classId: string;
+  kind: TeacherActivityItem['type'];
+  title: string;
+  status: 'DRAFT';
+  editHref: string;
+  strippedSourceCount: number;
+};
+
 export type TeacherActivityListModel = {
   classId?: string;
   className?: string;
   classSummary?: ClassSummary;
   activities: TeacherActivityItem[];
   teacherRoleLabel?: string;
-  assignedClasses?: { id: string; name: string; isCurrent: boolean }[];
+  assignedClasses?: { id: string; name: string; isCurrent: boolean; status?: ClassSummary['status'] }[];
 };
 
 export type TeacherPracticeEditorModel = {

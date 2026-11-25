@@ -70,13 +70,13 @@ export function StudentPracticeResultView({ data, reload, params, user }: Props)
   };
 
   const handleReviewWithLumi = () => {
-    const prompt = `Chào Lumi, mình vừa hoàn thành bài luyện tập "${result.title}" (Độ chính xác ${result.score.percentage}%). Bạn có thể giúp mình ôn tập và giải đáp thêm các phần kiến thức còn vướng mắc không?`;
+    const prompt = `Chào Athena, mình vừa hoàn thành bài luyện tập "${result.title}" (Độ chính xác ${result.score.percentage}%). Bạn có thể giúp mình ôn tập và giải đáp thêm các phần kiến thức còn vướng mắc không?`;
     setTutorDraft(user.id, classId, prompt, 'new');
     router.push(`/student/classes/${classId}/tutor?compose=new`);
   };
 
   const handleAskLumiQuestion = (q: PracticeResultQuestionItem) => {
-    const prompt = `Chào Lumi, em muốn hỏi về câu ${q.questionNumber}: "${q.prompt}". Em đã chọn "${q.studentAnswerText}" nhưng đáp án đúng là "${q.correctAnswerText}". Em chưa hiểu rõ phần này, Lumi giảng thêm cho em nhé!`;
+    const prompt = `Chào Athena, em muốn hỏi về câu ${q.questionNumber}: "${q.prompt}". Em đã chọn "${q.studentAnswerText}" nhưng đáp án đúng là "${q.correctAnswerText}". Em chưa hiểu rõ phần này, Athena giảng thêm cho em nhé!`;
     setTutorDraft(user.id, classId, prompt, 'new');
     router.push(`/student/classes/${classId}/tutor?compose=new`);
   };
@@ -114,7 +114,7 @@ export function StudentPracticeResultView({ data, reload, params, user }: Props)
             onClick={handleReviewWithLumi}
           >
             <Icon name="sparkles" />
-            <span>Ôn cùng Lumi</span>
+            <span>Ôn cùng Athena</span>
           </button>
           <button
             type="button"
@@ -226,7 +226,7 @@ export function StudentPracticeResultView({ data, reload, params, user }: Props)
             </span>
             <div>
               <strong>
-                Lời khuyên học tập từ Lumi:
+                Lời khuyên học tập từ Athena:
               </strong>
               <p>
                 {result.studyTip}
@@ -238,7 +238,7 @@ export function StudentPracticeResultView({ data, reload, params, user }: Props)
             className="button outline practice-tip-btn"
             onClick={handleReviewWithLumi}
           >
-            Hỏi chi tiết Lumi →
+            Hỏi chi tiết Athena →
           </button>
         </div>
       )}
@@ -293,7 +293,7 @@ export function StudentPracticeResultView({ data, reload, params, user }: Props)
                 onClick={() => handleAskLumiQuestion(q)}
               >
                 <Icon name="sparkles" />
-                <span>Hỏi Lumi câu này</span>
+                <span>Hỏi Athena câu này</span>
               </button>
             </div>
 

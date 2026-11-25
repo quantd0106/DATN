@@ -4,8 +4,8 @@ import { SessionProvider } from '@/components/session-provider';
 import './globals.css';
 import '../src/styles/lumi-foundation.css';
 export const metadata: Metadata = {
-  title: { default: 'Lumi · Học sáng hơn mỗi ngày', template: '%s · Lumi' },
-  description: 'Không gian học tập phổ thông Lumi',
+  title: { default: 'Athena · Kết nối tri thức, vững bước tương lai', template: '%s · Athena' },
+  description: 'Không gian học tập phổ thông Athena',
   icons: {
     icon: [
       { url: '/icon.svg', type: 'image/svg+xml' },

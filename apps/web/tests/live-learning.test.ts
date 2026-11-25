@@ -678,3 +678,93 @@ test('deleteDraftActivity uses DELETE proxy allowlist and ASSIGNMENT_GRADED deco
   assert.equal(studentNotification.category, 'ASSIGNMENT');
   assert.equal(studentNotification.targetHref, `/student/history/results/${submissionId}`);
 });
+
+test('copyActivity sends POST to proxy allowlist and decodes copied draft links + null schedule drafts', async () => {
+  const targetClassId = id(99);
+  const copiedActivityId = id(98);
+  const h = harness({
+    [`POST ${cls}/activities/${assignmentId}/copy`]: reply(
+      { target_class_id: targetClassId, title: 'Bài tập Lớp 10A2' },
+      {
+        id: copiedActivityId,
+        activity_id: copiedActivityId,
+        class_id: targetClassId,
+        source_activity_id: assignmentId,
+        source_class_id: classId,
+        kind: 'ASSIGNMENT',
+        title: 'Bài tập Lớp 10A2',
+        status: 'DRAFT',
+        version_number: 1,
+        revision: 1,
+        edit_href: `/teacher/classes/${targetClassId}/assignments/${copiedActivityId}/edit`,
+        stripped_source_count: 1,
+      },
+      201,
+    ),
+    [`GET ${assignment}`]: json({
+      assignment: {
+        ...definition,
+        status: 'DRAFT',
+        due_at: null,
+        source: null,
+        policy: { ...definition.policy, late_until: null, resubmit_until: null, new_enrollment: 'AUTO' },
+      },
+      submissions: [],
+      can_submit: false,
+      submit_blocked_reason: null,
+    }),
+    [`GET ${assignment}/recipients`]: json({
+      class_id: classId,
+      assignment_id: assignmentId,
+      revision: definition.revision,
+      default_assigned: true,
+      audience: [],
+    }),
+    [`GET ${assessment}/draft`]: json({
+      class_id: classId,
+      assessment_id: assessmentId,
+      version_id: versionId,
+      revision: 1,
+      version_number: 1,
+      status: 'DRAFT',
+      settings: {
+        title: 'Kiểm tra 15p (10A2)',
+        topic: 'Hàm số',
+        code: '',
+        opens_at: null,
+        closes_at: null,
+        results_at: null,
+        duration_minutes: 15,
+        max_attempts: 1,
+        grading_policy: 'BEST',
+      },
+      questions: [{ ...assessmentQuestion, reviewed: true, source: null }],
+      rejection_reason: null,
+      available_sources: [],
+      can_approve: true,
+    }),
+  });
+
+  const copied = await h.learning.copyActivity!({
+    classId,
+    activityId: assignmentId,
+    targetClassId,
+    title: 'Bài tập Lớp 10A2',
+  });
+  assert.equal(copied.activityId, copiedActivityId);
+  assert.equal(copied.classId, targetClassId);
+  assert.equal(copied.status, 'DRAFT');
+  assert.equal(copied.strippedSourceCount, 1);
+  assert.equal(copied.editHref, `/teacher/classes/${targetClassId}/assignments/${copiedActivityId}/edit`);
+  assert.ok(h.calls.includes(`POST /api/learning/v1${cls}/activities/${assignmentId}/copy`));
+
+  const loadedAssignment = await h.assignment.load('t.assignmentEditor', assignmentScope);
+  if (loadedAssignment.kind !== 'editor') return assert.fail('Expected assignment editor');
+  assert.equal(loadedAssignment.assignment.dueAt, '');
+
+  const loadedAssessment = await h.assessment.load('t.assessmentEditor', assessmentScope);
+  if (loadedAssessment.kind !== 'ready' || loadedAssessment.page.type !== 'editor') return assert.fail('Expected assessment editor');
+  assert.equal(loadedAssessment.page.draft.settings.opensAt, '');
+  assert.equal(loadedAssessment.page.draft.settings.closesAt, '');
+  assert.equal(loadedAssessment.page.draft.questions[0]?.reviewed, true);
+});

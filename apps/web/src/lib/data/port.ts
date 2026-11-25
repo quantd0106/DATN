@@ -8,6 +8,7 @@ import type { AssignmentPort } from '../assignment';
 import type { AssessmentPort } from '../assessment';
 import type {
   CalendarEvent,
+  CopyActivityResult,
   DataRequest,
   DataRequestType,
   DocumentItem,
@@ -164,6 +165,12 @@ export interface DataAdapter {
       expectedRevision?: string;
     }): Promise<{ reviewedCount: number; canPublish: boolean }>;
     deleteDraftActivity?(input: { classId: string; activityId: string }): Promise<void>;
+    copyActivity?(input: {
+      classId: string;
+      activityId: string;
+      targetClassId: string;
+      title?: string;
+    }): Promise<CopyActivityResult>;
   };
   // Future domain extension ports:
   classroom: ClassroomAdminPort;

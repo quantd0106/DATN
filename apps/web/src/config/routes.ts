@@ -216,7 +216,7 @@ export const routes = [
   {
     "id": "s.tutor",
     "path": "/student/classes/:classId/tutor",
-    "title": "Hỏi Lumi",
+    "title": "Hỏi Athena",
     "layout": "StudentClassLayout",
     "allowedRoles": [
       "STUDENT"
@@ -728,7 +728,7 @@ export const routes = [
   {
     "id": "t.tutor",
     "path": "/teacher/classes/:classId/tutor",
-    "title": "Hướng dẫn Lumi theo lớp",
+    "title": "Hướng dẫn Athena theo lớp",
     "layout": "TeacherClassLayout",
     "allowedRoles": [
       "LECTURER"

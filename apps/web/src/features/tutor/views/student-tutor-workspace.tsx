@@ -155,7 +155,7 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
   }, []);
 
   if (!data) {
-    return <StatePanel busy title="Đang tải không gian Trợ lý AI Lumi…" />;
+    return <StatePanel busy title="Đang tải không gian Trợ lý AI Athena…" />;
   }
 
   if (data.kind === 'unavailable') {
@@ -412,7 +412,7 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
         </aside>
 
         {/* Center Column: Transcript & Composer */}
-        <section className="tutor-chat-col card" tabIndex={0} aria-label="Khu vực trò chuyện với Lumi">
+        <section className="tutor-chat-col card" tabIndex={0} aria-label="Khu vực trò chuyện với Athena">
           {/* AI05: Official Assessment Lock State (Rule D6) */}
           {isAssessmentLocked && (
             <div className="tutor-lock-banner card" role="alert">
@@ -421,7 +421,7 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
                 <strong>Khóa tương tác AI trong giờ kiểm tra chính thức</strong>
               </div>
               <p>
-                Bạn đang có lượt kiểm tra chính thức chưa kết thúc ({tutorData.assessmentTitle ?? 'Đang diễn ra'}). Hỏi Lumi tích hợp tạm tắt cho đến khi hệ thống xác nhận lượt làm đã kết thúc.
+                Bạn đang có lượt kiểm tra chính thức chưa kết thúc ({tutorData.assessmentTitle ?? 'Đang diễn ra'}). Hỏi Athena tích hợp tạm tắt cho đến khi hệ thống xác nhận lượt làm đã kết thúc.
               </p>
               {tutorData.assessmentHref && (
                 <Link href={tutorData.assessmentHref} className="button small primary tutor-lock-action">
@@ -435,7 +435,7 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
           {!hasSources && !isAssessmentLocked && (
             <div className="notice-box info">
               <Icon name="info" />
-              <span>Lớp học chưa có tài liệu chia sẻ. Trợ lý Lumi sẽ giải đáp dựa trên kiến thức phổ thông chung.</span>
+              <span>Lớp học chưa có tài liệu chia sẻ. Trợ lý Athena sẽ giải đáp dựa trên kiến thức phổ thông chung.</span>
             </div>
           )}
 
@@ -468,7 +468,7 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
             ) : !activeConv || activeConv.messages.length === 0 ? (
               <div className="tutor-empty-splash">
                 <div className="tutor-sparkle-icon"><Icon name="sparkles"/></div>
-                <h3>Chào bạn, mình là Lumi!</h3>
+                <h3>Chào bạn, mình là Athena!</h3>
                 <p>
                   Hãy nhập câu hỏi bên dưới để được hướng dẫn phương pháp giải từng bước dựa trên tài liệu bài học của lớp.
                 </p>
@@ -482,7 +482,7 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
                     className={`tutor-msg-wrapper ${isAssistant ? 'assistant' : 'student'}`}
                   >
                     <div className="msg-header">
-                      <strong>{isAssistant ? 'Trợ lý Lumi' : 'Bạn'}</strong>
+                      <strong>{isAssistant ? 'Trợ lý Athena' : 'Bạn'}</strong>
                       <span className="msg-header-time">{formatDateTime(msg.timestamp)}</span>
                     </div>
 
@@ -566,7 +566,7 @@ export function StudentTutorWorkspace({ data, params, reload }: Props) {
             {isStreaming && (
               <div className="tutor-msg-wrapper assistant streaming">
                 <div className="msg-header">
-                  <strong>Trợ lý Lumi</strong>
+                  <strong>Trợ lý Athena</strong>
                   <span className="badge info animate-pulse">Đang giải đáp…</span>
                 </div>
                 <div className="msg-bubble">

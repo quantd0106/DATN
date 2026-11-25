@@ -108,7 +108,7 @@ export function StudentPracticeListView({ data, reload, params, user }: Props) {
       {/* Action / History bar */}
       <div className="practice-hub-bar">
         <p className="practice-hub-lead">
-          Ôn luyện kiến thức trọng tâm với phản hồi tức thời từ trợ lý học tập Lumi.
+          Ôn luyện kiến thức trọng tâm với phản hồi tức thời từ trợ lý học tập Athena.
         </p>
         <button
           id="open-drawer-btn"

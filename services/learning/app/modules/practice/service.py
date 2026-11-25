@@ -1,5 +1,6 @@
+from copy import deepcopy
 from datetime import UTC
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from sqlalchemy import delete, desc, select
@@ -261,6 +262,245 @@ def delete_draft_activity(
         session.execute(delete(ActivityVersion).where(ActivityVersion.activity_id == activity_id))
         session.flush()
         session.delete(activity)
+
+
+def _match_target_grant(
+    source_ref: dict[str, Any] | None,
+    grants: GrantSnapshot | None,
+    *,
+    style: Literal["practice", "assignment", "assessment"],
+) -> dict[str, Any] | None:
+    if not source_ref or not isinstance(source_ref, dict):
+        return None
+    if grants is None:
+        return None
+    raw_doc_id = source_ref.get("document_id") or source_ref.get("documentId") or source_ref.get("id")
+    raw_ver = source_ref.get("version_number") or source_ref.get("versionNumber") or source_ref.get("version")
+    raw_ver_id = source_ref.get("document_version_id") or source_ref.get("documentVersionId")
+    raw_source_id = source_ref.get("source_id") or source_ref.get("sourceId")
+    if not raw_doc_id:
+        return None
+    for grant in grants.grants:
+        if str(grant.document_id).lower() != str(raw_doc_id).lower():
+            continue
+        if raw_ver is not None and int(grant.version_number or 1) != int(raw_ver):
+            continue
+        if raw_ver_id is not None and str(grant.document_version_id).lower() != str(raw_ver_id).lower():
+            continue
+        if raw_source_id is not None and str(grant.source_id) != str(raw_source_id):
+            continue
+        title = (
+            grant.title
+            or str(source_ref.get("title") or source_ref.get("documentTitle") or f"Tài liệu {str(grant.document_id)[:8]}")
+        )
+        if style == "practice":
+            return {
+                **source_ref,
+                "documentId": str(grant.document_id),
+                "documentTitle": title,
+                "versionNumber": int(grant.version_number or 1),
+                "documentVersionId": str(grant.document_version_id),
+                "source_id": grant.source_id,
+                "isAccessible": True,
+                "accessible": True,
+            }
+        return {
+            "id": str(grant.document_id),
+            "document_id": str(grant.document_id),
+            "document_version_id": str(grant.document_version_id),
+            "source_id": grant.source_id,
+            "title": title,
+            "version": int(grant.version_number or 1),
+            "locator": str(source_ref.get("locator") or ""),
+            "accessible": True,
+        }
+    return None
+
+
+def copy_activity(
+    session: Session,
+    *,
+    school_id: UUID,
+    source_class_id: UUID,
+    source_activity_id: UUID,
+    target_class_id: UUID,
+    actor: CurrentUser,
+    title: str | None = None,
+    target_grants: GrantSnapshot | None = None,
+) -> dict[str, Any]:
+    if target_class_id == source_class_id:
+        raise AppError(422, "SAME_CLASS_COPY_NOT_ALLOWED")
+
+    with transaction(session):
+        source_act = _get_activity(session, school_id, source_class_id, source_activity_id)
+        source_ver_id = source_act.draft_version_id or source_act.current_version_id
+        if source_ver_id is None:
+            raise AppError(404)
+        source_ver = _get_version(session, source_ver_id)
+
+        source_settings = deepcopy(source_ver.settings_json or {})
+        source_questions = deepcopy(source_ver.content_snapshot_json or [])
+        fallback_title = source_act.title or str(source_settings.get("title") or "")
+        new_title = (title.strip() if title and title.strip() else fallback_title).strip()[:255]
+        stripped_source_count = 0
+
+        if source_act.kind == ActivityKind.PRACTICE:
+            new_topic = source_act.topic
+            new_instructions = ""
+            new_settings: dict[str, Any] = {}
+            new_questions: list[dict[str, Any]] = []
+            for item in source_questions:
+                q = dict(item)
+                q["isReviewed"] = bool(q.get("isReviewed", False))
+                if q.get("sourceRef"):
+                    matched = _match_target_grant(q["sourceRef"], target_grants, style="practice")
+                    if matched is not None:
+                        q["sourceRef"] = matched
+                    else:
+                        q.pop("sourceRef", None)
+                        q.pop("sourceReference", None)
+                        stripped_source_count += 1
+                new_questions.append(q)
+            route_segment = "practice"
+        elif source_act.kind == ActivityKind.ASSIGNMENT:
+            new_topic = str(source_settings.get("topic") or source_act.topic or "")
+            new_instructions = str(source_settings.get("instructions") or source_act.instructions or "")
+            new_questions = []
+            if source_settings:
+                raw_policy = dict(source_settings.get("policy") or {})
+                policy = {
+                    "max_versions": raw_policy.get("max_versions", 1),
+                    "allow_late": bool(raw_policy.get("allow_late", False)),
+                    "late_until": None,
+                    "resubmit_until": None,
+                    "graded_version": raw_policy.get("graded_version", "LATEST"),
+                    "max_bytes": raw_policy.get("max_bytes"),
+                    "accepted_types": list(raw_policy.get("accepted_types") or []),
+                    "new_enrollment": "AUTO",
+                    "max_score": raw_policy.get("max_score", 10.0),
+                    **(
+                        {"appeal_window_days": raw_policy["appeal_window_days"]}
+                        if raw_policy.get("appeal_window_days") is not None
+                        else {}
+                    ),
+                }
+                matched_source: dict[str, Any] | None = None
+                if source_settings.get("source"):
+                    matched_source = _match_target_grant(
+                        source_settings["source"], target_grants, style="assignment"
+                    )
+                    if matched_source is None:
+                        stripped_source_count += 1
+                new_settings = {
+                    "title": new_title,
+                    "topic": new_topic,
+                    "instructions": new_instructions,
+                    "due_at": None,
+                    "policy": policy,
+                    "source": matched_source,
+                    **(
+                        {"appeal_window_days": source_settings["appeal_window_days"]}
+                        if source_settings.get("appeal_window_days") is not None
+                        else {}
+                    ),
+                }
+            else:
+                new_settings = {}
+            route_segment = "assignments"
+        else:  # ActivityKind.ASSESSMENT
+            new_topic = str(source_settings.get("topic") or source_act.topic or "")
+            new_instructions = ""
+            new_questions = []
+            for item in source_questions:
+                q = dict(item)
+                q["reviewed"] = bool(q.get("reviewed", False))
+                if q.get("source"):
+                    matched = _match_target_grant(q["source"], target_grants, style="assessment")
+                    if matched is not None:
+                        q["source"] = matched
+                    else:
+                        q["source"] = None
+                        stripped_source_count += 1
+                new_questions.append(q)
+            if source_settings:
+                new_settings = {
+                    "title": new_title,
+                    "topic": new_topic,
+                    "code": "",
+                    "opens_at": None,
+                    "closes_at": None,
+                    "results_at": None,
+                    "duration_minutes": source_settings.get("duration_minutes") or 45,
+                    "max_attempts": source_settings.get("max_attempts") or 1,
+                    "grading_policy": source_settings.get("grading_policy") or "BEST",
+                    **(
+                        {"appeal_window_days": source_settings["appeal_window_days"]}
+                        if source_settings.get("appeal_window_days") is not None
+                        else {}
+                    ),
+                }
+            else:
+                new_settings = {}
+            route_segment = "assessments"
+
+        new_act = Activity(
+            school_id=school_id,
+            class_id=target_class_id,
+            kind=source_act.kind,
+            title=new_title,
+            topic=new_topic,
+            instructions=new_instructions,
+            code=None,
+            created_by=actor.id,
+        )
+        session.add(new_act)
+        session.flush()
+
+        new_ver = ActivityVersion(
+            activity_id=new_act.id,
+            version_number=1,
+            revision=1,
+            status=VersionStatus.DRAFT,
+            settings_json=new_settings,
+            content_snapshot_json=new_questions,
+            created_by=actor.id,
+        )
+        session.add(new_ver)
+        session.flush()
+        new_act.draft_version_id = new_ver.id
+
+        record_outbox_event(
+            session,
+            event_type="activity.copied",
+            aggregate_type="activity",
+            aggregate_id=new_act.id,
+            aggregate_version=1,
+            payload_json={
+                "school_id": str(school_id),
+                "source_class_id": str(source_class_id),
+                "source_activity_id": str(source_act.id),
+                "target_class_id": str(target_class_id),
+                "target_activity_id": str(new_act.id),
+                "kind": str(new_act.kind),
+                "stripped_source_count": stripped_source_count,
+                "actor_id": str(actor.id),
+            },
+        )
+
+        return {
+            "id": str(new_act.id),
+            "activity_id": str(new_act.id),
+            "class_id": str(target_class_id),
+            "source_activity_id": str(source_act.id),
+            "source_class_id": str(source_class_id),
+            "kind": str(new_act.kind),
+            "title": new_act.title,
+            "status": VersionStatus.DRAFT,
+            "version_number": new_ver.version_number,
+            "revision": new_ver.revision,
+            "edit_href": f"/teacher/classes/{target_class_id}/{route_segment}/{new_act.id}/edit",
+            "stripped_source_count": stripped_source_count,
+        }
 
 
 def list_question_bank(

@@ -99,7 +99,7 @@ export function AuthView({ route }: { route: RouteDefinition }) {
             <p className="auth-story-lead">Mỗi liên kết xác thực chỉ có hiệu lực một lần và có thời hạn nhất định.</p>
           </div>
           <div className="auth-story-foot">
-            <small>Lumi · Học tập phổ thông</small>
+            <small>Athena · Học tập phổ thông</small>
           </div>
         </section>
         <section className="auth-form-region">
@@ -135,8 +135,8 @@ export function AuthView({ route }: { route: RouteDefinition }) {
         <Brand/>
         <div className="auth-story-body">
           <span className="eyebrow">KHÔNG GIAN HỌC TẬP CỦA BẠN</span>
-          <h2>Học sáng hơn,<br/>mỗi ngày.</h2>
-          <p className="auth-story-lead">Tài liệu, luyện tập và trợ lý Lumi trong cùng một lớp học.</p>
+          <h2>Kết nối tri thức,<br/>vững bước tương lai.</h2>
+          <p className="auth-story-lead">Tài liệu, luyện tập và trợ lý Athena trong cùng một lớp học.</p>
           <div className="auth-illustration" aria-hidden="true">
             <div className="auth-book-wrap">
               <IconBook/>
@@ -152,13 +152,13 @@ export function AuthView({ route }: { route: RouteDefinition }) {
               </li>
               <li className="is-ai">
                 <Icon name="sparkles"/>
-                <span>Trợ lý Lumi bám sát học liệu lớp</span>
+                <span>Trợ lý Athena bám sát học liệu lớp</span>
               </li>
             </ul>
           </div>
         </div>
         <div className="auth-story-foot">
-          <small>Lumi · Học tập phổ thông</small>
+          <small>Athena · Học tập phổ thông</small>
         </div>
       </section>
 
@@ -175,7 +175,7 @@ export function AuthView({ route }: { route: RouteDefinition }) {
                 : isReset
                 ? 'Nhập mật khẩu mới từ 12 đến 128 ký tự để bảo mật tài khoản.'
                 : isLogin
-                ? 'Chào mừng bạn quay trở lại với Lumi.'
+                ? 'Chào mừng bạn quay trở lại với Athena.'
                 : 'Chọn đối tượng tài khoản và làm theo hướng dẫn an toàn.'}
             </p>
           </header>

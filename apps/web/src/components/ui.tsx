@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 export function Brand() {
   return (
-    <Link href="/" className="brand" aria-label="Lumi — Trang chủ">
+    <Link href="/" className="brand" aria-label="Athena — Trang chủ">
       <svg viewBox="0 0 34 34" width="34" height="34" fill="none" aria-hidden="true">
         <rect width="34" height="34" rx="10" fill="#2563EB"/>
         <rect x="0.75" y="0.75" width="32.5" height="32.5" rx="9.25" stroke="white" strokeOpacity="0.16" strokeWidth="1.5"/>
@@ -13,8 +13,8 @@ export function Brand() {
         <path d="M22.2 10v4.2l-1.45-1-1.45 1V10" fill="#5EEAD4"/>
       </svg>
       <span className="brand-copy">
-        <strong>Lumi</strong>
-        <small>Học sáng hơn mỗi ngày</small>
+        <strong>Athena</strong>
+        <small>Kết nối tri thức, vững bước tương lai</small>
       </span>
     </Link>
   );

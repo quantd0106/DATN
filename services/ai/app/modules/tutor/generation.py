@@ -164,7 +164,7 @@ def generate_turn(
                 "notice": None,
                 "claims": [
                     {
-                        "text": "Mình là Trợ lý học tập Lumi. Bạn có thể đặt câu hỏi về tài liệu của lớp hoặc chọn chế độ hướng dẫn từng bước để luyện giải bài tập.",
+                        "text": "Mình là Trợ lý học tập Athena. Bạn có thể đặt câu hỏi về tài liệu của lớp hoặc chọn chế độ hướng dẫn từng bước để luyện giải bài tập.",
                         "basis": "general",
                         "citations": [],
                     }

@@ -1300,7 +1300,7 @@ export const adapter: DataAdapter = {
         instructions: instructions.trim(),
         updatedAt: 'Vừa xong',
         maxChars: 2000,
-        disclaimer: 'Cấu hình chỉ dẫn sư phạm này được áp dụng cho Lumi khi giải đáp cho học sinh lớp này. Giáo viên không thể xem các đoạn hội thoại hoặc câu hỏi riêng tư của học sinh.',
+        disclaimer: 'Cấu hình chỉ dẫn sư phạm này được áp dụng cho Athena khi giải đáp cho học sinh lớp này. Giáo viên không thể xem các đoạn hội thoại hoặc câu hỏi riêng tư của học sinh.',
       };
       teacherTutorConfigs[classId] = conf;
       return structuredClone(conf);
@@ -1834,7 +1834,7 @@ export const adapter: DataAdapter = {
         unansweredCount,
         studyTip: percentage >= 80
           ? 'Kết quả rất tốt! Em hãy tiếp tục duy trì phong độ và thử thách các bài tập nâng cao.'
-          : 'Dành 5 phút xem lại bảng tóm tắt công thức hoặc hỏi trợ lý Lumi để giải tỏa các băn khoăn về dấu của hệ số a và b.',
+          : 'Dành 5 phút xem lại bảng tóm tắt công thức hoặc hỏi trợ lý Athena để giải tỏa các băn khoăn về dấu của hệ số a và b.',
         questions: resultQuestions,
       };
 
@@ -2199,6 +2199,84 @@ export const adapter: DataAdapter = {
       teacherActivities.splice(index, 1);
       delete teacherPracticeEditors[resourceId];
     },
+
+    async copyActivity(input) {
+      const user = signedIn();
+      requireClassInteraction(input.classId, user, true);
+      requireClassInteraction(input.targetClassId, user, true);
+      if (input.targetClassId === input.classId) {
+        throw new ApiError('VALIDATION_ERROR', 'Cần chọn lớp đích khác với lớp hiện tại.', 422);
+      }
+      const allowed = getTeacherAssignedClassIds(user.id);
+      if (user.status !== 'ACTIVE' || !user.roles.includes('LECTURER') || !allowed.includes(input.classId) || !allowed.includes(input.targetClassId)) {
+        throw new ApiError('FORBIDDEN', 'Bạn không có quyền sao chép hoạt động sang lớp đích này.', 403);
+      }
+      const source = teacherActivities.find(a => a.classId === input.classId && (a.id === input.activityId || a.resourceId === input.activityId));
+      if (!source) throw new ApiError('NOT_FOUND', 'Không tìm thấy hoạt động nguồn.', 404);
+      const newId = 'act-copy-' + crypto.randomUUID();
+      const title = (input.title?.trim() || source.title).slice(0, 255);
+      const editHref = source.type === 'PRACTICE'
+        ? `/teacher/classes/${input.targetClassId}/practice/${newId}/edit`
+        : source.type === 'ASSIGNMENT'
+          ? `/teacher/classes/${input.targetClassId}/assignments/${newId}/edit`
+          : `/teacher/classes/${input.targetClassId}/assessments/${newId}/edit`;
+      let strippedSourceCount = 0;
+      if (source.type === 'PRACTICE' && teacherPracticeEditors[source.resourceId]) {
+        const srcEditor = teacherPracticeEditors[source.resourceId];
+        const grantedDocs = new Set(
+          Object.entries(documentGrants)
+            .filter(([, grants]) => grants.some(g => g.classId === input.targetClassId && g.isShared))
+            .map(([docId]) => docId),
+        );
+        const copiedQuestions = structuredClone(srcEditor.questions).map(q => {
+          const isReviewed = Boolean(q.isReviewed);
+          if (q.sourceRef && !grantedDocs.has(q.sourceRef.documentId)) {
+            strippedSourceCount += 1;
+            const { sourceRef: _dropped, sourceReference: _droppedRef, ...rest } = q;
+            return { ...rest, isReviewed };
+          }
+          return { ...q, isReviewed };
+        });
+        const targetClass = classes.find(c => c.id === input.targetClassId);
+        teacherPracticeEditors[newId] = {
+          ...structuredClone(srcEditor),
+          practiceId: newId,
+          classId: input.targetClassId,
+          className: targetClass?.name ?? '',
+          title,
+          versionLabel: 'Phiên bản 1 (Bản nháp)',
+          currentVersionNumber: 1,
+          isDraft: true,
+          questions: copiedQuestions,
+          reviewedCount: copiedQuestions.filter(q => q.isReviewed).length,
+          totalQuestions: copiedQuestions.length,
+          canPublish: copiedQuestions.length > 0 && copiedQuestions.every(q => q.isReviewed),
+        };
+      }
+      teacherActivities.unshift({
+        id: newId,
+        resourceId: newId,
+        classId: input.targetClassId,
+        type: source.type,
+        title,
+        topic: source.topic,
+        status: 'DRAFT',
+        dueOrTimeLabel: 'Không giới hạn',
+        pendingGradingCount: 0,
+        canDeleteDraft: true,
+        editHref,
+      });
+      return {
+        id: newId,
+        activityId: newId,
+        classId: input.targetClassId,
+        kind: source.type,
+        title,
+        status: 'DRAFT',
+        editHref,
+        strippedSourceCount,
+      };
+    },
   },
   workspace: {
     async load(routeId, params) {
@@ -2442,7 +2520,7 @@ export const adapter: DataAdapter = {
           instructions: '',
           updatedAt: 'Chưa có cấu hình',
           maxChars: 2000,
-          disclaimer: 'Cấu hình chỉ dẫn sư phạm này được áp dụng cho Lumi khi giải đáp cho học sinh lớp này. Giáo viên không thể xem các đoạn hội thoại hoặc câu hỏi riêng tư của học sinh.',
+          disclaimer: 'Cấu hình chỉ dẫn sư phạm này được áp dụng cho Athena khi giải đáp cho học sinh lớp này. Giáo viên không thể xem các đoạn hội thoại hoặc câu hỏi riêng tư của học sinh.',
         };
         return {
           kind: 'ready',
@@ -2799,6 +2877,7 @@ export const adapter: DataAdapter = {
             id: c.id,
             name: c.name,
             isCurrent: c.id === params.classId,
+            status: c.status,
           }));
         return {
           kind: 'ready',
@@ -2864,7 +2943,7 @@ export function resetStage3aMockStores(): void {
 
 
 // These wrappers observe acknowledged writes; they do not introduce retries.
-adapter.learning = auditedPort(adapter.learning, previewContext, 'practice', ['createPracticeDraft','savePracticeEditorDraft','reviewEditorQuestion','publishPractice','deleteDraftActivity']);
+adapter.learning = auditedPort(adapter.learning, previewContext, 'practice', ['createPracticeDraft','savePracticeEditorDraft','reviewEditorQuestion','publishPractice','deleteDraftActivity','copyActivity']);
 adapter.document = auditedPort(adapter.document, previewContext, 'document', ['uploadDocument','uploadVersion','retryProcessing','shareDocument','revokeShare','deleteDocument']);
 adapter.social = auditedPort(adapter.social, previewContext, 'social', ['createPost','updatePost','deletePost','createComment','deleteComment']);
 adapter.calendar = auditedPort(adapter.calendar, previewContext, 'calendar', ['createEvent','updateEvent','deleteEvent']);
