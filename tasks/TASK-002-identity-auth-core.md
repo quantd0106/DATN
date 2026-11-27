@@ -26,7 +26,7 @@
 
 ## 1. Mục tiêu
 
-**Trạng thái Lumi (2026-10-14):** phần email/self-registration bên dưới là lịch sử. Public register bị chặn; migration 0006 thêm username/email nullable/school_id/activated_at, 0007 thêm Student activation/reset purposes. Đã triển khai Admin provision, kích hoạt mã 24 giờ cấu hình được, username login, refresh không cần email và Admin recovery sau xác minh; Student không dùng email login/verify/reset. Chuyển legacy chỉ qua Admin gán username, giữ ID/hash/dữ liệu, thu hồi phiên/token cũ, audit. Thiết kế chi tiết và phạm vi chưa triển khai (School mapping/bulk import) theo API Contract/Core README.
+**Trạng thái Athena (2026-10-14):** phần email/self-registration bên dưới là lịch sử. Public register bị chặn; migration 0006 thêm username/email nullable/school_id/activated_at, 0007 thêm Student activation/reset purposes. Đã triển khai Admin provision, kích hoạt mã 24 giờ cấu hình được, username login, refresh không cần email và Admin recovery sau xác minh; Student không dùng email login/verify/reset. Chuyển legacy chỉ qua Admin gán username, giữ ID/hash/dữ liệu, thu hồi phiên/token cũ, audit. Thiết kế chi tiết và phạm vi chưa triển khai (School mapping/bulk import) theo API Contract/Core README.
 Hiện thực hóa tầng lưu trữ dữ liệu (ORM models, repository) và nghiệp vụ cốt lõi (service) của phân hệ Identity, bao gồm quản lý người dùng, vai trò, phiên xác thực, refresh token rotation và vòng đời tài khoản.
 
 ---
@@ -101,7 +101,7 @@ Xây dựng các bảng trong schema `core`:
 
 ## 3. Tiêu chí nghiệm thu lịch sử (email legacy)
 
-**Nghiệm thu Lumi bổ sung:** provision/activation/reset không email, mã đúng purpose/hạn/single-use; chuyển legacy giữ ID/hash và thu hồi phiên; Student email auth bị chặn, staff email giữ hoạt động; concurrency không trùng username hoặc sử dụng mã hai lần. Các ca này đã chạy trong bộ 153 test PostgreSQL 18 tạm (2026-10-14); xem Core README. Schema/migration mới chưa áp dụng DB demo.
+**Nghiệm thu Athena bổ sung:** provision/activation/reset không email, mã đúng purpose/hạn/single-use; chuyển legacy giữ ID/hash và thu hồi phiên; Student email auth bị chặn, staff email giữ hoạt động; concurrency không trùng username hoặc sử dụng mã hai lần. Các ca này đã chạy trong bộ 153 test PostgreSQL 18 tạm (2026-10-14); xem Core README. Schema/migration mới chưa áp dụng DB demo.
 - [x] Test đăng ký thành công tạo user với role `STUDENT` và status `PENDING_VERIFICATION`.
 - [x] Test đăng nhập bị từ chối khi status là `PENDING_VERIFICATION` hoặc `LOCKED`.
 - [x] Test refresh token rotation: sau khi refresh, token cũ không thể dùng lại; nếu cố tình dùng lại token cũ sẽ kích hoạt thu hồi toàn bộ family_id.

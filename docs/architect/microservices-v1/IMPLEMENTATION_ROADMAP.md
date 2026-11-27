@@ -36,7 +36,7 @@
 [Core Design](core/DESIGN.md) · [Core API](core/API_CONTRACT.md) · [Quality Attributes](QUALITY_ATTRIBUTES.md).
 
 ## Điều chỉnh phạm vi sản phẩm và thứ tự ưu tiên
-MVP Lumi hướng tới lớp chính khóa THCS/THPT (khối 6–12), không phải đại học hoặc lớp học thêm. Giữ 5 service và các mốc G1–G5. Trước khi hoàn thành Classroom/Core G1, cần chốt và kiểm thử metadata môn/khối/năm học/lớp hành chính, phân công giáo viên, ghi danh do Admin quản lý, không dùng mã lớp và **cấm học sinh tự rời lớp chính khóa**. Trước khi phát hành Identity cho học sinh thật, triển khai Admin provisioning + username/activation và phê duyệt chính sách bảo vệ dữ liệu người chưa thành niên. Không viết lại các task Identity đã hoàn thành chỉ vì đổi tên hiển thị; thay đổi hành vi/schema phải có task, migration, contract test riêng.
+MVP Athena hướng tới lớp chính khóa THCS/THPT (khối 6–12), không phải đại học hoặc lớp học thêm. Giữ 5 service và các mốc G1–G5. Trước khi hoàn thành Classroom/Core G1, cần chốt và kiểm thử metadata môn/khối/năm học/lớp hành chính, phân công giáo viên, ghi danh do Admin quản lý, không dùng mã lớp và **cấm học sinh tự rời lớp chính khóa**. Trước khi phát hành Identity cho học sinh thật, triển khai Admin provisioning + username/activation và phê duyệt chính sách bảo vệ dữ liệu người chưa thành niên. Không viết lại các task Identity đã hoàn thành chỉ vì đổi tên hiển thị; thay đổi hành vi/schema phải có task, migration, contract test riêng.
 
 
 ### Nghiệm thu mục tiêu theo 20 quyết định (chưa hoàn thành)

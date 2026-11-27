@@ -8,7 +8,7 @@
 
 ## Rà soát đồng bộ — 2026-10-16
 
-**Hiện trạng:** Common đã có triển khai; bản cập nhật Lumi lấy `school_id`, role/status/session version từ DB và kiểm tra scope theo trường. Không cần viết lại JWT/Argon2id chỉ vì đổi miền sản phẩm.
+**Hiện trạng:** Common đã có triển khai; bản cập nhật Athena lấy `school_id`, role/status/session version từ DB và kiểm tra scope theo trường. Không cần viết lại JWT/Argon2id chỉ vì đổi miền sản phẩm.
 
 **Cần sửa/bổ sung:**
 - Giữ cấu hình và chữ ký đúng code: SQLAlchemy sync + psycopg, `session_version`, `COOKIE_SECURE/COOKIE_HTTPONLY/COOKIE_SAMESITE`, cursor UUID; không bổ sung passlib, offset pagination hoặc JWT claim thay thế khi chưa có nhu cầu.
@@ -25,7 +25,7 @@
 
 ## 1. Mục tiêu
 
-**Cập nhật Lumi (2026-10-14):** Common bổ sung `CurrentUser.school_id` từ Identity DB và `require_school_scope` fail closed (404 khi thiếu/khác trường). Audit allowlist thêm nhãn username/credentials, không lưu giá trị mã/mật khẩu. Thêm STUDENT_ACTIVATION_EXPIRE_HOURS (24 giờ). JWT/Argon2id/refresh/cookie policy giữ nguyên. Không tự gán trường cho tài khoản cũ; schema School. Bằng chứng cập nhật tại Core README.
+**Cập nhật Athena (2026-10-14):** Common bổ sung `CurrentUser.school_id` từ Identity DB và `require_school_scope` fail closed (404 khi thiếu/khác trường). Audit allowlist thêm nhãn username/credentials, không lưu giá trị mã/mật khẩu. Thêm STUDENT_ACTIVATION_EXPIRE_HOURS (24 giờ). JWT/Argon2id/refresh/cookie policy giữ nguyên. Không tự gán trường cho tài khoản cũ; schema School. Bằng chứng cập nhật tại Core README.
 Xây dựng lớp hạ tầng kỹ thuật dùng chung cho toàn bộ Core service bên trong `services/core/app/common/`, đảm bảo tính thống nhất về xử lý lỗi, xác thực JWT, hash mật khẩu Argon2id, phân trang, truy vấn cơ sở dữ liệu và ghi audit.
 
 ---

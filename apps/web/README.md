@@ -1,6 +1,6 @@
-# Lumi Web
+# Athena Web
 
-Giao diện web của nền tảng **Lumi — RAG Course Assistant**, xây dựng trên **Next.js 15 (App Router)**, **React 19** và **TypeScript**. Ứng dụng cài đặt **71 product routes** (`apps/web/src/config/routes.ts`) cùng trang chuyển hướng phiên gốc `app/page.tsx` (`72` tệp `page.tsx`), chạy với kiến trúc same-origin BFF proxy và adapter hai chế độ tách biệt (`live` mặc định và `mock` preview cục bộ).
+Giao diện web của nền tảng **Athena — RAG Course Assistant**, xây dựng trên **Next.js 15 (App Router)**, **React 19** và **TypeScript**. Ứng dụng cài đặt **71 product routes** (`apps/web/src/config/routes.ts`) cùng trang chuyển hướng phiên gốc `app/page.tsx` (`72` tệp `page.tsx`), chạy với kiến trúc same-origin BFF proxy và adapter hai chế độ tách biệt (`live` mặc định và `mock` preview cục bộ).
 
 Xem tài liệu chi tiết:
 - Kiến trúc frontend & biên tích hợp: [docs/FRONTEND.md](docs/FRONTEND.md)

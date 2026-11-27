@@ -1,4 +1,4 @@
-# Lumi Learning Service (L0–L4)
+# Athena Learning Service (L0–L4)
 
 Microservice độc lập quản lý **Practice Quiz**, **Official Assessment**, **Assignment**, **Grading & Grade Revisions**, **Appeals**, **Scoring Adjustments (M4)**, **D6 Assessment Lock** cho AI Service và **Deadline / Notification Sync** sang Core.
 

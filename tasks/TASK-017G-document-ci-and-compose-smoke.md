@@ -1,7 +1,7 @@
 # TASK-017G: Document CI Pipeline & Compose Smoke Upgrade
 
 **ID:** `TASK-017G` · **Mức ưu tiên:** `P0 / P1` *(Wave 1A)* · **Trạng thái:** `DONE — VERIFIED` *(cục bộ qua YAML/Ruff/PG16/Docker Compose; chờ kích hoạt trên GitHub runner khi push)*
-**Tham chiếu chuẩn:** [Document DESIGN](../docs/architect/microservices-v1/document/DESIGN.md) · [22_ENVIRONMENTS_DEPLOYMENT.md](../docs/architect/lumi-design/22_ENVIRONMENTS_DEPLOYMENT.md) · [core-ci.yml](../.github/workflows/core-ci.yml)
+**Tham chiếu chuẩn:** [Document DESIGN](../docs/architect/microservices-v1/document/DESIGN.md) · [22_ENVIRONMENTS_DEPLOYMENT.md](../docs/architect/athena-design/22_ENVIRONMENTS_DEPLOYMENT.md) · [core-ci.yml](../.github/workflows/core-ci.yml)
 
 ---
 

@@ -180,7 +180,7 @@ export function StudentHomeFeature({ route: _route, data, reload }: Props) {
             </div>
           </section>
 
-          {/* Lumi Tutor Quick Assistant */}
+          {/* Athena Tutor Quick Assistant */}
           <section className="home-section">
             <article className="card lumi-assistant-card">
               <div className="lumi-card-header">

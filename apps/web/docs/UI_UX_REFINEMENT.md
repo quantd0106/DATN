@@ -1,4 +1,4 @@
-# Lumi UI/UX refinement — 2026-11-15 → 2026-11-22
+# Athena UI/UX refinement — 2026-11-15 → 2026-11-22
 
 > **Lưu ý hiện trạng (`2026-11-22`):** Tài liệu này ghi lại đợt chuẩn hóa hệ thống trình bày (`lumi-foundation.css` và các CSS scoped theo feature) ngày 2026-11-15. Từ 2026-11-22, các dịch vụ **Document**, **AI** (`tutor` + Quiz) và **Learning** (Practice, Assessment, Assignment, Grading/Corrections, Appeals, Calendar projection) đã được tích hợp live qua proxy; chỉ còn **Learner Intelligence** và một số thao tác quản trị đang chờ hợp đồng/chính sách giữ trạng thái ẩn/unavailable. Xem [UI_UX_DESIGN.md](UI_UX_DESIGN.md) và [UX_LIVE_FIXES.md](UX_LIVE_FIXES.md) để nắm hiện trạng live mới nhất.
 

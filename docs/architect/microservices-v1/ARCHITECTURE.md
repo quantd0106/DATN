@@ -63,7 +63,7 @@ flowchart LR
 
 [Business Rules](../BUSINESS_RULES.md) · [ADR](ADR-001.md) · [Roadmap](IMPLEMENTATION_ROADMAP.md).
 
-## Điều chỉnh miền sản phẩm Lumi
+## Điều chỉnh miền sản phẩm Athena
 Phạm vi MVP: lớp chính khóa THCS/THPT (khối 6–12). `Student`/`Lecturer` trong sơ đồ là tên role kỹ thuật; UI dùng “Học sinh”/“Giáo viên”. Nhà trường nhận báo cáo thông qua Admin, không có tài khoản riêng. Kiến trúc năm service và ownership không thay đổi.
 
 - **Core:** lớp môn học gắn môn, khối, năm học, lớp hành chính (nếu có); ghi danh AUTO/MANUAL do Admin quản lý, không dùng mã tham gia lớp; học sinh không tự rời lớp chính khóa. Classroom Admin/access, Social và Notification có triển khai; tích hợp Learning và mapping School legacy còn pending. Notification worker là process riêng dùng cùng image/schema Core, không phải microservice thứ sáu.

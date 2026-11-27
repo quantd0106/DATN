@@ -69,13 +69,13 @@ export function StudentPracticeResultView({ data, reload, params, user }: Props)
     });
   };
 
-  const handleReviewWithLumi = () => {
+  const handleReviewWithAthena = () => {
     const prompt = `Chào Athena, mình vừa hoàn thành bài luyện tập "${result.title}" (Độ chính xác ${result.score.percentage}%). Bạn có thể giúp mình ôn tập và giải đáp thêm các phần kiến thức còn vướng mắc không?`;
     setTutorDraft(user.id, classId, prompt, 'new');
     router.push(`/student/classes/${classId}/tutor?compose=new`);
   };
 
-  const handleAskLumiQuestion = (q: PracticeResultQuestionItem) => {
+  const handleAskAthenaQuestion = (q: PracticeResultQuestionItem) => {
     const prompt = `Chào Athena, em muốn hỏi về câu ${q.questionNumber}: "${q.prompt}". Em đã chọn "${q.studentAnswerText}" nhưng đáp án đúng là "${q.correctAnswerText}". Em chưa hiểu rõ phần này, Athena giảng thêm cho em nhé!`;
     setTutorDraft(user.id, classId, prompt, 'new');
     router.push(`/student/classes/${classId}/tutor?compose=new`);
@@ -111,7 +111,7 @@ export function StudentPracticeResultView({ data, reload, params, user }: Props)
           <button
             type="button"
             className="button outline"
-            onClick={handleReviewWithLumi}
+            onClick={handleReviewWithAthena}
           >
             <Icon name="sparkles" />
             <span>Ôn cùng Athena</span>
@@ -236,7 +236,7 @@ export function StudentPracticeResultView({ data, reload, params, user }: Props)
           <button
             type="button"
             className="button outline practice-tip-btn"
-            onClick={handleReviewWithLumi}
+            onClick={handleReviewWithAthena}
           >
             Hỏi chi tiết Athena →
           </button>
@@ -290,7 +290,7 @@ export function StudentPracticeResultView({ data, reload, params, user }: Props)
               <button
                 type="button"
                 className="button outline practice-ask-lumi-btn"
-                onClick={() => handleAskLumiQuestion(q)}
+                onClick={() => handleAskAthenaQuestion(q)}
               >
                 <Icon name="sparkles" />
                 <span>Hỏi Athena câu này</span>

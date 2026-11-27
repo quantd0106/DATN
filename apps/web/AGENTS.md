@@ -1,4 +1,4 @@
-# Lumi Web agent instructions (additive to repository-root `AGENTS.md`)
+# Athena Web agent instructions (additive to repository-root `AGENTS.md`)
 
 - Read `docs/FRONTEND.md`, the repository's `docs/architect/BUSINESS_RULES.md`, and `src/lib/data/integrations.ts` before editing relevant features.
 - `app/**/page.tsx` are minimal route entry points; implement actual UI in `src/features`, shared `src/components`, or explicitly owned libraries.

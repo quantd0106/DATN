@@ -1,4 +1,4 @@
-# Frontend Architecture — Lumi Web
+# Frontend Architecture — Athena Web
 
 ## Current implementation
 
@@ -16,7 +16,7 @@ Staff invitation and password-reset emails link to `/staff/invitation` or `/rese
 
 ## Shared presentation contract
 
-`src/styles/lumi-foundation.css` is the canonical source for shared design tokens, typography, buttons, form controls, notices, shell, native-dialog surfaces and authentication layouts. Root layout (`app/layout.tsx`) imports it after `app/globals.css`; feature styles own their scoped layouts. Lumi blue (`#2563eb`) and teal (`#0d9488`) remain the main and Tutor accents. Class navigation retains its compact summary and underline selection; official attempts retain `FocusedTaskLayout`.
+`src/styles/lumi-foundation.css` is the canonical source for shared design tokens, typography, buttons, form controls, notices, shell, native-dialog surfaces and authentication layouts. Root layout (`app/layout.tsx`) imports it after `app/globals.css`; feature styles own their scoped layouts. Athena blue (`#2563eb`) and teal (`#0d9488`) remain the main and Tutor accents. Class navigation retains its compact summary and underline selection; official attempts retain `FocusedTaskLayout`.
 
 Controls use visible keyboard focus and native disabled semantics. Radio/checkbox controls stay separate from text-input styling. Account-type and calendar-view selectors are groups of pressed buttons (`aria-pressed`). The skip link targets `main-content` on authentication, session/access boundaries, loading and error pages as well as authenticated shells. Wide tables and calendars scroll locally; page overflow must not be hidden to mask missing responsive layout.
 

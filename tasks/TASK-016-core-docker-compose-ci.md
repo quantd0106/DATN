@@ -8,7 +8,7 @@
 
 ## Rà soát đồng bộ — 2026-10-16
 
-**Hiện trạng:** Docker/Compose/health/CI đã triển khai; bằng chứng 2026-10-12 là 124 test PostgreSQL 16. Bản Identity Lumi mới có bằng chứng 153 test PostgreSQL 18; chưa được coi là lần chạy PostgreSQL 16/Docker mới nhất.
+**Hiện trạng:** Docker/Compose/health/CI đã triển khai; bằng chứng 2026-10-12 là 124 test PostgreSQL 16. Bản Identity Athena mới có bằng chứng 153 test PostgreSQL 18; chưa được coi là lần chạy PostgreSQL 16/Docker mới nhất.
 
 **Cần sửa/bổ sung:**
 - Giữ một Uvicorn worker khi limiter/idempotency còn RAM; tăng worker/replica cần thiết kế backend dùng chung, không tự thêm gunicorn/multi-worker.

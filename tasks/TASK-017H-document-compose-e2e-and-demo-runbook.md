@@ -1,7 +1,7 @@
 # TASK-017H: Document Full Compose E2E Suite & Defense Demo Runbook
 
 **ID:** `TASK-017H` · **Mức ưu tiên:** `P0 / P1` *(Wave 1B)* · **Trạng thái:** `DONE — VERIFIED` *(script Compose full E2E & DEMO_RUNBOOK.md hoàn tất; còn bước bấm tay trên trình duyệt theo Runbook)*
-**Tham chiếu chuẩn:** [17_Test_Cases.md](../docs/architect/lumi-design/17_Test_Cases.md) · [API_CONTRACT.md](../docs/architect/microservices-v1/document/API_CONTRACT.md) · [BUSINESS_RULES.md](../docs/architect/BUSINESS_RULES.md)
+**Tham chiếu chuẩn:** [17_Test_Cases.md](../docs/architect/athena-design/17_Test_Cases.md) · [API_CONTRACT.md](../docs/architect/microservices-v1/document/API_CONTRACT.md) · [BUSINESS_RULES.md](../docs/architect/BUSINESS_RULES.md)
 
 ---
 

@@ -1,4 +1,4 @@
-# Tài liệu Thiết kế UI/UX — Lumi Web (`apps/web`)
+# Tài liệu Thiết kế UI/UX — Athena Web (`apps/web`)
 
 **Trạng thái:** `IMPLEMENTED` · **Cập nhật:** 2026-11-22  
 **Ngăn xếp giao diện:** Next.js 15 (`15.5.12`), React 19, TypeScript, CSS Modules/Scoped Feature CSS & Canonical Tokens (`src/styles/lumi-foundation.css`).
@@ -7,7 +7,7 @@
 
 ## 1. Triết lý và mục tiêu trải nghiệm
 
-Lumi phục vụ **học sinh THCS & THPT (khối 6–12)**, **giáo viên** (`LECTURER`) và **quản trị viên trường học** (`ADMIN`) trong lớp học chính khóa (`BUSINESS_RULES.md`):
+Athena phục vụ **học sinh THCS & THPT (khối 6–12)**, **giáo viên** (`LECTURER`) và **quản trị viên trường học** (`ADMIN`) trong lớp học chính khóa (`BUSINESS_RULES.md`):
 - **Sáng, gọn, tập trung học tập:** không dùng game hóa (huy hiệu/streak/bảng xếp hạng) hoặc trang trí phân tâm.
 - **Không thành công giả (`No fake success`):** mọi thao tác ghi chỉ báo thành công sau khi backend trả ACK/receipt hợp lệ (`401`/`403`/`404`/`409`/`422`/`503` được giữ nguyên ngữ nghĩa).
 - **An toàn trạng thái & cô lập chế độ:** chế độ `live` không bao giờ fallback sang fixture mẫu (`dev/mocks/*`); lỗi dịch vụ con (Document/AI/Learning) được cô lập cục bộ qua `optionalServiceRead` mà không làm sập shell hoặc màn hình lớp Core.
@@ -22,7 +22,7 @@ Nguồn chuẩn duy nhất cho token và thành phần nền nằm tại [src/st
 | Nhóm Token | Biến CSS chính | Giá trị mặc định | Vai trò thị giác |
 |---|---|---|---|
 | **Thương hiệu & Hành động chính** | `--primary`, `--primary-hover`, `--primary-tint`, `--primary-border` | `#2563eb`, `#1d4ed8`, `#eff6ff`, `#bfdbfe` | Nút chính, liên kết, tab lớp đang chọn, focus ring `--focus-ring` |
-| **Điểm nhấn AI (Trợ lý Lumi)** | `--ai`, `--ai-tint`, `--ai-border` | `#0d9488`, `#f0fdfa`, `#99f6e4` | Khối **Hỏi Lumi**, badge gợi ý AI, panel trợ lý học tập & gợi ý phản hồi |
+| **Điểm nhấn AI (Trợ lý Athena)** | `--ai`, `--ai-tint`, `--ai-border` | `#0d9488`, `#f0fdfa`, `#99f6e4` | Khối **Hỏi Athena**, badge gợi ý AI, panel trợ lý học tập & gợi ý phản hồi |
 | **Văn bản & Bề mặt** | `--ink`, `--ink-secondary`, `--muted`, `--bg`, `--surface`, `--surface-subtle` | `#0f172a`, `#334155`, `#5b6b82`, `#f8fafc`, `#ffffff`, `#f1f5f9` | Nền trang sáng dịu, thẻ trắng viền `--border` (`#e2e8f0`) |
 | **Ngữ nghĩa trạng thái** | `--success`, `--warning`, `--danger` (+ `-tint`, `-border`) | `#166534`, `#92400e`, `#b91c1c` | Trạng thái phiên bản tài liệu (`Sẵn sàng`/`Cần rà soát`/`Thất bại`), điểm chính thức, cảnh báo nộp muộn/xung đột |
 | **Bố cục & Hình học** | `--sidebar`, `--topbar`, `--radius-sm..xl`, `--shadow-xs..dialog` | `260px` (`224px` ở tablet), `64px`, `6px..16px` | Khung Sidebar cố định trái + Topbar cố định trên + bo góc thống nhất |
@@ -58,8 +58,8 @@ Cấu hình điều hướng nằm tại [src/config/navigation.ts](../src/confi
 - **Quản trị viên (`ADMIN`):** `Tài khoản` (`a.accounts`), `Nhập danh sách` (`a.importNew`), `Danh mục học vụ` (`a.catalog`), `Lớp hành chính` (`a.homerooms`), `Lớp môn học` (`a.classes`), *(ẩn live)* `Yêu cầu dữ liệu` (`a.dataRequests`), `Nhật ký hệ thống` (`a.audit`), *(ẩn live)* `Báo cáo` (`a.reports`), `Hồ sơ và bảo mật` (`account.profile`).
 
 ### 4.2. Tab trong lớp học (`classTabs`)
-- **Học sinh (`StudentClassLayout`):** `Tổng quan`, `Bảng tin`, `Tài liệu`, `Hỏi Lumi`, `Luyện tập`, `Kiểm tra`, `Bài tập`, `Lịch học`, *(ẩn live)* `Tiến độ` (`s.progress`).
-- **Giáo viên (`TeacherClassLayout`):** `Tổng quan`, `Bảng tin`, `Tài liệu`, `Hỏi Lumi`, `Hoạt động học tập`, `Lịch học`, *(ẩn live)* `Thống kê` (`t.analytics`).
+- **Học sinh (`StudentClassLayout`):** `Tổng quan`, `Bảng tin`, `Tài liệu`, `Hỏi Athena`, `Luyện tập`, `Kiểm tra`, `Bài tập`, `Lịch học`, *(ẩn live)* `Tiến độ` (`s.progress`).
+- **Giáo viên (`TeacherClassLayout`):** `Tổng quan`, `Bảng tin`, `Tài liệu`, `Hỏi Athena`, `Hoạt động học tập`, `Lịch học`, *(ẩn live)* `Thống kê` (`t.analytics`).
 
 > Các route thuộc `Learner Intelligence` (`s.progress`, `t.analytics`, `t.studentAnalytics`, `a.reports`, `a.exports`) và `a.dataRequests` / `a.legacy` chỉ hoạt động đầy đủ trong chế độ `mock` preview; trong chế độ `live`, thanh điều hướng ẩn các mục chưa sẵn sàng và khi truy cập trực tiếp sẽ hiển thị màn hình trạng thái trung thực (không giả lập dữ liệu).
 
@@ -85,7 +85,7 @@ Cấu hình điều hướng nằm tại [src/config/navigation.ts](../src/confi
 ### 5.2. Lớp học, Bảng tin & Lịch lớp (Core Classroom + Social + Dashboard Enrichment)
 | Route ID | Đường dẫn | Vai trò | Layout | Mục đích & Tích hợp chéo |
 |---|---|---|---|---|
-| `s.home` | `/student` | `STUDENT` | `AppLayout` | Trang chủ học sinh: lớp học, bài sắp tới, luyện tập gần đây, gợi ý Hỏi Lumi |
+| `s.home` | `/student` | `STUDENT` | `AppLayout` | Trang chủ học sinh: lớp học, bài sắp tới, luyện tập gần đây, gợi ý Hỏi Athena |
 | `s.classes` | `/student/classes` | `STUDENT` | `AppLayout` | Danh sách lớp môn học hiện tại & lớp lịch sử |
 | `s.overview` | `/student/classes/:classId/overview` | `STUDENT` | `StudentClassLayout` | Tổng quan lớp: bài viết mới nhất, tài liệu mới nhất (`Document`), hoạt động sắp tới (`Learning`) |
 | `s.feed` | `/student/classes/:classId/feed` | `STUDENT` | `StudentClassLayout` | Bảng tin & bình luận (tự động chuyển read-only khi lớp `ARCHIVED`) |
@@ -122,7 +122,7 @@ Cấu hình điều hướng nằm tại [src/config/navigation.ts](../src/confi
 | `s.practiceAttempt` | `/student/classes/:classId/practice/:practiceId/attempts/:attemptId` | `STUDENT` | `FocusedTaskLayout` | Làm bài luyện tập 4 dạng câu hỏi, kiểm tra đáp án tức thì & **Giải thích lỗi sai** (`AI explain-mistake`) |
 | `s.practiceResult` | `/student/classes/:classId/practice/:practiceId/attempts/:attemptId/result` | `STUDENT` | `StudentClassLayout` | Kết quả luyện tập (ghi rõ không tính vào điểm chính thức `D8`) |
 | `s.assessments` | `/student/classes/:classId/assessments` | `STUDENT` | `StudentClassLayout` | Danh sách bài kiểm tra chính thức (`UPCOMING` / `OPEN` / `CLOSED`) |
-| `s.assessment` | `/student/classes/:classId/assessments/:assessmentId` | `STUDENT` | `StudentClassLayout` | Thông tin phiên bản đề, thời lượng, số lượt, lưu ý tắt Hỏi Lumi (`D6`) và xác nhận bắt đầu |
+| `s.assessment` | `/student/classes/:classId/assessments/:assessmentId` | `STUDENT` | `StudentClassLayout` | Thông tin phiên bản đề, thời lượng, số lượt, lưu ý tắt Hỏi Athena (`D6`) và xác nhận bắt đầu |
 | `s.examAttempt` | `/student/classes/:classId/assessments/:assessmentId/attempts/:attemptId` | `STUDENT` | `FocusedTaskLayout` | Làm bài kiểm tra chính thức: đồng hồ neo theo `serverNow`, lưu tuần tự theo revision (`AnswerSaver`), đối soát xung đột server/local, idempotent `submit` + `/reconcile` |
 | `s.receipt` | `/student/classes/:classId/assessments/:assessmentId/attempts/:attemptId/receipt` | `STUDENT` | `FocusedTaskLayout` | Biên nhận nộp bài chính thức (mã biên nhận, phiên bản đề, số câu đã ACK) |
 | `s.examResult` | `/student/classes/:classId/assessments/:assessmentId/attempts/:attemptId/result` | `STUDENT` | `StudentClassLayout` | Kết quả đã công bố, phản hồi và gửi yêu cầu xem xét điểm |
@@ -135,7 +135,7 @@ Cấu hình điều hướng nằm tại [src/config/navigation.ts](../src/confi
 | `t.assessmentApproval` | `/teacher/classes/:classId/assessments/:assessmentId/review` | `LECTURER` | `TeacherClassLayout` | Phê duyệt công bố Assessment (`PRIMARY` approve/reject) & tạo phiên bản mới (`O3`) |
 | `t.assignmentEditor` | `/teacher/classes/:classId/assignments/:assignmentId/edit` | `LECTURER` | `TeacherClassLayout` | Soạn đề bài, gắn tài liệu nguồn lớp, cấu hình hạn/nộp muộn/đối tượng giao & gia hạn cá nhân |
 | `t.gradingQueue` | `/teacher/classes/:classId/grading` | `LECTURER` | `TeacherClassLayout` | Hàng chờ chấm bài tập & kiểm tra theo phân công, công bố điểm & danh sách phúc khảo/đề xuất sửa điểm |
-| `t.assignmentGrading` | `/teacher/classes/:classId/assignments/:assignmentId/submissions/:submissionId/grade` | `LECTURER` | `FocusedTaskLayout` | Xem tệp bài nộp (sandbox iframe/download), nhận **Gợi ý phản hồi từ Lumi** (chỉ tư vấn, giáo viên quyết định điểm `D5`) & xác nhận điểm |
+| `t.assignmentGrading` | `/teacher/classes/:classId/assignments/:assignmentId/submissions/:submissionId/grade` | `LECTURER` | `FocusedTaskLayout` | Xem tệp bài nộp (sandbox iframe/download), nhận **Gợi ý phản hồi từ Athena** (chỉ tư vấn, giáo viên quyết định điểm `D5`) & xác nhận điểm |
 | `t.examGrading` | `/teacher/classes/:classId/assessments/:assessmentId/attempts/:attemptId/grade` | `LECTURER` | `FocusedTaskLayout` | Chấm câu trả lời ngắn / chủ quan trong bài kiểm tra |
 | `t.correction` | `/teacher/classes/:classId/appeals/:appealId` | `LECTURER` | `FocusedTaskLayout` | Xem xét yêu cầu phúc khảo & gửi đề xuất điều chỉnh điểm hoặc giải quyết (`M4`/`I7`) |
 | `t.correctionApproval` | `/teacher/classes/:classId/grade-proposals/:proposalId/review` | `LECTURER` | `FocusedTaskLayout` | Giáo viên chính (`PRIMARY`) phê duyệt/từ chối đề xuất sửa điểm (`I6`) |

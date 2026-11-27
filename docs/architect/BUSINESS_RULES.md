@@ -1,4 +1,4 @@
-# Lumi — Business Rules Baseline
+# Athena — Business Rules Baseline
 
 **Status:** Baseline hiện hành | **Ngày hệ thống hóa ban đầu:** 2026-10-10
 
@@ -6,7 +6,7 @@ Tài liệu này ghi lại các quyết định nghiệp vụ. **Không tự ý 
 
 ## Phạm vi và vai trò
 
-Lumi phục vụ các lớp môn học chính khóa THCS/THPT (khối 6–12); không bao gồm tiểu học, đại học hoặc lớp học thêm trong MVP. **Admin**, **Lecturer**, **Student** là ba vai trò kỹ thuật đăng nhập; giao diện hiển thị Quản trị viên, Giáo viên, Học sinh. Nhà trường là stakeholder nhận báo cáo thông qua Admin, không có tài khoản riêng. Chỉ Admin tạo lớp và phân công giáo viên; giáo viên chỉ quản lý hoạt động giảng dạy được giao.
+Athena phục vụ các lớp môn học chính khóa THCS/THPT (khối 6–12); không bao gồm tiểu học, đại học hoặc lớp học thêm trong MVP. **Admin**, **Lecturer**, **Student** là ba vai trò kỹ thuật đăng nhập; giao diện hiển thị Quản trị viên, Giáo viên, Học sinh. Nhà trường là stakeholder nhận báo cáo thông qua Admin, không có tài khoản riêng. Chỉ Admin tạo lớp và phân công giáo viên; giáo viên chỉ quản lý hoạt động giảng dạy được giao.
 
 ## A. Lớp học và thành viên
 - **A1** Học sinh được ghi danh tự động theo lớp hành chính (AUTO) hoặc do Admin quản lý (MANUAL); không dùng mã lớp trong MVP.

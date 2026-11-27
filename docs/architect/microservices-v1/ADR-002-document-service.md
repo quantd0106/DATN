@@ -87,7 +87,7 @@ Ghi nhận thực tế mã nguồn tại thời điểm ra quyết định:
 - **Hệ quả:** Cô lập lỗi đúng theo `QAS-01` và `QAS-02`: nếu AI Service hoặc vector index gặp sự cố, giáo viên vẫn tải lên, xem và chia sẻ tài liệu cho học sinh đọc bình thường.
 
 ### Quyết định 8 — Chốt hạn mức Upload P1 và Endpoint Chính sách (`GET /api/v1/documents/policy`)
-- **Vấn đề:** Mock adapter trên Web (`apps/web/dev/mocks/fixtures.ts`) đang đặt trần `50 MB` (`52428800`), trong khi [04_FRS_Document.md](../lumi-design/04_FRS_Document.md) nêu rõ không lấy mức mẫu `10 MB` của `TP-01` làm giới hạn upload tối đa nhưng chưa chốt con số cụ thể.
+- **Vấn đề:** Mock adapter trên Web (`apps/web/dev/mocks/fixtures.ts`) đang đặt trần `50 MB` (`52428800`), trong khi [04_FRS_Document.md](../athena-design/04_FRS_Document.md) nêu rõ không lấy mức mẫu `10 MB` của `TP-01` làm giới hạn upload tối đa nhưng chưa chốt con số cụ thể.
 - **Quyết định:**
   1. Chốt giới hạn upload mặc định giai đoạn P1 (cấu hình được qua biến môi trường của Document Service):
      - **`max_size_bytes = 20_971_520` (20 MB)** — đủ bao phủ tệp mẫu trung bình 10 MB của `TP-01` và tài liệu giảng dạy THCS/THPT thông thường, đồng thời an toàn cho bộ nhớ container Docker Compose khi chạy IDP/OCR cục bộ.
@@ -105,5 +105,5 @@ Ghi nhận thực tế mã nguồn tại thời điểm ra quyết định:
 - Hợp đồng API Document Service & bảng Web Proxy allowlist: [document/API_CONTRACT.md](document/API_CONTRACT.md)
 - Cấu trúc mã nguồn `services/document/`: [document/FOLDER_STRUCTURE.md](document/FOLDER_STRUCTURE.md)
 - Cập nhật Core contract & design: [core/API_CONTRACT.md](core/API_CONTRACT.md), [core/DESIGN.md](core/DESIGN.md)
-- Cập nhật FRS & môi trường: [04_FRS_Document.md](../lumi-design/04_FRS_Document.md), [22_ENVIRONMENTS_DEPLOYMENT.md](../lumi-design/22_ENVIRONMENTS_DEPLOYMENT.md)
+- Cập nhật FRS & môi trường: [04_FRS_Document.md](../athena-design/04_FRS_Document.md), [22_ENVIRONMENTS_DEPLOYMENT.md](../athena-design/22_ENVIRONMENTS_DEPLOYMENT.md)
 - Kế hoạch triển khai theo từng công việc: [TASK-017](../../../tasks/TASK-017-document-service-design-impl.md) (`TASK-017A` → `TASK-017I`, gồm P0/P1 CI/E2E [TASK-017G](../../../tasks/TASK-017G-document-ci-and-compose-smoke.md), [TASK-017H](../../../tasks/TASK-017H-document-compose-e2e-and-demo-runbook.md) và P2 cloud/governance [TASK-017I](../../../tasks/TASK-017I-document-p2-cloud-and-governance.md)) và [TASK-018](../../../tasks/TASK-018-ai-service-rag-tutor.md).

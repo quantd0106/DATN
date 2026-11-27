@@ -8,7 +8,7 @@
 - **Business Rules & QAS liên quan:** `B3`, `B4`, `B6`, `TP-01 (10 MB sample)`, `QAS-01`, `QAS-02`, `QAS-10`
 - **Tài liệu căn cứ:**
   - [ADR-002](../docs/architect/microservices-v1/ADR-002-document-service.md) (Quyết định 6)
-  - [22_ENVIRONMENTS_DEPLOYMENT.md](../docs/architect/lumi-design/22_ENVIRONMENTS_DEPLOYMENT.md)
+  - [22_ENVIRONMENTS_DEPLOYMENT.md](../docs/architect/athena-design/22_ENVIRONMENTS_DEPLOYMENT.md)
   - [QUALITY_ATTRIBUTES.md](../docs/architect/microservices-v1/QUALITY_ATTRIBUTES.md#1-cấu-hình-kiểm-thử-tp-01)
 
 ---

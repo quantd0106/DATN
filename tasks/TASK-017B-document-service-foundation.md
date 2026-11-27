@@ -11,7 +11,7 @@
   - [Document DESIGN](../docs/architect/microservices-v1/document/DESIGN.md)
   - [Document API Contract](../docs/architect/microservices-v1/document/API_CONTRACT.md)
   - [Document FOLDER STRUCTURE](../docs/architect/microservices-v1/document/FOLDER_STRUCTURE.md)
-  - [Test Cases DOC-T01..T13](../docs/architect/lumi-design/17_Test_Cases.md#document-service--future-proposal)
+  - [Test Cases DOC-T01..T13](../docs/architect/athena-design/17_Test_Cases.md#document-service--future-proposal)
 
 ---
 

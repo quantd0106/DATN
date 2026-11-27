@@ -1,4 +1,4 @@
-# Danh mục công việc — Lumi / RAG Course Assistant
+# Danh mục công việc — Athena / RAG Course Assistant
 
 **Trạng thái nguồn chuẩn (2026-11-22):** `main` + hiện trạng triển khai 4 backend services (`Core`, `Document`, `AI` + `RAG`, `Learning`) và `apps/web` (`71` routes, `3` BFF proxies); chỉ `Learner Intelligence` (`TASK-020`) còn ở trạng thái `PROPOSED`. Policy/data/production và các benchmark/E2E gates vẫn giữ nguyên điều kiện nghiệm thu riêng.
 
@@ -34,7 +34,7 @@ Mapping School dữ liệu mẫu/cơ sở đã hoàn tất ở tầng công cụ
 4. [Roadmap](../docs/architect/microservices-v1/IMPLEMENTATION_ROADMAP.md), [Quality Attributes](../docs/architect/microservices-v1/QUALITY_ATTRIBUTES.md), [ARCHITECTURE](../docs/architect/microservices-v1/ARCHITECTURE.md) quy định gate, bằng chứng và ranh giới kiến trúc.
 5. [Core README](../services/core/README.md) mô tả command, public signatures và giới hạn thực tế. Checklist/bằng chứng có ngày trong task là lịch sử của phạm vi được ghi, không tự áp dụng cho revision mới.
 
-Lumi phục vụ một trường THCS/THPT, khối 6–12. Giữ ba role ADMIN/LECTURER/STUDENT; co-teacher là assignment theo lớp. Admin cấp Student username/mã kích hoạt, quản lý roster, phân công, enrollment AUTO/MANUAL và archive/restore. Không triển khai join code, teacher-created class, Student self-join/leave hay teacher ownership transfer trong MVP.
+Athena phục vụ một trường THCS/THPT, khối 6–12. Giữ ba role ADMIN/LECTURER/STUDENT; co-teacher là assignment theo lớp. Admin cấp Student username/mã kích hoạt, quản lý roster, phân công, enrollment AUTO/MANUAL và archive/restore. Không triển khai join code, teacher-created class, Student self-join/leave hay teacher ownership transfer trong MVP.
 
 ## 2. Ownership và hiện trạng
 
@@ -67,7 +67,7 @@ Repo main có Common, Identity, Classroom Admin/access API, Social, Notification
 | ↳ [017D Web proxy & Document UI](TASK-017D-web-proxy-and-document-ui.md) · G3 | `IMPLEMENTED — VERIFIED` · Proxy đa upstream (`DOCUMENT_API_URL`, `arrayBuffer()`), `FormData`, 12 hàm port, decoder `SUCCESS→READY`, nút `/accept`, sync 20 MB/300 trang | `017B`, `017C` |
 | ↳ [017E Compose demo](TASK-017E-compose-demo-and-deployment.md) · G3 | `IMPLEMENTED — VERIFIED` · Compose startup/health và smoke HTTP với tệp 10 MB, chặn `413` và cô lập lỗi `503` đã kiểm chứng | `017B`, `017C`, `017D` |
 | ↳ [017F Đồng bộ sự kiện Doc↔AI](TASK-017F-doc-ai-event-and-report-sync.md) · G3 | `IN PROGRESS` · Hợp đồng event `document.version.published` & internal API `/canonical`, `/active-grants`, `/grant-invalidation` cho AI (`TASK-018`) | `ADR-002` |
-| ↳ [017G Document CI & Compose smoke](TASK-017G-document-ci-and-compose-smoke.md) · G3 | `DONE — VERIFIED (P0/P1 Wave 1A)` · CI `core-ci.yml` (`document-tests`, `web-build`, `compose-smoke`); đã kiểm chứng cục bộ PG16 `99 passed` (`94.19%`), Ruff `53` files, Compose + DB/service outage | `017E`, [22_ENVIRONMENTS_DEPLOYMENT.md](../docs/architect/lumi-design/22_ENVIRONMENTS_DEPLOYMENT.md) |
+| ↳ [017G Document CI & Compose smoke](TASK-017G-document-ci-and-compose-smoke.md) · G3 | `DONE — VERIFIED (P0/P1 Wave 1A)` · CI `core-ci.yml` (`document-tests`, `web-build`, `compose-smoke`); đã kiểm chứng cục bộ PG16 `99 passed` (`94.19%`), Ruff `53` files, Compose + DB/service outage | `017E`, [22_ENVIRONMENTS_DEPLOYMENT.md](../docs/architect/athena-design/22_ENVIRONMENTS_DEPLOYMENT.md) |
 | ↳ [017H Compose full E2E & Runbook](TASK-017H-document-compose-e2e-and-demo-runbook.md) · G3 | `DONE — VERIFIED (P0/P1 Wave 1B)` · `verify_compose_e2e.py` đạt **`13/13 PASS`** qua Web Proxy (5 định dạng, `NEEDS_REVIEW -> /accept`, H3, `B6`, `H6/L6/O2`, `QAS-10`, p95 `32.4–40.0 ms`) + `DEMO_RUNBOOK.md` | `017E`, [DEMO_RUNBOOK.md](../docs/architect/microservices-v1/document/DEMO_RUNBOOK.md) |
 | ↳ [017I Document P2 Cloud & Governance](TASK-017I-document-p2-cloud-and-governance.md) · G3 | `DEFERRED (P2 Wave 2)` · GCS signed upload, malware scan, storage quota, retention (`OD-02`/`OD-03`), notify khi share *(chờ Core API)*, Cloud Run | Sau bảo vệ; blocked by `OD-02`/`OD-03` & Core |
 | [018 AI Tutor](TASK-018-ai-service-rag-tutor.md) · G3 | Thiết kế RAG/2 chế độ/chat privacy; đồng bộ `ADR-002` (`introspect`, `document.version.published`, `active-grants`, `canonical`, bundle `complete: true`), đo QAS-06 | Core G2, 008, `017A–017F`; D6 phối hợp 019 |

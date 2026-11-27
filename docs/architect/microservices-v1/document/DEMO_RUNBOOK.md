@@ -14,7 +14,7 @@ volume riêng. Đoạn lệnh dừng nếu repo đã có `.env`.
 if (Test-Path -LiteralPath .env) { throw 'Gốc repo đã có .env. Dùng checkout demo riêng.' }
 $python = '.\services\document\.venv\Scripts\python.exe'
 $script = '.\services\document\scripts\verify_compose_e2e.py'
-$project = 'lumi-doc-demo-' + (Get-Date -Format 'yyyyMMddHHmmss')
+$project = 'athena-doc-demo-' + (Get-Date -Format 'yyyyMMddHHmmss')
 $fixtures = Join-Path ([IO.Path]::GetTempPath()) $project
 $school = [guid]::NewGuid().ToString()
 $web = 'http://127.0.0.1:13000'
@@ -55,7 +55,7 @@ docker compose -p $project up --build -d --wait --wait-timeout 240
 if ($LASTEXITCODE -ne 0) { throw 'Compose chưa sẵn sàng.' }
 docker compose -p $project exec -T -e CORE_SEED_ADMIN_PASSWORD core python -m app.maintenance seed-dev `
   --environment development --expected-database dev_rag_course --school-id $school `
-  --school-name 'Lumi Demo School'
+  --school-name 'Athena Demo School'
 if ($LASTEXITCODE -ne 0) { throw 'Seed Core thất bại.' }
 
 & $python -B $script --prepare-demo-logins --web-url $web --origin $origin `

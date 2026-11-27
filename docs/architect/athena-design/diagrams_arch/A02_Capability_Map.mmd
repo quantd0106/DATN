@@ -1,0 +1,13 @@
+flowchart TB
+  subgraph Implemented["Đã triển khai — Core, Document, AI & Learning"]
+    I["Danh tính, phiên truy cập & trường học"]
+    C["Lớp học, danh sách, bảng tin, lịch & thông báo"]
+    A["Quản trị trường & nhật ký kiểm toán"]
+    D["Tài liệu 5 định dạng (IDP), grant & ghi chú"]
+    AI["Trợ lý Athena SSE, RAG & sinh câu hỏi AI"]
+    L["Luyện tập, kiểm tra, bài tập, chấm điểm & phúc khảo"]
+  end
+  subgraph Proposed["Đề xuất (PROPOSED) — chưa triển khai"]
+    R["Phân tích học tập & báo cáo (Learner Intelligence)"]
+  end
+  Implemented -. "sự kiện học tập & điểm đã chốt" .-> Proposed

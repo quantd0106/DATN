@@ -1,7 +1,7 @@
 # Generation engine (hỏi đáp + sinh câu hỏi)
 
 Trạng thái: **PROPOSED** — hiện thực engine theo bản kiến trúc tầng Generation (2026-11-18).
-AI nằm ngoài phạm vi thiết kế của bộ hồ sơ Lumi (OD-20) nên cần ADR riêng trước khi
+AI nằm ngoài phạm vi thiết kế của bộ hồ sơ Athena (OD-20) nên cần ADR riêng trước khi
 nối vào `services/ai` (TASK-018) và Learning (TASK-019). Engine **không** gọi Core,
 Document hay Learning và không có endpoint; nó nhận evidence đã được lọc theo grant.
 

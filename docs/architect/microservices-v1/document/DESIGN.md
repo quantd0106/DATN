@@ -139,7 +139,7 @@ AI Service tiêu thụ các sự kiện này (hoặc đối soát định kỳ q
 
 ## 8. Kiểm thử bắt buộc trước nghiệm thu G3
 
-Bao phủ đầy đủ bộ ca kiểm thử tại [17_Test_Cases.md](../../lumi-design/17_Test_Cases.md#document-service--future-proposal) và mở rộng theo ADR-002:
+Bao phủ đầy đủ bộ ca kiểm thử tại [17_Test_Cases.md](../../athena-design/17_Test_Cases.md#document-service--future-proposal) và mở rộng theo ADR-002:
 - `DOC-T01..DOC-T13`: owner library, cảnh báo xóa đa lớp (`confirm_multi_class`), đủ 5 định dạng (`PDF`, `PPTX`, `DOCX`, `TXT`, `MARKDOWN`), từ chối file rỗng/giả mạo MIME/ZIP-bomb/mã hóa/`>20 MB`/`>300 trang`, fallback phiên bản cũ khi bản mới `FAILED` hoặc `NEEDS_REVIEW`, `ASSISTING` không được sửa/chấp nhận nguồn của người khác, mất assignment bị chặn ngay, thu hồi grant hiệu lực tức thì, cross-school che bằng `404`, Core unavailable fail closed (`503`), `SourceBoundNote` owner-only + che `source_quote` theo H6/L6 + sửa trên lớp `ARCHIVED` theo O2.
 - Kiểm thử bổ sung cho ADR-002:
   - Luồng `NEEDS_REVIEW → OWNER_ACCEPTED → SUCCESS` phát đúng 1 sự kiện `document.version.published`; đồng giáo viên/học sinh gọi `/accept` bị chặn; gọi `/accept` trên `FAILED`/`PENDING` bị `409`.

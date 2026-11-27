@@ -28,7 +28,7 @@
 
 ## 1. Mục tiêu
 
-**Cập nhật Lumi (2026-10-14):** DTO/profile có username/school_id và email nullable; lookup lấy school từ DB, Admin helpers fail closed khi thiếu/khác trường. Thêm `admin_create_student`, `admin_issue_student_code`, `admin_assign_student_username` và StudentCode DTO chứa SecretStr; authorization/audit/caller-owned transaction được giữ. `admin_create_user` chỉ dùng email invitation staff, không nhận STUDENT. Migration 0005 thêm CORRECTION (thủ công); không tự backfill trường/chuyển tài khoản cũ. Contract/chữ ký tại Core README; bulk CSV/Excel và quản lý School vẫn thuộc workflow tiếp theo.
+**Cập nhật Athena (2026-10-14):** DTO/profile có username/school_id và email nullable; lookup lấy school từ DB, Admin helpers fail closed khi thiếu/khác trường. Thêm `admin_create_student`, `admin_issue_student_code`, `admin_assign_student_username` và StudentCode DTO chứa SecretStr; authorization/audit/caller-owned transaction được giữ. `admin_create_user` chỉ dùng email invitation staff, không nhận STUDENT. Migration 0005 thêm CORRECTION (thủ công); không tự backfill trường/chuyển tài khoản cũ. Contract/chữ ký tại Core README; bulk CSV/Excel và quản lý School vẫn thuộc workflow tiếp theo.
 Thiết lập giao diện lập trình nội bộ (`public.py`) chuẩn mực để các module khác (Classroom, Administration, Notification) gọi và sử dụng thông tin Identity mà không vi phạm ranh giới kiến trúc. Đồng thời ghi nhận/xem yêu cầu truy cập, xuất, chỉnh sửa hoặc xóa dữ liệu cá nhân theo baseline K1/K4/O8; không coi triển khai này là xác nhận tuân thủ pháp lý.
 
 ---
@@ -67,7 +67,7 @@ Read functions hỗ trợ `session=` tùy chọn; bỏ qua thì tự mở/đóng
 
 ## 3. Tiêu chí nghiệm thu (Acceptance Criteria)
 
-**Bằng chứng Lumi bổ sung (2026-10-14):** public helpers Student có role/school checks, DTO/SecretStr an toàn và transaction rollback; DTO email null, CORRECTION và ownership được kiểm thử; toàn Core 153 test đạt, public line/branch coverage 100%. Bulk import, mapping trường và Admin resolution/export/delete thực tế không nằm trong nghiệm thu này.
+**Bằng chứng Athena bổ sung (2026-10-14):** public helpers Student có role/school checks, DTO/SecretStr an toàn và transaction rollback; DTO email null, CORRECTION và ownership được kiểm thử; toàn Core 153 test đạt, public line/branch coverage 100%. Bulk import, mapping trường và Admin resolution/export/delete thực tế không nằm trong nghiệm thu này.
 - [x] Module `administration` hoặc test bên ngoài có thể gọi `public.get_user_summary()` mà không cần import ORM model hay repository của Identity.
 - [x] Sinh viên/Giảng viên có thể tạo yêu cầu `EXPORT` hoặc `DELETE` dữ liệu và xem lại trạng thái yêu cầu của chính mình.
 - [x] Sinh viên A không thể xem yêu cầu dữ liệu của Sinh viên B (kiểm tra phân quyền).

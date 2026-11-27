@@ -1,4 +1,4 @@
-# Lumi AI · Giai đoạn 1
+# Athena AI · Giai đoạn 1
 
 Service FastAPI độc lập cho Tutor, bản nháp câu hỏi AI, index dẫn xuất và tổng hợp chủ đề. Xem OpenAPI ở `/docs` trên cổng container `8001` (ánh xạ ra host cổng `8002` khi chạy chung `compose.yaml` + `compose.full.yaml` để không trùng cổng `8001` của Document) và bộ tài liệu: [API_CONTRACT.md](API_CONTRACT.md), [Architecture Design](../../docs/architect/microservices-v1/ai/DESIGN.md), [Architecture API Contract](../../docs/architect/microservices-v1/ai/API_CONTRACT.md), [Folder Structure](../../docs/architect/microservices-v1/ai/FOLDER_STRUCTURE.md). Core, Document và Learning được kết nối qua HTTP adapter.
 

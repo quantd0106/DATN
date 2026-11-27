@@ -189,7 +189,7 @@ Python public interface Identity cho consumer Core được đặc tả tại [C
 - Test: unauthorized/cross-school/cross-class, LOCKED/ENDED/ARCHIVED, Admin-only mutations, AUTO/MANUAL concurrency, activation replay, JWT replay/revoke, CSRF, post/comment delete, notification dedup, calendar LEARNING read-only, Admin audit, internal auth.
 - FastAPI sinh OpenAPI cho Identity, Classroom, Social, Notification và Administration; Identity/Social có snapshot, Classroom/Notification/Administration có contract/security test. Snapshot Identity không bao gồm hai import route do Administration sở hữu; CI chạy test liên quan cùng pytest.
 
-## Ghi chú tương thích — phạm vi Lumi THCS/THPT chính khóa
+## Ghi chú tương thích — phạm vi Athena THCS/THPT chính khóa
 Đối tượng: học sinh khối 6–12 trong lớp chính khóa. Giữ các enum/API role kỹ thuật `ADMIN`, `LECTURER`, `STUDENT` để tương thích code; UI hiển thị Quản trị viên/Giáo viên/Học sinh. Những route hiện được mô tả ở trên là **contract hiện hành hoặc dự kiến**, không phải toàn bộ đã triển khai.
 
 - `POST /auth/register` **BLOCKED — LEGACY**: giữ route deprecated nhưng trả 403 cho request hợp lệ; không tạo Student. Logic đăng ký nội bộ cũ được giữ để tương thích/kiểm thử tài khoản lịch sử, không export qua Identity public interface.

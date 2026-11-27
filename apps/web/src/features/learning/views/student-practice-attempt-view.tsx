@@ -913,7 +913,7 @@ export function StudentPracticeAttemptView({ data, reload, params, user }: Props
                 </div>
               </div>
 
-              {/* Lumi Pedagogical Hint Box */}
+              {/* Athena Pedagogical Hint Box */}
               {showHint && (
                 <div className="card practice-hint-box">
                   <div className="practice-hint-title">

@@ -136,7 +136,7 @@ export function ClassOverviewFeature({ route: _route, data, reload }: Props) {
           </div>
         </section>)}
 
-        {/* Recent Materials & Lumi Class Assistant */}
+        {/* Recent Materials & Athena Class Assistant */}
         <div className="overview-col-side">
           {/* Recent Materials */}
           {!data.pendingCapabilities?.includes('Document') && (<section className="overview-section">
@@ -181,7 +181,7 @@ export function ClassOverviewFeature({ route: _route, data, reload }: Props) {
             </div>
           </section>)}
 
-          {/* Ask Lumi About This Class */}
+          {/* Ask Athena About This Class */}
           {!data.pendingCapabilities?.includes('AI Tutor') && (<section className="overview-section">
             <article className="card lumi-tutor-box">
               <div className="lumi-box-header">
